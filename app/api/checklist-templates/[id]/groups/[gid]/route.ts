@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessChecklistTemplates } from '@/lib/auth-utils'
-import { checklistTemplateGroups, db } from '@/lib/db'
+import { checklistTemplateGroups, deleteChecklistTemplateGroupCascade, type Patch, update } from '@/lib/fsdb'
 
 type Params = { params: Promise<{ id: string; gid: string }> }
 
@@ -15,15 +14,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
   const { gid } = await params
   const body = await request.json().catch(() => ({}))
-  const updates: Partial<typeof checklistTemplateGroups.$inferInsert> = {}
+  const updates: Patch<typeof checklistTemplateGroups.$inferSelect> = {}
   if (typeof body.title === 'string') updates.title = body.title.trim()
   if (typeof body.order_index === 'number') updates.orderIndex = body.order_index
 
-  const [row] = await db
-    .update(checklistTemplateGroups)
-    .set(updates)
-    .where(eq(checklistTemplateGroups.id, gid))
-    .returning()
+  const row = await update(checklistTemplateGroups, gid, updates)
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json(row)
 }
@@ -35,6 +30,6 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { gid } = await params
-  await db.delete(checklistTemplateGroups).where(eq(checklistTemplateGroups.id, gid))
+  await deleteChecklistTemplateGroupCascade(gid)
   return NextResponse.json({ ok: true })
 }

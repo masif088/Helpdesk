@@ -1,10 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessKnowledgeBase } from '@/lib/auth-utils'
-import { db } from '@/lib/db'
-import { knowledgeBaseArticles } from '@/lib/db'
+import { get, knowledgeBaseArticles, type Patch, remove, update } from '@/lib/fsdb'
 import { articleVisibleForRole, normalizeTargetRolesInput } from '@/lib/knowledge-base-article-roles'
 
 /** GET /api/knowledge-base-articles/[id] - Get single article */
@@ -18,7 +16,7 @@ export async function GET(
   }
 
   const { id } = await params
-  const [row] = await db.select().from(knowledgeBaseArticles).where(eq(knowledgeBaseArticles.id, id)).limit(1)
+  const row = await get(knowledgeBaseArticles, id)
 
   if (!row) {
     return NextResponse.json({ error: 'Article not found' }, { status: 404 })
@@ -72,11 +70,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
   }
 
-  const [updated] = await db
-    .update(knowledgeBaseArticles)
-    .set(values as typeof knowledgeBaseArticles.$inferInsert)
-    .where(eq(knowledgeBaseArticles.id, id))
-    .returning()
+  const updated = await update(knowledgeBaseArticles, id, values as Patch<typeof knowledgeBaseArticles.$inferSelect>)
 
   if (!updated) {
     return NextResponse.json({ error: 'Article not found' }, { status: 404 })
@@ -107,10 +101,7 @@ export async function DELETE(
 
   const { id } = await params
 
-  const [deleted] = await db
-    .delete(knowledgeBaseArticles)
-    .where(eq(knowledgeBaseArticles.id, id))
-    .returning({ id: knowledgeBaseArticles.id })
+  const deleted = await remove(knowledgeBaseArticles, id)
 
   if (!deleted) {
     return NextResponse.json({ error: 'Article not found' }, { status: 404 })

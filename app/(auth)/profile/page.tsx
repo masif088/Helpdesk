@@ -1,8 +1,6 @@
-import { eq } from 'drizzle-orm'
-
 import { auth } from '@/auth'
 import ProfileContent from '@/components/content/settings/ProfileContent'
-import { db, users } from '@/lib/db'
+import { get, users } from '@/lib/fsdb'
 
 export default async function ProfilePage() {
   const session = await auth()
@@ -11,7 +9,7 @@ export default async function ProfilePage() {
     return null
   }
 
-  const [userRow] = await db.select().from(users).where(eq(users.id, session.user.id)).limit(1)
+  const userRow = await get(users, session.user.id)
   const userData = userRow
     ? {
         first_name: userRow.firstName,

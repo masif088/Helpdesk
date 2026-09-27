@@ -1,7 +1,12 @@
 'use server'
 
-import { signOut } from '@/auth'
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
+
+import { SESSION_COOKIE_NAME } from '@/lib/firebase/auth-server'
 
 export async function signOutAction() {
-  await signOut({ redirect: true, redirectTo: '/login' })
+  const jar = await cookies()
+  jar.delete(SESSION_COOKIE_NAME)
+  redirect('/login')
 }

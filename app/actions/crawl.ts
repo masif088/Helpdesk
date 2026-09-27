@@ -1,6 +1,5 @@
 'use server'
 
-import { and, asc,desc, eq } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 
 import { auth } from '@/auth'
@@ -8,8 +7,11 @@ import {
   companyWebsites,
   crawlPages,
   crawlSessions,
-  db,
-} from '@/lib/db'
+  find,
+  get,
+  insert,
+  updateWhere,
+} from '@/lib/fsdb'
 
 interface StartCrawlParams {
   company_id?: string
@@ -99,27 +101,23 @@ export async function startCrawl(params: StartCrawlParams) {
 
       // If setting as primary, unset other primary websites for this company
       if (is_primary) {
-        await db
-          .update(companyWebsites)
-          .set({ isPrimary: false })
-          .where(
-            and(
-              eq(companyWebsites.companyId, company_id),
-              eq(companyWebsites.isPrimary, true)
-            )
-          )
+        await updateWhere(
+          companyWebsites,
+          [
+            ['companyId', '==', company_id],
+            ['isPrimary', '==', true],
+          ],
+          { isPrimary: false }
+        )
       }
 
-      const [websiteData] = await db
-        .insert(companyWebsites)
-        .values({
-          companyId: company_id,
-          url,
-          title: title || null,
-          description: description || null,
-          isPrimary: is_primary || false,
-        })
-        .returning()
+      const websiteData = await insert(companyWebsites, {
+        companyId: company_id,
+        url,
+        title: title || null,
+        description: description || null,
+        isPrimary: is_primary || false,
+      })
 
       if (!websiteData) {
         return { error: 'Failed to create company website', success: false }
@@ -128,11 +126,7 @@ export async function startCrawl(params: StartCrawlParams) {
       websiteId = websiteData.id
     } else {
       // Verify the company_website_id exists
-      const [existingWebsite] = await db
-        .select({ id: companyWebsites.id })
-        .from(companyWebsites)
-        .where(eq(companyWebsites.id, websiteId))
-        .limit(1)
+      const existingWebsite = await get(companyWebsites, websiteId)
 
       if (!existingWebsite) {
         return { error: 'Invalid company_website_id', success: false }
@@ -179,11 +173,10 @@ export async function getCrawlSessions(company_website_id: string) {
       return { error: 'Unauthorized', success: false }
     }
 
-    const rows = await db
-      .select()
-      .from(crawlSessions)
-      .where(eq(crawlSessions.companyWebsiteId, company_website_id))
-      .orderBy(desc(crawlSessions.createdAt))
+    const rows = await find(crawlSessions, {
+      where: [['companyWebsiteId', '==', company_website_id]],
+      orderBy: [['createdAt', 'desc']],
+    })
 
     const data = rows.map(toSnakeSession)
     return { data, success: true }
@@ -202,11 +195,10 @@ export async function getCrawlPages(crawl_session_id: string) {
       return { error: 'Unauthorized', success: false }
     }
 
-    const rows = await db
-      .select()
-      .from(crawlPages)
-      .where(eq(crawlPages.crawlSessionId, crawl_session_id))
-      .orderBy(asc(crawlPages.depth), asc(crawlPages.crawledAt))
+    const rows = await find(crawlPages, {
+      where: [['crawlSessionId', '==', crawl_session_id]],
+      orderBy: [['depth', 'asc'], ['crawledAt', 'asc']],
+    })
 
     const data = rows.map(toSnakePage)
     return { data, success: true }

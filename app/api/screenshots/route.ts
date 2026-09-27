@@ -1,7 +1,19 @@
-import { and, count,desc, eq, isNull } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
-import { apiTokens, db, screenshots, tickets,ticketTimeTracker, users } from '@/lib/db'
+import {
+  apiTokens,
+  count,
+  find,
+  findOneBy,
+  get,
+  getManyMap,
+  insert,
+  screenshots,
+  tickets,
+  ticketTimeTracker,
+  update,
+  users,
+} from '@/lib/fsdb'
 import { getPublicUrl,uploadBuffer } from '@/lib/storage-idrive'
 
 const SCREENSHOTS_FOLDER = 'screenshots'
@@ -15,11 +27,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Token is required' }, { status: 401 })
     }
 
-    const [tokenRow] = await db
-      .select({ userId: apiTokens.userId, expiresAt: apiTokens.expiresAt })
-      .from(apiTokens)
-      .where(and(eq(apiTokens.token, token), eq(apiTokens.isActive, true)))
-      .limit(1)
+    const tokenRow = await findOneBy(apiTokens, { token, isActive: true })
 
     if (!tokenRow) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
@@ -29,10 +37,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Token expired' }, { status: 401 })
     }
 
-    await db
-      .update(apiTokens)
-      .set({ lastUsedAt: new Date() })
-      .where(eq(apiTokens.token, token))
+    await update(apiTokens, tokenRow.id, { lastUsedAt: new Date() })
 
     const userId = tokenRow.userId
 
@@ -52,29 +57,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'File size exceeds 10MB limit' }, { status: 400 })
     }
 
-    const [activeTracker] = await db
-      .select({ ticketId: ticketTimeTracker.ticketId })
-      .from(ticketTimeTracker)
-      .where(
-        and(
-          eq(ticketTimeTracker.userId, userId),
-          isNull(ticketTimeTracker.stopTime),
-          eq(ticketTimeTracker.trackerType, 'timer')
-        )
-      )
-      .orderBy(desc(ticketTimeTracker.startTime))
-      .limit(1)
+    const [activeTracker] = await find(ticketTimeTracker, {
+      where: [
+        ['userId', '==', userId],
+        ['stopTime', '==', null],
+        ['trackerType', '==', 'timer'],
+      ],
+      orderBy: [['startTime', 'desc']],
+      limit: 1,
+    })
 
     const ticketId = activeTracker?.ticketId ?? null
 
     let userName = 'user'
     let todoTitle = 'screenshot'
 
-    const [userRow] = await db
-      .select({ fullName: users.fullName, email: users.email })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
+    const userRow = await get(users, userId)
 
     if (userRow) {
       let nameToUse = userRow.fullName || userRow.email || 'user'
@@ -90,11 +88,7 @@ export async function POST(request: Request) {
     }
 
     if (ticketId) {
-      const [ticketRow] = await db
-        .select({ title: tickets.title })
-        .from(tickets)
-        .where(eq(tickets.id, ticketId))
-        .limit(1)
+      const ticketRow = await get(tickets, ticketId)
 
       if (ticketRow?.title) {
         todoTitle = ticketRow.title
@@ -124,18 +118,15 @@ export async function POST(request: Request) {
     const publicUrl = url ?? getPublicUrl(filePath)
     const generatedFileName = filePath.split('/').pop() || file.name
 
-    const [inserted] = await db
-      .insert(screenshots)
-      .values({
-        userId,
-        fileName: generatedFileName,
-        filePath,
-        fileUrl: publicUrl,
-        fileSize: file.size,
-        mimeType: file.type,
-        ticketId,
-      })
-      .returning()
+    const inserted = await insert(screenshots, {
+      userId,
+      fileName: generatedFileName,
+      filePath,
+      fileUrl: publicUrl,
+      fileSize: file.size,
+      mimeType: file.type,
+      ticketId,
+    })
 
     return NextResponse.json({
       success: true,
@@ -163,11 +154,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Token is required' }, { status: 401 })
     }
 
-    const [tokenRow] = await db
-      .select({ userId: apiTokens.userId, expiresAt: apiTokens.expiresAt })
-      .from(apiTokens)
-      .where(and(eq(apiTokens.token, token), eq(apiTokens.isActive, true)))
-      .limit(1)
+    const tokenRow = await findOneBy(apiTokens, { token, isActive: true })
 
     if (!tokenRow) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
@@ -182,32 +169,30 @@ export async function GET(request: Request) {
     const offset = parseInt(searchParams.get('offset') || '0') || 0
     const ticketIdParam = searchParams.get('todo_id') || searchParams.get('ticket_id')
 
-    const whereClause = ticketIdParam && !isNaN(parseInt(ticketIdParam))
-      ? and(eq(screenshots.userId, tokenRow.userId), eq(screenshots.ticketId, parseInt(ticketIdParam)))
-      : eq(screenshots.userId, tokenRow.userId)
+    const hasTicket = !!ticketIdParam && !isNaN(parseInt(ticketIdParam))
+    const whereClause = [
+      ['userId', '==', tokenRow.userId] as const,
+      hasTicket && (['ticketId', '==', parseInt(ticketIdParam!)] as const),
+    ]
 
-    const rows = await db
-      .select({
-        screenshot: screenshots,
-        ticket: tickets,
-      })
-      .from(screenshots)
-      .leftJoin(tickets, eq(screenshots.ticketId, tickets.id))
-      .where(whereClause)
-      .orderBy(desc(screenshots.createdAt))
-      .limit(limit)
-      .offset(offset)
+    const shots = await find(screenshots, {
+      where: whereClause,
+      orderBy: [['createdAt', 'desc']],
+      limit,
+      offset,
+    })
+    const ticketById = await getManyMap(tickets, shots.map((s) => s.ticketId))
+    const rows = shots.map((screenshot) => ({
+      screenshot,
+      ticket: screenshot.ticketId != null ? ticketById.get(String(screenshot.ticketId)) ?? null : null,
+    }))
 
     const screenshotsData = rows.map((r) => ({
       ...r.screenshot,
       tickets: r.ticket ? { id: r.ticket.id, title: r.ticket.title, status: r.ticket.status } : null,
     }))
 
-    const [countResult] = await db
-      .select({ count: count() })
-      .from(screenshots)
-      .where(whereClause)
-    const totalCount = Number(countResult?.count ?? 0)
+    const totalCount = await count(screenshots, whereClause)
 
     return NextResponse.json({
       success: true,

@@ -1,11 +1,10 @@
-import { eq } from 'drizzle-orm'
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import UserDetailContent from '@/components/content/user/UserDetailContent'
 import { canAccessUsers, isAdminOrManager } from '@/lib/auth-utils'
-import { companies,db, users } from '@/lib/db'
+import { companies, get, users } from '@/lib/fsdb'
 
 export async function generateMetadata({
   params,
@@ -40,15 +39,11 @@ export default async function SettingsUserDetailPage({
     redirect('/dashboard')
   }
 
-  const [row] = await db
-    .select({ user: users, company: companies })
-    .from(users)
-    .leftJoin(companies, eq(users.companyId, companies.id))
-    .where(eq(users.id, id))
-
-  if (!row?.user) {
+  const userDoc = await get(users, id)
+  if (!userDoc) {
     redirect('/settings/users')
   }
+  const row = { user: userDoc, company: await get(companies, userDoc.companyId) }
 
   const u = row.user
   const userData = {

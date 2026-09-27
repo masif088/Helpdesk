@@ -1,6 +1,19 @@
-import { eq, inArray } from 'drizzle-orm'
-
-import { db, projectStatuses, tags, teams, ticketActivityLog, ticketAssignees, tickets, ticketStatuses, ticketTags, users } from '@/lib/db'
+import {
+  find,
+  findBy,
+  get,
+  getMany,
+  insert,
+  projectStatuses,
+  tags,
+  teams,
+  ticketActivityLog,
+  ticketAssignees,
+  tickets,
+  ticketStatuses,
+  ticketTags,
+  users,
+} from '@/lib/fsdb'
 
 import type { TicketActivityAction } from './ticket-activity-actions'
 
@@ -30,35 +43,14 @@ export type TicketActivitySnapshot = {
 export async function loadTicketActivitySnapshot(
   ticketId: number
 ): Promise<TicketActivitySnapshot | null> {
-  const [t] = await db
-    .select({
-      title: tickets.title,
-      description: tickets.description,
-      shortNote: tickets.shortNote,
-      status: tickets.status,
-      visibility: tickets.visibility,
-      teamId: tickets.teamId,
-      typeId: tickets.typeId,
-      ticketType: tickets.ticketType,
-      priority: tickets.priority,
-      companyId: tickets.companyId,
-      contactUserId: tickets.contactUserId,
-      dueDate: tickets.dueDate,
-    })
-    .from(tickets)
-    .where(eq(tickets.id, ticketId))
-    .limit(1)
+  const t = await get(tickets, ticketId)
 
   if (!t) return null
 
-  const assignRows = await db
-    .select({ userId: ticketAssignees.userId })
-    .from(ticketAssignees)
-    .where(eq(ticketAssignees.ticketId, ticketId))
-  const tagRows = await db
-    .select({ tagId: ticketTags.tagId })
-    .from(ticketTags)
-    .where(eq(ticketTags.ticketId, ticketId))
+  const [assignRows, tagRows] = await Promise.all([
+    findBy(ticketAssignees, { ticketId }),
+    findBy(ticketTags, { ticketId }),
+  ])
 
   return {
     title: t.title,
@@ -124,7 +116,7 @@ export async function enrichActivityEntityLabels(
     if (teamDelta.from != null && teamDelta.from !== '') ids.add(String(teamDelta.from))
     if (teamDelta.to != null && teamDelta.to !== '') ids.add(String(teamDelta.to))
     if (ids.size > 0) {
-      const rows = await db.select({ id: teams.id, name: teams.name }).from(teams).where(inArray(teams.id, [...ids]))
+      const rows = await getMany(teams, [...ids])
       const map: Record<string, string> = {}
       for (const r of rows) map[r.id] = (r.name?.trim() || r.id) as string
       out.teams = map
@@ -138,7 +130,7 @@ export async function enrichActivityEntityLabels(
     if (statusDelta.from != null && statusDelta.from !== '') slugs.add(String(statusDelta.from))
     if (statusDelta.to != null && statusDelta.to !== '') slugs.add(String(statusDelta.to))
     if (slugs.size > 0) {
-      const rows = await db.select({ slug: ticketStatuses.slug, title: ticketStatuses.title }).from(ticketStatuses).where(inArray(ticketStatuses.slug, [...slugs]))
+      const rows = await find(ticketStatuses, { where: [['slug', 'in', [...slugs]]] })
       const map: Record<string, string> = {}
       for (const r of rows) map[r.slug] = (r.title?.trim() || r.slug) as string
       out.statuses = map
@@ -153,7 +145,7 @@ export async function enrichActivityEntityLabels(
       if (Array.isArray(arr)) for (const id of arr) if (id) ids.add(String(id))
     }
     if (ids.size > 0) {
-      const rows = await db.select({ id: tags.id, name: tags.name }).from(tags).where(inArray(tags.id, [...ids]))
+      const rows = await getMany(tags, [...ids])
       const map: Record<string, string> = {}
       for (const r of rows) map[r.id] = (r.name?.trim() || r.id) as string
       out.tags = map
@@ -168,7 +160,7 @@ export async function enrichActivityEntityLabels(
       if (Array.isArray(arr)) for (const id of arr) if (id) ids.add(String(id))
     }
     if (ids.size > 0) {
-      const rows = await db.select({ id: users.id, fullName: users.fullName, email: users.email }).from(users).where(inArray(users.id, [...ids]))
+      const rows = await getMany(users, [...ids])
       const map: Record<string, string> = {}
       for (const r of rows) map[r.id] = (r.fullName?.trim() || r.email || r.id) as string
       out.assignees = map
@@ -182,7 +174,7 @@ export async function enrichActivityEntityLabels(
     if (contactDelta.from != null && contactDelta.from !== '') ids.add(String(contactDelta.from))
     if (contactDelta.to != null && contactDelta.to !== '') ids.add(String(contactDelta.to))
     if (ids.size > 0) {
-      const rows = await db.select({ id: users.id, fullName: users.fullName, email: users.email }).from(users).where(inArray(users.id, [...ids]))
+      const rows = await getMany(users, [...ids])
       const map: Record<string, string> = {}
       for (const r of rows) map[r.id] = (r.fullName?.trim() || r.email || r.id) as string
       out.contacts = map
@@ -198,7 +190,7 @@ export async function enrichActivityEntityLabels(
       if (v != null && v !== '' && !isNaN(n)) ids.add(n)
     }
     if (ids.size > 0) {
-      const rows = await db.select({ id: projectStatuses.id, title: projectStatuses.title }).from(projectStatuses).where(inArray(projectStatuses.id, [...ids]))
+      const rows = await getMany(projectStatuses, [...ids])
       const map: Record<string, string> = {}
       for (const r of rows) map[String(r.id)] = (r.title?.trim() || String(r.id)) as string
       out.project_statuses = map
@@ -217,7 +209,7 @@ export async function logTicketActivity(params: {
   relatedCommentId?: string | null
 }): Promise<void> {
   try {
-    await db.insert(ticketActivityLog).values({
+    await insert(ticketActivityLog, {
       ticketId: params.ticketId,
       actorUserId: params.actorUserId,
       actorRole: params.actorRole,

@@ -1,8 +1,7 @@
-import { and,eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, screenshots } from '@/lib/db'
+import { get, screenshots, update } from '@/lib/fsdb'
 
 /** PATCH /api/screenshots/link - Update screenshot ticket link (for web app with session) */
 export async function PATCH(request: Request) {
@@ -18,14 +17,14 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'id required' }, { status: 400 })
   }
 
-  const [updated] = await db
-    .update(screenshots)
-    .set({
-      ticketId: ticket_id != null && ticket_id !== '' ? Number(ticket_id) : null,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(screenshots.id, id), eq(screenshots.userId, session.user.id!)))
-    .returning()
+  const existing = await get(screenshots, id)
+  const updated =
+    existing && existing.userId === session.user.id
+      ? await update(screenshots, id, {
+          ticketId: ticket_id != null && ticket_id !== '' ? Number(ticket_id) : null,
+          updatedAt: new Date(),
+        })
+      : null
 
   if (!updated) {
     return NextResponse.json({ error: 'Screenshot not found' }, { status: 404 })

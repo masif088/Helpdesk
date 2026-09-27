@@ -1,11 +1,10 @@
-import { and, asc, eq, isNull, ne, or } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAiApiKeyConfigError } from '@/lib/ai-chat-config'
 import { isAdminOrManager } from '@/lib/auth-utils'
 import { assertCustomerMayAccessTicket } from '@/lib/customer-ticket-access'
-import { db, ticketComments, tickets, users } from '@/lib/db'
+import { findBy, get, getManyMap, sortRows, ticketComments, tickets, users } from '@/lib/fsdb'
 import {
   getTicketAiSummary,
   markTicketAiSummaryApplied,
@@ -37,11 +36,7 @@ async function authorizeTicketSummarize(ticketId: number, userId: string, role: 
       )
     }
   }
-  const [ticket] = await db
-    .select({ id: tickets.id })
-    .from(tickets)
-    .where(eq(tickets.id, ticketId))
-    .limit(1)
+  const ticket = await get(tickets, ticketId)
   if (!ticket) {
     return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
   }
@@ -59,40 +54,23 @@ async function buildPromptContext(
   anchor: SummarizeAnchorRequest,
   role: string
 ) {
-  const [ticket] = await db
-    .select({
-      id: tickets.id,
-      title: tickets.title,
-      description: tickets.description,
-      createdBy: tickets.createdBy,
-      creatorName: users.fullName,
-      creatorEmail: users.email,
-    })
-    .from(tickets)
-    .leftJoin(users, eq(tickets.createdBy, users.id))
-    .where(eq(tickets.id, ticketId))
-    .limit(1)
+  const ticketRow = await get(tickets, ticketId)
+  if (!ticketRow) return null
+  const creator = await get(users, ticketRow.createdBy)
+  const ticket = {
+    ...ticketRow,
+    creatorName: creator?.fullName ?? null,
+    creatorEmail: creator?.email ?? null,
+  }
 
-  if (!ticket) return null
-
-  const commentScope =
-    role === 'customer'
-      ? and(
-          eq(ticketComments.ticketId, ticketId),
-          or(isNull(ticketComments.visibility), ne(ticketComments.visibility, 'note'))
-        )
-      : eq(ticketComments.ticketId, ticketId)
-
-  const commentRows = await db
-    .select({
-      comment: ticketComments,
-      userName: users.fullName,
-      userEmail: users.email,
-    })
-    .from(ticketComments)
-    .leftJoin(users, eq(ticketComments.userId, users.id))
-    .where(commentScope)
-    .orderBy(asc(ticketComments.createdAt))
+  const allComments = await findBy(ticketComments, { ticketId })
+  const scoped = role === 'customer' ? allComments.filter((c) => c.visibility !== 'note') : allComments
+  const authorById = await getManyMap(users, scoped.map((c) => c.userId))
+  const commentRows: CommentRow[] = sortRows(scoped, [['createdAt', 'asc']]).map((comment) => ({
+    comment,
+    userName: authorById.get(comment.userId)?.fullName ?? null,
+    userEmail: authorById.get(comment.userId)?.email ?? null,
+  }))
 
   const mapComment = (r: CommentRow, isFocal: boolean) => ({
     id: r.comment.id,

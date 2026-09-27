@@ -1,9 +1,7 @@
-import { inArray } from 'drizzle-orm'
-
 import { auth } from '@/auth'
 import CustomerDashboardContent from '@/components/content/customer/CustomerDashboardContent'
 import DashboardContent from '@/components/content/dashboard/DashboardContent'
-import { db, teams, tickets,users } from '@/lib/db'
+import { count, teams, tickets, users } from '@/lib/fsdb'
 
 function toSessionUser(user: { id: string; email?: string | null; name?: string | null; image?: string | null }) {
   return {
@@ -38,21 +36,14 @@ export default async function AuthDashboardPage() {
   let totalTodosCount = 0
 
   try {
-    const [usersResult, teamsResult, completedResult, totalResult] = await Promise.all([
-      db.select().from(users),
-      db.select().from(teams),
-      db
-        .select()
-        .from(tickets)
-        .where(inArray(tickets.status, ['resolved', 'closed', 'completed'])),
-      db.select().from(tickets),
+    ;[usersCount, teamsCount, completedTodosCount, totalTodosCount] = await Promise.all([
+      count(users),
+      count(teams),
+      count(tickets, [['status', 'in', ['resolved', 'closed', 'completed']]]),
+      count(tickets),
     ])
-    usersCount = usersResult.length
-    teamsCount = teamsResult.length
-    completedTodosCount = completedResult.length
-    totalTodosCount = totalResult.length
   } catch (err) {
-    console.error('Dashboard query failed. Run `npm run db:push` if tables do not exist:', err)
+    console.error('Dashboard query failed (check Firebase Admin credentials / Firestore):', err)
   }
 
   return (

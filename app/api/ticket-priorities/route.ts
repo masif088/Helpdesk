@@ -1,9 +1,7 @@
-import { asc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { ticketPriorities } from '@/lib/db'
+import { find, findOneBy, insert, ticketPriorities } from '@/lib/fsdb'
 import { logSettingsCreated } from '@/lib/settings-activity-log'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 
@@ -14,7 +12,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const rows = await db.select().from(ticketPriorities).orderBy(asc(ticketPriorities.sortOrder))
+  const rows = await find(ticketPriorities, { orderBy: [['sortOrder', 'asc']] })
 
   const data = rows.map((r) => ({
     id: r.id,
@@ -44,16 +42,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'title and slug required' }, { status: 400 })
   }
 
-  const [inserted] = await db
-    .insert(ticketPriorities)
-    .values({
-      title: String(title).trim(),
-      slug: String(slug).trim().toLowerCase().replace(/\s+/g, '_'),
-      description: typeof description === 'string' ? description : '',
-      color: color || '#000000',
-      ...(sort_order !== undefined && { sortOrder: Number(sort_order) ?? 0 }),
-    })
-    .returning()
+  const normalizedSlug = String(slug).trim().toLowerCase().replace(/\s+/g, '_')
+  if (await findOneBy(ticketPriorities, { slug: normalizedSlug })) {
+    return NextResponse.json({ error: 'A priority with this slug already exists' }, { status: 409 })
+  }
+  const inserted = await insert(ticketPriorities, {
+    title: String(title).trim(),
+    slug: normalizedSlug,
+    description: typeof description === 'string' ? description : '',
+    color: color || '#000000',
+    ...(sort_order !== undefined && { sortOrder: Number(sort_order) ?? 0 }),
+  })
 
   if (!inserted) {
     return NextResponse.json({ error: 'Insert failed' }, { status: 500 })

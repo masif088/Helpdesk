@@ -13,10 +13,10 @@ import {
 import { Layout, Menu } from 'antd'
 import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { shouldOpenHrefInNewTab,SpaNavLink } from '@/components/common/SpaNavLink'
+import { useSession } from '@/lib/auth-client'
 import {
   canAccessSettingsHub,
   canAccessTickets,

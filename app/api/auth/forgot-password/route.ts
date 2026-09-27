@@ -1,11 +1,10 @@
-import bcrypt from 'bcryptjs'
 import { randomBytes } from 'crypto'
-import { and, eq } from 'drizzle-orm'
 import { google } from 'googleapis'
 import { NextResponse } from 'next/server'
 
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
-import { companies, db, emailIntegrations, messageTemplates, users } from '@/lib/db'
+import { findUserByEmail, setUserPassword } from '@/lib/app-users'
+import { companies, emailIntegrations, findOneBy, get, messageTemplates, update, users } from '@/lib/fsdb'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
 
 function encodeSubjectHeader(subject: string): string {
@@ -33,23 +32,16 @@ export async function POST(request: Request) {
   }
 
   // Always return 200 to avoid user enumeration
-  const [user] = await db
-    .select({ id: users.id, email: users.email, fullName: users.fullName, status: users.status, deletedAt: users.deletedAt, passwordHash: users.passwordHash })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1)
+  const user = await findUserByEmail(email)
 
-  if (!user || user.deletedAt || user.status !== 'active' || !user.passwordHash) {
+  if (!user || user.deletedAt || user.status !== 'active') {
     // Silently succeed — don't reveal whether account exists
     return NextResponse.json({ success: true })
   }
 
   const temporaryPassword = generateTemporaryPassword(12)
-  const hash = await bcrypt.hash(temporaryPassword, 10)
-  await db
-    .update(users)
-    .set({ passwordHash: hash, mustChangePassword: true, updatedAt: new Date() })
-    .where(eq(users.id, user.id))
+  await setUserPassword(user, temporaryPassword, { mustChangePassword: true, revokeSessions: true })
+  await update(users, user.id, { updatedAt: new Date() })
 
   // Send email (best-effort — don't fail the request if email fails)
   try {
@@ -71,24 +63,10 @@ async function sendResetEmail(params: {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
   if (!clientId || !clientSecret) return
 
-  const [tpl] = await db
-    .select({ status: messageTemplates.status, content: messageTemplates.content, emailSubject: messageTemplates.emailSubject })
-    .from(messageTemplates)
-    .where(eq(messageTemplates.key, 'requester_notification_password_reset'))
-    .limit(1)
+  const tpl = await findOneBy(messageTemplates, { key: 'requester_notification_password_reset' })
   if (!tpl || tpl.status !== 'active') return
 
-  const [integration] = await db
-    .select({
-      id: emailIntegrations.id,
-      emailAddress: emailIntegrations.emailAddress,
-      accessToken: emailIntegrations.accessToken,
-      refreshToken: emailIntegrations.refreshToken,
-      expiresAt: emailIntegrations.expiresAt,
-    })
-    .from(emailIntegrations)
-    .where(and(eq(emailIntegrations.provider, 'google'), eq(emailIntegrations.isActive, true)))
-    .limit(1)
+  const integration = await findOneBy(emailIntegrations, { provider: 'google', isActive: true })
   if (!integration?.accessToken) return
 
   const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, `${baseUrl}/api/email/google/callback`)
@@ -101,10 +79,11 @@ async function sendResetEmail(params: {
     const { credentials } = await oauth2Client.refreshAccessToken()
     accessToken = credentials.access_token ?? integration.accessToken
     if (credentials.access_token && credentials.expiry_date) {
-      await db
-        .update(emailIntegrations)
-        .set({ accessToken: credentials.access_token, expiresAt: new Date(credentials.expiry_date), updatedAt: new Date() })
-        .where(eq(emailIntegrations.id, integration.id))
+      await update(emailIntegrations, integration.id, {
+        accessToken: credentials.access_token,
+        expiresAt: new Date(credentials.expiry_date),
+        updatedAt: new Date(),
+      })
     }
   } else {
     oauth2Client.setCredentials({ access_token: accessToken })
@@ -118,10 +97,10 @@ async function sendResetEmail(params: {
   const loginUrl = `${safeBase}/login`
   const changePasswordUrl = `${safeBase}/change-password`
 
-  const [recipientUser] = await db.select().from(users).where(eq(users.id, params.recipientUserId)).limit(1)
+  const recipientUser = await get(users, params.recipientUserId)
   let recipientCompanyName: string | null = null
   if (recipientUser?.companyId) {
-    const [companyRow] = await db.select({ name: companies.name }).from(companies).where(eq(companies.id, recipientUser.companyId)).limit(1)
+    const companyRow = await get(companies, recipientUser.companyId)
     recipientCompanyName = companyRow?.name ?? null
   }
   const recipientMap = userRowToMergeMap(recipientUser ?? null, recipientCompanyName)

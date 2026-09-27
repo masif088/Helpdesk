@@ -1,4 +1,3 @@
-import { and, desc, eq, gte, lte } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
@@ -6,10 +5,13 @@ import { customerOwnsCompany } from '@/lib/customer-company'
 import {
   companies,
   companyDailyActiveAssignments,
-  db,
+  find,
+  get,
+  getManyMap,
   teams,
+  upsert,
   users,
-} from '@/lib/db'
+} from '@/lib/fsdb'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -42,7 +44,7 @@ async function requireStaffAndCompany(
   if (role === 'customer') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
-  const [c] = await db.select({ id: companies.id }).from(companies).where(eq(companies.id, companyId)).limit(1)
+  const c = await get(companies, companyId)
   if (!c) return NextResponse.json({ error: 'Company not found' }, { status: 404 })
   return null
 }
@@ -52,15 +54,11 @@ async function validateTeamManager(
   activeManagerId: string | null
 ): Promise<NextResponse | null> {
   if (activeTeamId) {
-    const [teamRow] = await db.select({ id: teams.id }).from(teams).where(eq(teams.id, activeTeamId)).limit(1)
+    const teamRow = await get(teams, activeTeamId)
     if (!teamRow) return NextResponse.json({ error: 'Active team not found' }, { status: 400 })
   }
   if (activeManagerId) {
-    const [mgr] = await db
-      .select({ id: users.id, role: users.role })
-      .from(users)
-      .where(eq(users.id, activeManagerId))
-      .limit(1)
+    const mgr = await get(users, activeManagerId)
     if (!mgr) return NextResponse.json({ error: 'Active manager not found' }, { status: 404 })
     if ((mgr.role || '').toLowerCase() === 'customer') {
       return NextResponse.json({ error: 'Active manager must be a non-customer user' }, { status: 400 })
@@ -86,7 +84,7 @@ export async function GET(
     if (!ok) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const [companyRow] = await db.select({ id: companies.id }).from(companies).where(eq(companies.id, id)).limit(1)
+  const companyRow = await get(companies, id)
   if (!companyRow) {
     return NextResponse.json({ error: 'Company not found' }, { status: 404 })
   }
@@ -123,30 +121,28 @@ export async function GET(
     )
   }
 
-  const rows = await db
-    .select({
-      id: companyDailyActiveAssignments.id,
-      snapshotDate: companyDailyActiveAssignments.snapshotDate,
-      activeTeamId: companyDailyActiveAssignments.activeTeamId,
-      activeManagerId: companyDailyActiveAssignments.activeManagerId,
-      activeTime: companyDailyActiveAssignments.activeTime,
-      createdAt: companyDailyActiveAssignments.createdAt,
-      teamName: teams.name,
-      managerFullName: users.fullName,
-      managerEmail: users.email,
-    })
-    .from(companyDailyActiveAssignments)
-    .leftJoin(teams, eq(companyDailyActiveAssignments.activeTeamId, teams.id))
-    .leftJoin(users, eq(companyDailyActiveAssignments.activeManagerId, users.id))
-    .where(
-      and(
-        eq(companyDailyActiveAssignments.companyId, id),
-        gte(companyDailyActiveAssignments.snapshotDate, from),
-        lte(companyDailyActiveAssignments.snapshotDate, to)
-      )
-    )
-    .orderBy(desc(companyDailyActiveAssignments.snapshotDate))
-    .limit(500)
+  const logRows = await find(companyDailyActiveAssignments, {
+    where: [
+      ['companyId', '==', id],
+      ['snapshotDate', '>=', from],
+      ['snapshotDate', '<=', to],
+    ],
+    orderBy: [['snapshotDate', 'desc']],
+    limit: 500,
+  })
+  const [teamById, managerById] = await Promise.all([
+    getManyMap(teams, logRows.map((r) => r.activeTeamId)),
+    getManyMap(users, logRows.map((r) => r.activeManagerId)),
+  ])
+  const rows = logRows.map((r) => {
+    const mgr = r.activeManagerId ? managerById.get(r.activeManagerId) : undefined
+    return {
+      ...r,
+      teamName: r.activeTeamId ? teamById.get(r.activeTeamId)?.name ?? null : null,
+      managerFullName: mgr?.fullName ?? null,
+      managerEmail: mgr?.email ?? null,
+    }
+  })
 
   const data = rows.map((r) => {
     let active_manager_display: string | null = null
@@ -208,23 +204,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const bad = await validateTeamManager(activeTeamId, activeManagerId)
   if (bad) return bad
 
-  await db
-    .insert(companyDailyActiveAssignments)
-    .values({
-      companyId: id,
-      snapshotDate: snapshotDate,
-      activeTeamId,
-      activeManagerId,
-      activeTime,
-    })
-    .onConflictDoUpdate({
-      target: [companyDailyActiveAssignments.companyId, companyDailyActiveAssignments.snapshotDate],
-      set: {
-        activeTeamId,
-        activeManagerId,
-        activeTime,
-      },
-    })
+  await upsert(
+    companyDailyActiveAssignments,
+    { companyId: id, snapshotDate, activeTeamId, activeManagerId, activeTime },
+    { activeTeamId, activeManagerId, activeTime }
+  )
 
   return NextResponse.json({ ok: true })
 }

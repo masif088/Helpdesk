@@ -1,17 +1,21 @@
-import { and, desc, eq, gte, inArray, isNull, or, sql } from 'drizzle-orm'
-
 import { auth } from '@/auth'
 import { getCustomerCompanyId } from '@/lib/customer-company'
 import {
   companies,
-  db,
+  count,
+  find,
+  findBy,
+  get,
+  getManyMap,
+  sortRows,
   teams,
   ticketAssignees,
   ticketComments,
   tickets,
+  type TicketsRow,
   ticketStatuses,
   users,
-} from '@/lib/db'
+} from '@/lib/fsdb'
 
 export type MobileStatusGroup = 'open' | 'in_progress' | 'need_response' | 'completed'
 
@@ -29,6 +33,18 @@ export async function getMobileSession() {
   return session.user as { id: string; name?: string | null; email?: string | null; role?: string }
 }
 
+/** Tickets a customer sees on mobile: company tickets + own tickets without company. */
+async function loadCustomerMobileTickets(userId: string): Promise<TicketsRow[]> {
+  const companyId = await getCustomerCompanyId(userId)
+  if (!companyId) return findBy(tickets, { createdBy: userId })
+  const [byCompany, own] = await Promise.all([
+    findBy(tickets, { companyId }),
+    find(tickets, { where: [['createdBy', '==', userId], ['companyId', '==', null]] }),
+  ])
+  const seen = new Set<number>()
+  return [...byCompany, ...own].filter((t) => (seen.has(t.id) ? false : (seen.add(t.id), true)))
+}
+
 export async function getMobileTickets() {
   const user = await getMobileSession()
   if (!user) return null
@@ -36,39 +52,14 @@ export async function getMobileTickets() {
   const isCustomer = user.role?.toLowerCase() === 'customer'
 
   // ticketStatuses catalog: slug → title/color
-  const allStatuses = await db
-    .select({ slug: ticketStatuses.slug, title: ticketStatuses.title, color: ticketStatuses.color })
-    .from(ticketStatuses)
+  const allStatuses = await find(ticketStatuses)
   const statusMap = Object.fromEntries(allStatuses.map((s) => [s.slug, s]))
 
-  const conditions = []
+  const rows = isCustomer
+    ? sortRows(await loadCustomerMobileTickets(user.id), [['createdAt', 'desc']]).slice(0, 50)
+    : await find(tickets, { orderBy: [['createdAt', 'desc']], limit: 50 })
 
-  if (isCustomer) {
-    const companyId = await getCustomerCompanyId(user.id)
-    if (companyId) {
-      conditions.push(
-        or(
-          eq(tickets.companyId, companyId),
-          and(eq(tickets.createdBy, user.id), isNull(tickets.companyId)),
-        )
-      )
-    } else {
-      conditions.push(eq(tickets.createdBy, user.id))
-    }
-  }
-
-  const rows = await db
-    .select({ id: tickets.id, title: tickets.title, priority: tickets.priority, status: tickets.status, companyId: tickets.companyId, createdAt: tickets.createdAt })
-    .from(tickets)
-    .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(desc(tickets.createdAt))
-    .limit(50)
-
-  const companyIds = [...new Set(rows.map((r) => r.companyId).filter(Boolean))] as string[]
-  const companyRows = companyIds.length
-    ? await db.select({ id: companies.id, name: companies.name }).from(companies).where(inArray(companies.id, companyIds))
-    : []
-  const companyMap = Object.fromEntries(companyRows.map((c) => [c.id, c.name]))
+  const companyMap = await getManyMap(companies, rows.map((r) => r.companyId))
 
   return rows.map((r) => {
     const st = statusMap[r.status] ?? { title: r.status, color: '#8c8c8c' }
@@ -80,7 +71,7 @@ export async function getMobileTickets() {
       statusSlug: r.status,
       statusColor: st.color,
       statusGroup: slugToGroup(r.status),
-      company: r.companyId ? (companyMap[r.companyId] ?? '—') : '—',
+      company: r.companyId ? (companyMap.get(r.companyId)?.name ?? '—') : '—',
       createdAt: r.createdAt ? new Date(r.createdAt).toLocaleDateString('id', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
     }
   })
@@ -92,38 +83,32 @@ export async function getMobileTicketDetail(ticketId: number) {
 
   const isCustomer = user.role?.toLowerCase() === 'customer'
 
-  const [ticket] = await db
-    .select({ id: tickets.id, title: tickets.title, priority: tickets.priority, description: tickets.description, status: tickets.status, companyId: tickets.companyId, createdAt: tickets.createdAt })
-    .from(tickets)
-    .where(eq(tickets.id, ticketId))
-    .limit(1)
+  const ticket = await get(tickets, ticketId)
 
   if (!ticket) return null
 
-  const allStatuses = await db
-    .select({ slug: ticketStatuses.slug, title: ticketStatuses.title, color: ticketStatuses.color })
-    .from(ticketStatuses)
+  const allStatuses = await find(ticketStatuses)
   const statusMap = Object.fromEntries(allStatuses.map((s) => [s.slug, s]))
   const st = statusMap[ticket.status] ?? { title: ticket.status, color: '#8c8c8c' }
 
-  const [companyRow, assigneeRows, commentRows] = await Promise.all([
-    ticket.companyId
-      ? db.select({ name: companies.name }).from(companies).where(eq(companies.id, ticket.companyId)).limit(1)
-      : Promise.resolve([] as { name: string }[]),
-    db.select({ name: users.fullName })
-      .from(ticketAssignees)
-      .leftJoin(users, eq(ticketAssignees.userId, users.id))
-      .where(eq(ticketAssignees.ticketId, ticketId)),
-    db.select({ id: ticketComments.id, body: ticketComments.comment, visibility: ticketComments.visibility, authorType: ticketComments.authorType, createdAt: ticketComments.createdAt, authorName: users.fullName })
-      .from(ticketComments)
-      .leftJoin(users, eq(ticketComments.userId, users.id))
-      .where(
-        isCustomer
-          ? and(eq(ticketComments.ticketId, ticketId), eq(ticketComments.visibility, 'reply'))
-          : eq(ticketComments.ticketId, ticketId)
-      )
-      .orderBy(ticketComments.createdAt),
+  const [companyRow, assigneeLinks, commentDocs] = await Promise.all([
+    get(companies, ticket.companyId),
+    findBy(ticketAssignees, { ticketId }),
+    findBy(ticketComments, isCustomer ? { ticketId, visibility: 'reply' } : { ticketId }),
   ])
+  const peopleById = await getManyMap(users, [
+    ...assigneeLinks.map((a) => a.userId),
+    ...commentDocs.map((c) => c.userId),
+  ])
+  const assigneeRows = assigneeLinks.map((a) => ({ name: peopleById.get(a.userId)?.fullName ?? null }))
+  const commentRows = sortRows(commentDocs, [['createdAt', 'asc']]).map((c) => ({
+    id: c.id,
+    body: c.comment,
+    visibility: c.visibility,
+    authorType: c.authorType,
+    createdAt: c.createdAt,
+    authorName: peopleById.get(c.userId)?.fullName ?? null,
+  }))
 
   return {
     id: ticket.id,
@@ -132,7 +117,7 @@ export async function getMobileTicketDetail(ticketId: number) {
     description: ticket.description ?? '',
     status: st.title,
     statusColor: st.color,
-    company: companyRow[0]?.name ?? '—',
+    company: companyRow?.name ?? '—',
     assignee: assigneeRows.map((a) => a.name).filter(Boolean).join(', ') || '—',
     createdAt: ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('id', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
     comments: commentRows.map((c) => ({
@@ -152,13 +137,16 @@ export async function getMobileDashboardStats() {
 
   const isCustomer = user.role?.toLowerCase() === 'customer'
 
-  let baseWhere: ReturnType<typeof eq> | ReturnType<typeof and> | undefined
+  let base: { companyId: string } | { createdBy: string } | null = null
   if (isCustomer) {
     const companyId = await getCustomerCompanyId(user.id)
-    baseWhere = companyId ? eq(tickets.companyId, companyId) : eq(tickets.createdBy, user.id)
+    base = companyId ? { companyId } : { createdBy: user.id }
   }
+  const baseConds = base
+    ? Object.entries(base).map(([k, v]) => [k as keyof TicketsRow & string, '==', v] as const)
+    : []
 
-  const allStatuses = await db.select({ slug: ticketStatuses.slug }).from(ticketStatuses)
+  const allStatuses = await find(ticketStatuses)
   const slugsByGroup = (group: MobileStatusGroup) => allStatuses.filter((s) => slugToGroup(s.slug) === group).map((s) => s.slug)
 
   const openSlugs = slugsByGroup('open')
@@ -168,11 +156,7 @@ export async function getMobileDashboardStats() {
 
   const countBySlugs = async (slugs: string[]) => {
     if (!slugs.length) return 0
-    const [r] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(tickets)
-      .where(baseWhere ? and(baseWhere, inArray(tickets.status, slugs)) : inArray(tickets.status, slugs))
-    return r?.count ?? 0
+    return count(tickets, [...baseConds, ['status', 'in', slugs]])
   }
 
   const weekAgo = new Date()
@@ -183,9 +167,7 @@ export async function getMobileDashboardStats() {
     countBySlugs(inProgressSlugs),
     countBySlugs(needResponseSlugs),
     completedSlugs.length
-      ? db.select({ count: sql<number>`count(*)::int` }).from(tickets)
-          .where(and(baseWhere ?? undefined, inArray(tickets.status, completedSlugs), gte(tickets.updatedAt, weekAgo)))
-          .then((r) => r[0]?.count ?? 0)
+      ? count(tickets, [...baseConds, ['status', 'in', completedSlugs], ['updatedAt', '>=', weekAgo]])
       : Promise.resolve(0),
   ])
 
@@ -193,16 +175,19 @@ export async function getMobileDashboardStats() {
 }
 
 export async function getMobileCompaniesAndTeams() {
-  const [companyRows, teamRows] = await Promise.all([
-    db.select({ id: companies.id, name: companies.name })
-      .from(companies)
-      .leftJoin(tickets, eq(tickets.companyId, companies.id))
-      .groupBy(companies.id, companies.name)
-      .orderBy(desc(sql`count(${tickets.id})`))
-      .limit(10),
-    db.select({ id: teams.id, name: teams.name }).from(teams).orderBy(teams.name),
+  const [allCompanies, teamRows] = await Promise.all([
+    find(companies),
+    find(teams, { orderBy: [['name', 'asc']] }),
   ])
-  return { companies: companyRows, teams: teamRows }
+  // Top 10 companies by ticket count (one aggregate count per company).
+  const withCounts = await Promise.all(
+    allCompanies.map(async (c) => ({ id: c.id, name: c.name, n: await count(tickets, [['companyId', '==', c.id]]) }))
+  )
+  const companyRows = withCounts
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 10)
+    .map(({ id, name }) => ({ id, name }))
+  return { companies: companyRows, teams: teamRows.map((t) => ({ id: t.id, name: t.name })) }
 }
 
 function numToPriority(p: number | null): 'P1' | 'P2' | 'P3' | 'P4' | 'P5' {

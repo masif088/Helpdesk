@@ -3,8 +3,8 @@ import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
-import { db } from '@/lib/db'
 import { getFirebaseAdminApp, isFirebaseAdminConfigured } from '@/lib/firebase/admin'
+import { count, users } from '@/lib/fsdb'
 
 export type ConnectionCheckResult = {
   key: string
@@ -17,10 +17,10 @@ export type ConnectionCheckResult = {
 async function checkDatabase(): Promise<ConnectionCheckResult> {
   const t0 = Date.now()
   try {
-    await db.execute('SELECT 1')
-    return { key: 'database', label: 'PostgreSQL Database', status: 'ok', message: 'Connected', latencyMs: Date.now() - t0 }
+    const n = await count(users)
+    return { key: 'database', label: 'Firestore Database', status: 'ok', message: `Connected (${n} users)`, latencyMs: Date.now() - t0 }
   } catch (e) {
-    return { key: 'database', label: 'PostgreSQL Database', status: 'error', message: e instanceof Error ? e.message : 'Connection failed' }
+    return { key: 'database', label: 'Firestore Database', status: 'error', message: e instanceof Error ? e.message : 'Connection failed' }
   }
 }
 

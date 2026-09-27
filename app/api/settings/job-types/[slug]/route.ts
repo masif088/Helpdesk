@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
-import { db, jobTypes, ticketTimeTracker } from '@/lib/db'
+import { get, jobTypes, remove, ticketTimeTracker, update, updateWhere } from '@/lib/fsdb'
 import { normalizeJobTypeTitle, parseJobTypeSortOrder } from '@/lib/job-types-admin'
 import { logSettingsDeleted, logSettingsUpdated } from '@/lib/settings-activity-log'
 
@@ -42,7 +41,7 @@ export async function PATCH(
   const { slug: slugParam } = await params
   const slug = decodeURIComponent(slugParam)
 
-  const [existing] = await db.select().from(jobTypes).where(eq(jobTypes.slug, slug)).limit(1)
+  const existing = await get(jobTypes, slug)
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
@@ -77,11 +76,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
   }
 
-  const [updated] = await db
-    .update(jobTypes)
-    .set(updates)
-    .where(eq(jobTypes.slug, slug))
-    .returning()
+  const updated = await update(jobTypes, slug, updates)
 
   if (!updated) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -128,19 +123,14 @@ export async function DELETE(
     return NextResponse.json({ error: 'Cannot delete the fallback job type "other".' }, { status: 400 })
   }
 
-  const [exists] = await db.select().from(jobTypes).where(eq(jobTypes.slug, slug)).limit(1)
+  const exists = await get(jobTypes, slug)
   if (!exists) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
   try {
-    await db.transaction(async (tx) => {
-      await tx
-        .update(ticketTimeTracker)
-        .set({ jobType: 'other' })
-        .where(eq(ticketTimeTracker.jobType, slug))
-      await tx.delete(jobTypes).where(eq(jobTypes.slug, slug))
-    })
+    await updateWhere(ticketTimeTracker, [['jobType', '==', slug]], { jobType: 'other' })
+    await remove(jobTypes, slug)
     await logSettingsDeleted({
       session,
       entityType: 'job_type',

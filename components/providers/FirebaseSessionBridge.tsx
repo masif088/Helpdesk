@@ -1,13 +1,13 @@
 'use client'
 
 import { getAuth, signInWithCustomToken, signOut as firebaseSignOut } from 'firebase/auth'
-import { useSession } from 'next-auth/react'
 import { useEffect, useRef } from 'react'
 
+import { useSession } from '@/lib/auth-client'
 import { getFirebaseApp, isFirebaseClientConfigured } from '@/lib/firebase/client'
 
 /**
- * After NextAuth session exists, signs into Firebase Auth with a custom token (same uid as app user)
+ * After the app session exists, signs the browser into Firebase Auth with a custom token (same uid as app user)
  * so Firestore listeners and security rules work without Firebase password login.
  */
 export default function FirebaseSessionBridge() {

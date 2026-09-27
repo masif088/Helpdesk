@@ -1,4 +1,4 @@
-import { appSettings, db } from '@/lib/db'
+import { appSettings, find, upsert } from '@/lib/fsdb'
 
 export type AppSettingsMap = {
   app_name: string
@@ -16,7 +16,7 @@ const DEFAULTS: AppSettingsMap = {
 
 /** Fetch all app settings from DB and return as a typed map. Falls back to defaults for missing keys. */
 export async function getAppSettings(): Promise<AppSettingsMap> {
-  const rows = await db.select().from(appSettings)
+  const rows = await find(appSettings)
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value])) as Record<string, string | null>
   return {
     app_name: map['app_name'] ?? DEFAULTS.app_name,
@@ -36,8 +36,5 @@ export function formatFromHeader(senderName: string | null, email: string): stri
 
 /** Upsert a single setting. */
 export async function setAppSetting(key: keyof AppSettingsMap, value: string | null) {
-  await db
-    .insert(appSettings)
-    .values({ key, value, updatedAt: new Date() })
-    .onConflictDoUpdate({ target: appSettings.key, set: { value, updatedAt: new Date() } })
+  await upsert(appSettings, { key, value, updatedAt: new Date() })
 }

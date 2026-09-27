@@ -1,10 +1,9 @@
-import { eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { maskApiKey } from '@/lib/ai-settings-utils'
 import { canAccessAiSettings } from '@/lib/auth-utils'
-import { aiSettings, db } from '@/lib/db'
+import { aiSettings, get, remove, update } from '@/lib/fsdb'
 
 const PLACEHOLDER = '***'
 
@@ -40,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params
   const body = await req.json().catch(() => ({}))
 
-  const [existing] = await db.select().from(aiSettings).where(eq(aiSettings.id, id)).limit(1)
+  const existing = await get(aiSettings, id)
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const validProviders = ['openai', 'codex']
@@ -54,9 +53,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return incoming.trim() || null
   }
 
-  const [updated] = await db
-    .update(aiSettings)
-    .set({
+  const updated = await update(aiSettings, id, {
       name: body.name?.trim() ?? existing.name,
       provider: body.provider ?? existing.provider,
       openaiApiKey: resolve(body.openaiApiKey, existing.openaiApiKey),
@@ -68,8 +65,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       updatedAt: new Date(),
       updatedBy: session.user.id,
     })
-    .where(eq(aiSettings.id, id))
-    .returning()
+  if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   return NextResponse.json({ data: rowToDto(updated) })
 }
@@ -80,12 +76,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-  const [existing] = await db.select().from(aiSettings).where(eq(aiSettings.id, id)).limit(1)
+  const existing = await get(aiSettings, id)
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (existing.isActive) {
     return NextResponse.json({ error: 'Cannot delete the active configuration. Activate another one first.' }, { status: 400 })
   }
 
-  await db.delete(aiSettings).where(eq(aiSettings.id, id))
+  await remove(aiSettings, id)
   return NextResponse.json({ ok: true })
 }

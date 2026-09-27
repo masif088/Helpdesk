@@ -1,9 +1,8 @@
-import { desc, eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdminOrManager } from '@/lib/auth-utils'
-import { db, recurringTicketRuns, recurringTickets } from '@/lib/db'
+import { deleteRecurringTicketCascade, find, get, recurringTicketRuns, recurringTickets, update } from '@/lib/fsdb'
 import { computeNextRunAt, type Frequency, normalizeSpecificDates } from '@/lib/recurring-ticket-schedule'
 import { isTicketVisibilityLevel } from '@/lib/ticket-visibility'
 
@@ -26,20 +25,15 @@ export async function GET(
 
   const { id } = await params
 
-  const [rule] = await db
-    .select()
-    .from(recurringTickets)
-    .where(eq(recurringTickets.id, id))
-    .limit(1)
+  const rule = await get(recurringTickets, id)
 
   if (!rule) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const runs = await db
-    .select()
-    .from(recurringTicketRuns)
-    .where(eq(recurringTicketRuns.recurringTicketId, id))
-    .orderBy(desc(recurringTicketRuns.ranAt))
-    .limit(20)
+  const runs = await find(recurringTicketRuns, {
+    where: [['recurringTicketId', '==', id]],
+    orderBy: [['ranAt', 'desc']],
+    limit: 20,
+  })
 
   return NextResponse.json({ data: rule, runs })
 }
@@ -57,11 +51,7 @@ export async function PATCH(
   const { id } = await params
   const body = await req.json().catch(() => ({}))
 
-  const [existing] = await db
-    .select()
-    .from(recurringTickets)
-    .where(eq(recurringTickets.id, id))
-    .limit(1)
+  const existing = await get(recurringTickets, id)
 
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -124,19 +114,15 @@ export async function PATCH(
         startDate: merged.startDate,
         endDate: merged.endDate,
       }
-      updates.nextRunAt = computeNextRunAt(schedule, new Date()) ?? undefined
+      updates.nextRunAt = computeNextRunAt(schedule, new Date()) ?? null
     } else {
-      updates.nextRunAt = undefined
+      updates.nextRunAt = null
     }
   }
 
   updates.updatedAt = new Date()
 
-  const [updated] = await db
-    .update(recurringTickets)
-    .set(updates)
-    .where(eq(recurringTickets.id, id))
-    .returning()
+  const updated = await update(recurringTickets, id, updates)
 
   return NextResponse.json({ data: updated })
 }
@@ -153,7 +139,7 @@ export async function DELETE(
 
   const { id } = await params
 
-  await db.delete(recurringTickets).where(eq(recurringTickets.id, id))
+  await deleteRecurringTicketCascade(id)
 
   return NextResponse.json({ ok: true })
 }

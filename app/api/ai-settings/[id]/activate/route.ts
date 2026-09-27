@@ -1,9 +1,8 @@
-import { eq, ne } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessAiSettings } from '@/lib/auth-utils'
-import { aiSettings, db } from '@/lib/db'
+import { aiSettings, get, update, updateWhere } from '@/lib/fsdb'
 
 /** POST /api/ai-settings/:id/activate — set this row as active, deactivate all others */
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -14,14 +13,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const { id } = await params
-  const [target] = await db.select().from(aiSettings).where(eq(aiSettings.id, id)).limit(1)
+  const target = await get(aiSettings, id)
   if (!target) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  // Deactivate all others, then activate target — in a transaction
-  await db.transaction(async (tx) => {
-    await tx.update(aiSettings).set({ isActive: false }).where(ne(aiSettings.id, id))
-    await tx.update(aiSettings).set({ isActive: true, updatedAt: new Date(), updatedBy: session.user.id }).where(eq(aiSettings.id, id))
-  })
+  // Deactivate all others, then activate target
+  await updateWhere(aiSettings, [['isActive', '==', true]], { isActive: false })
+  await update(aiSettings, id, { isActive: true, updatedAt: new Date(), updatedBy: session.user.id })
 
   return NextResponse.json({ ok: true })
 }

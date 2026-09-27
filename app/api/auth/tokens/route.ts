@@ -1,8 +1,7 @@
-import { desc,eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { apiTokens,db } from '@/lib/db'
+import { apiTokens, find } from '@/lib/fsdb'
 
 /** GET /api/auth/tokens - List API tokens for current user */
 export async function GET() {
@@ -11,11 +10,10 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const rows = await db
-    .select()
-    .from(apiTokens)
-    .where(eq(apiTokens.userId, session.user.id))
-    .orderBy(desc(apiTokens.createdAt))
+  const rows = await find(apiTokens, {
+    where: [['userId', '==', session.user.id]],
+    orderBy: [['createdAt', 'desc']],
+  })
 
   const tokens = rows.map((r) => ({
     id: r.id,

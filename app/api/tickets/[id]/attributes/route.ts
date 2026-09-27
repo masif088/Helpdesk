@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, ticketAttributs } from '@/lib/db'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
+import { insert, ticketAttributs } from '@/lib/fsdb'
 import { logTicketActivity, type TicketActorRole } from '@/lib/ticket-activity-log'
 
 /** POST /api/tickets/[id]/attributes - Add attribute */
@@ -25,14 +24,11 @@ export async function POST(
   const body = await request.json()
   const { meta_key, meta_value } = body
 
-  const [row] = await db
-    .insert(ticketAttributs)
-    .values({
-      ticketId,
-      metaKey: meta_key || 'key',
-      metaValue: meta_value ?? null,
-    })
-    .returning()
+  const row = await insert(ticketAttributs, {
+    ticketId,
+    metaKey: meta_key || 'key',
+    metaValue: meta_value ?? null,
+  })
 
   if (!row) {
     return NextResponse.json({ error: 'Failed to create attribute' }, { status: 500 })

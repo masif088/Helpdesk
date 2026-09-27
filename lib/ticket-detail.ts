@@ -2,17 +2,18 @@
  * Server-side helper to fetch full ticket detail for detail page
  * Replaces Supabase queries
  */
-import { and, asc, desc, eq, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm'
-import { alias } from 'drizzle-orm/pg-core'
-
 import { customerCanAccessTicket } from '@/lib/customer-ticket-access'
-import { db } from '@/lib/db'
 import {
   commentAttachments,
   companies,
+  find,
+  findBy,
+  get,
+  getManyMap,
   projects,
   projectStatuses,
   screenshots,
+  sortRows,
   tags,
   teams,
   ticketAssignees,
@@ -20,18 +21,16 @@ import {
   ticketCcRecipients,
   ticketChecklist,
   ticketComments,
+  type TicketCommentsRow,
   tickets,
   ticketTags,
   ticketTypes,
   users,
-} from '@/lib/db'
+  type UsersRow,
+} from '@/lib/fsdb'
 import { getPublicUrl } from '@/lib/storage-idrive'
 import { mapChecklistItemToDto } from '@/lib/ticket-checklist-map'
 import { coerceTicketType } from '@/lib/ticket-classification'
-
-const ticketCreator = alias(users, 'ticket_creator')
-const ticketContactUser = alias(users, 'ticket_contact_user')
-const commentEditor = alias(users, 'comment_editor')
 
 /** Initial / per-page comment batch size (newest-first window; UI shows oldest-at-top within batch). */
 export const TICKET_COMMENTS_PAGE_SIZE = 10
@@ -48,24 +47,25 @@ export interface TicketDetailOptions {
 }
 
 type CommentRowJoined = {
-  comment: (typeof ticketComments.$inferSelect)
-  user: typeof users.$inferSelect | null
-  editor: typeof users.$inferSelect | null
+  comment: TicketCommentsRow
+  user: UsersRow | null
+  editor: UsersRow | null
 }
 
 function isCustomerPortalView(options?: TicketDetailOptions): boolean {
   return !!(options?.customerPortal || options?.companyId)
 }
 
-function commentsBaseWhere(ticketId: number, options?: TicketDetailOptions) {
-  const ticketScope = eq(ticketComments.ticketId, ticketId)
-  if (isCustomerPortalView(options)) {
-    return and(
-      ticketScope,
-      or(isNull(ticketComments.visibility), ne(ticketComments.visibility, 'note'))
-    )!
-  }
-  return ticketScope
+/** All comments of a ticket visible to this audience, newest first (createdAt desc, id desc). */
+async function loadVisibleCommentsDesc(ticketId: number, options?: TicketDetailOptions): Promise<TicketCommentsRow[]> {
+  const rows = await findBy(ticketComments, { ticketId })
+  const visible = isCustomerPortalView(options) ? rows.filter((c) => c.visibility !== 'note') : rows
+  return sortRows(visible, [['createdAt', 'desc'], ['id', 'desc']])
+}
+
+function isOlderThan(c: TicketCommentsRow, d: Date, beforeId: string): boolean {
+  const t = c.createdAt ? new Date(c.createdAt).getTime() : 0
+  return t < d.getTime() || (t === d.getTime() && c.id < beforeId)
 }
 
 async function mapCommentRowsToClient(rows: CommentRowJoined[]) {
@@ -73,25 +73,13 @@ async function mapCommentRowsToClient(rows: CommentRowJoined[]) {
 
   const commentIds = rows.map((r) => r.comment.id)
   const allTaggedIds = [...new Set(rows.flatMap((r) => r.comment.taggedUserIds ?? []))]
-  const taggedUserRows =
-    allTaggedIds.length > 0
-      ? await db
-          .select({ id: users.id, fullName: users.fullName, email: users.email })
-          .from(users)
-          .where(inArray(users.id, allTaggedIds))
-      : []
+  const taggedUserMap = await getManyMap(users, allTaggedIds)
   const taggedUserById: Record<string, { id: string; full_name: string | null; email: string }> = {}
-  for (const u of taggedUserRows) {
+  for (const u of taggedUserMap.values()) {
     taggedUserById[u.id] = { id: u.id, full_name: u.fullName, email: u.email }
   }
 
-  const commentAttachRows =
-    commentIds.length > 0
-      ? await db
-          .select()
-          .from(commentAttachments)
-          .where(inArray(commentAttachments.commentId, commentIds))
-      : []
+  const commentAttachRows = await find(commentAttachments, { where: [['commentId', 'in', commentIds]] })
 
   const commentAttachByCommentId: Record<string, Array<{ id: string; file_url: string; file_name: string }>> = {}
   for (const row of commentAttachRows) {
@@ -142,32 +130,25 @@ export async function fetchTicketCommentsWindow(
   olderThan: TicketCommentOlderCursor | null,
   pageSize: number = TICKET_COMMENTS_PAGE_SIZE
 ) {
-  const base = commentsBaseWhere(ticketId, options)
-  let whereClause = base
+  const all = await loadVisibleCommentsDesc(ticketId, options)
+  let candidates = all
   if (mode === 'older' && olderThan) {
     const d = new Date(olderThan.created_at)
-    const beforeId = olderThan.id
-    whereClause = and(
-      base,
-      or(lt(ticketComments.createdAt, d), and(eq(ticketComments.createdAt, d), sql`${ticketComments.id}::text < ${beforeId}`))
-    )!
+    candidates = all.filter((c) => isOlderThan(c, d, olderThan.id))
   }
 
-  const descRows = await db
-    .select({
-      comment: ticketComments,
-      user: users,
-      editor: commentEditor,
-    })
-    .from(ticketComments)
-    .leftJoin(users, eq(ticketComments.userId, users.id))
-    .leftJoin(commentEditor, eq(ticketComments.editedByUserId, commentEditor.id))
-    .where(whereClause)
-    .orderBy(desc(ticketComments.createdAt), desc(ticketComments.id))
-    .limit(pageSize + 1)
-
-  const hasOlder = descRows.length > pageSize
-  const batch = hasOlder ? descRows.slice(0, pageSize) : descRows
+  const pageWindow = candidates.slice(0, pageSize + 1)
+  const hasOlder = pageWindow.length > pageSize
+  const batchComments = hasOlder ? pageWindow.slice(0, pageSize) : pageWindow
+  const peopleById = await getManyMap(
+    users,
+    batchComments.flatMap((c) => [c.userId, c.editedByUserId])
+  )
+  const batch: CommentRowJoined[] = batchComments.map((comment) => ({
+    comment,
+    user: peopleById.get(comment.userId) ?? null,
+    editor: comment.editedByUserId ? peopleById.get(comment.editedByUserId) ?? null : null,
+  }))
   const chronological: CommentRowJoined[] = [...batch].reverse()
 
   const comments = await mapCommentRowsToClient(chronological)
@@ -184,47 +165,25 @@ export async function fetchTicketCommentsWindow(
   let comments_older_remaining = 0
   if (hasOlder && oldest) {
     const d = oldest.createdAt ? new Date(oldest.createdAt) : new Date(0)
-    const beforeId = oldest.id
-    const olderThanBase = and(
-      base,
-      or(
-        lt(ticketComments.createdAt, d),
-        and(eq(ticketComments.createdAt, d), sql`${ticketComments.id}::text < ${beforeId}`)
-      )!
-    )!
-    const [cntRow] = await db
-      .select({ c: sql<number>`count(*)::int` })
-      .from(ticketComments)
-      .where(olderThanBase)
-    comments_older_remaining = Number(cntRow?.c ?? 0)
+    comments_older_remaining = all.filter((c) => isOlderThan(c, d, oldest.id)).length
   }
 
   return { comments, comments_has_older: hasOlder, comments_older_cursor, comments_older_remaining }
 }
 
 export async function getTicketDetail(ticketId: number, options?: TicketDetailOptions) {
-  const [ticketRow] = await db
-    .select({
-      ticket: tickets,
-      creator: ticketCreator,
-      contact: ticketContactUser,
-      team: teams,
-      type: ticketTypes,
-      company: companies,
-      project: projects,
-    })
-    .from(tickets)
-    .leftJoin(ticketCreator, eq(tickets.createdBy, ticketCreator.id))
-    .leftJoin(ticketContactUser, eq(tickets.contactUserId, ticketContactUser.id))
-    .leftJoin(teams, eq(tickets.teamId, teams.id))
-    .leftJoin(ticketTypes, eq(tickets.typeId, ticketTypes.id))
-    .leftJoin(companies, eq(tickets.companyId, companies.id))
-    .leftJoin(projects, eq(tickets.projectId, projects.id))
-    .where(eq(tickets.id, ticketId))
+  const t = await get(tickets, ticketId)
+  if (!t) return null
 
-  if (!ticketRow?.ticket) return null
-
-  const t = ticketRow.ticket
+  const [creator, contact, team, type, company, project] = await Promise.all([
+    get(users, t.createdBy),
+    get(users, t.contactUserId),
+    get(teams, t.teamId),
+    get(ticketTypes, t.typeId),
+    get(companies, t.companyId),
+    get(projects, t.projectId),
+  ])
+  const ticketRow = { creator, contact, team, type, company, project }
   if (options?.customerPortal) {
     const { userId, companyId } = options.customerPortal
     if (!customerCanAccessTicket(
@@ -243,68 +202,33 @@ export async function getTicketDetail(ticketId: number, options?: TicketDetailOp
     if (cls === 'spam' || cls === 'trash' || cls === 'project') return null
   }
 
-  const [assigneesRows, checklistRows, attributsRows, screenshotsRows, ticketTagsRows, ccRecipientsRows] =
+  const [assigneeLinks, checklistItemsRaw, attributsRows, screenshotsRows, ticketTagLinks, ccRecipientsRows] =
     await Promise.all([
-      db
-        .select({
-          id: ticketAssignees.id,
-          userId: ticketAssignees.userId,
-          user: users,
-        })
-        .from(ticketAssignees)
-        .leftJoin(users, eq(ticketAssignees.userId, users.id))
-        .where(eq(ticketAssignees.ticketId, ticketId)),
-      (async () => {
-        try {
-          return await db
-            .select({
-              item: ticketChecklist,
-              completedBy: users,
-            })
-            .from(ticketChecklist)
-            .leftJoin(users, eq(ticketChecklist.completedByUserId, users.id))
-            .where(eq(ticketChecklist.ticketId, ticketId))
-            .orderBy(asc(ticketChecklist.orderIndex))
-        } catch {
-          return []
-        }
-      })(),
-      (async () => {
-        try {
-          return await db
-            .select()
-            .from(ticketAttributs)
-            .where(eq(ticketAttributs.ticketId, ticketId))
-            .orderBy(asc(ticketAttributs.metaKey))
-        } catch {
-          return []
-        }
-      })(),
-      db
-        .select()
-        .from(screenshots)
-        .where(
-          options?.screenshotUserId
-            ? and(eq(screenshots.ticketId, ticketId), eq(screenshots.userId, options.screenshotUserId))
-            : eq(screenshots.ticketId, ticketId)
-        )
-        .orderBy(desc(screenshots.createdAt)),
-      db
-        .select({ tag: tags })
-        .from(ticketTags)
-        .leftJoin(tags, eq(ticketTags.tagId, tags.id))
-        .where(eq(ticketTags.ticketId, ticketId)),
-      (async () => {
-        try {
-          return await db
-            .select({ email: ticketCcRecipients.email })
-            .from(ticketCcRecipients)
-            .where(eq(ticketCcRecipients.ticketId, ticketId))
-        } catch {
-          return []
-        }
-      })(),
+      findBy(ticketAssignees, { ticketId }),
+      findBy(ticketChecklist, { ticketId }),
+      findBy(ticketAttributs, { ticketId }),
+      findBy(
+        screenshots,
+        options?.screenshotUserId ? { ticketId, userId: options.screenshotUserId } : { ticketId }
+      ).then((rows) => sortRows(rows, [['createdAt', 'desc']])),
+      findBy(ticketTags, { ticketId }),
+      findBy(ticketCcRecipients, { ticketId }),
     ])
+
+  const [peopleById, tagById] = await Promise.all([
+    getManyMap(users, [
+      ...assigneeLinks.map((a) => a.userId),
+      ...checklistItemsRaw.map((c) => c.completedByUserId),
+    ]),
+    getManyMap(tags, ticketTagLinks.map((l) => l.tagId)),
+  ])
+  const assigneesRows = assigneeLinks.map((a) => ({ id: a.id, userId: a.userId, user: peopleById.get(a.userId) ?? null }))
+  const checklistRows = sortRows(checklistItemsRaw, [['orderIndex', 'asc']]).map((item) => ({
+    item,
+    completedBy: item.completedByUserId ? peopleById.get(item.completedByUserId) ?? null : null,
+  }))
+  const ticketTagsRows = ticketTagLinks.map((l) => ({ tag: tagById.get(l.tagId) ?? null }))
+  attributsRows.sort((a, b) => a.metaKey.localeCompare(b.metaKey))
 
   const {
     comments,
@@ -318,11 +242,10 @@ export async function getTicketDetail(ticketId: number, options?: TicketDetailOp
   let project_statuses: Array<{ id: number; title: string; slug: string; color: string; sort_order: number }> = []
 
   if (ticketTypeCls === 'project' && t.projectId) {
-    const psRows = await db
-      .select()
-      .from(projectStatuses)
-      .where(eq(projectStatuses.projectId, t.projectId))
-      .orderBy(asc(projectStatuses.sortOrder))
+    const psRows = await find(projectStatuses, {
+      where: [['projectId', '==', t.projectId]],
+      orderBy: [['sortOrder', 'asc']],
+    })
     project_statuses = psRows.map((r) => ({
       id: r.id,
       title: r.title,

@@ -1,18 +1,16 @@
-import bcrypt from 'bcryptjs'
-import { eq, inArray } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { createAppUser, findUserByEmail } from '@/lib/app-users'
 import { isCompanyPortalAdmin, userBelongsToCompany } from '@/lib/customer-company'
-import { companies, companyUsers, db, users } from '@/lib/db'
+import { companies, companyUsers, findBy, get, getMany, users } from '@/lib/fsdb'
 import { upsertCompanyUserMembership } from '@/lib/upsert-company-user-membership'
 
 async function mergedCustomerRows(companyId: string) {
-  const byCompanyId = await db.select().from(users).where(eq(users.companyId, companyId))
-  const cuRows = await db.select().from(companyUsers).where(eq(companyUsers.companyId, companyId))
+  const [byCompanyId, cuRows] = await Promise.all([findBy(users, { companyId }), findBy(companyUsers, { companyId })])
   const byId = new Map(byCompanyId.map((u) => [u.id, u]))
   const cuOnlyIds = cuRows.map((r) => r.userId).filter((uid) => !byId.has(uid))
-  const extra = cuOnlyIds.length ? await db.select().from(users).where(inArray(users.id, cuOnlyIds)) : []
+  const extra = await getMany(users, cuOnlyIds)
   const cuMap = new Map(cuRows.map((r) => [r.userId, r]))
   const merged = [...byCompanyId, ...extra]
   return merged
@@ -49,7 +47,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const [companyRow] = await db.select({ id: companies.id }).from(companies).where(eq(companies.id, companyId)).limit(1)
+  const companyRow = await get(companies, companyId)
   if (!companyRow) {
     return NextResponse.json({ error: 'Company not found' }, { status: 404 })
   }
@@ -93,24 +91,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
   }
 
-  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1)
+  const existing = await findUserByEmail(email)
   if (existing) {
     return NextResponse.json({ error: 'Email already registered' }, { status: 400 })
   }
 
-  const passwordHash = await bcrypt.hash(password, 10)
-
-  const [row] = await db
-    .insert(users)
-    .values({
-      email,
-      passwordHash,
-      fullName: full_name || null,
-      role: 'customer',
-      status: 'active',
-      companyId,
-    })
-    .returning()
+  const row = await createAppUser({
+    email,
+    password,
+    fullName: full_name || null,
+    role: 'customer',
+    status: 'active',
+    companyId,
+  })
 
   if (!row) {
     return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })

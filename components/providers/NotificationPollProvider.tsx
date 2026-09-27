@@ -2,8 +2,9 @@
 
 import { App } from 'antd'
 import { useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import { createContext, type ReactNode,useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+
+import { useSession } from '@/lib/auth-client'
 
 /** One global interval — keeps /api/notifications traffic low */
 export const NOTIFICATION_POLL_INTERVAL_MS = 120_000

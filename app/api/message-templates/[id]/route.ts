@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessMessageTemplates } from '@/lib/auth-utils'
-import { db, messageTemplates } from '@/lib/db'
+import { get, messageTemplates, update } from '@/lib/fsdb'
 
 function assertAdmin(session: { user?: { role?: string } } | null) {
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -23,7 +22,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params
   if (!id) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
 
-  const [row] = await db.select().from(messageTemplates).where(eq(messageTemplates.id, id)).limit(1)
+  const row = await get(messageTemplates, id)
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   return NextResponse.json({
@@ -94,11 +93,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
   }
 
-  const [row] = await db
-    .update(messageTemplates)
-    .set(updates)
-    .where(eq(messageTemplates.id, id))
-    .returning()
+  const row = await update(messageTemplates, id, updates)
 
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 

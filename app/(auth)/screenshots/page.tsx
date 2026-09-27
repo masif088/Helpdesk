@@ -1,8 +1,6 @@
-import { desc,eq } from 'drizzle-orm'
-
 import { auth } from '@/auth'
 import ScreenshotsContent from '@/components/content/settings/ScreenshotsContent'
-import { db, screenshots, tickets } from '@/lib/db'
+import { find, getManyMap, screenshots, tickets } from '@/lib/fsdb'
 
 export default async function ScreenshotsPage() {
   const session = await auth()
@@ -11,15 +9,15 @@ export default async function ScreenshotsPage() {
     return null
   }
 
-  const screenshotsRows = await db
-    .select({
-      screenshot: screenshots,
-      ticket: tickets,
-    })
-    .from(screenshots)
-    .leftJoin(tickets, eq(screenshots.ticketId, tickets.id))
-    .where(eq(screenshots.userId, session.user.id!))
-    .orderBy(desc(screenshots.createdAt))
+  const shots = await find(screenshots, {
+    where: [['userId', '==', session.user.id]],
+    orderBy: [['createdAt', 'desc']],
+  })
+  const ticketById = await getManyMap(tickets, shots.map((s) => s.ticketId))
+  const screenshotsRows = shots.map((screenshot) => ({
+    screenshot,
+    ticket: screenshot.ticketId != null ? ticketById.get(String(screenshot.ticketId)) ?? null : null,
+  }))
 
   const screenshotsData = screenshotsRows.map((r) => ({
     id: r.screenshot.id,
@@ -39,11 +37,7 @@ export default async function ScreenshotsPage() {
       : null,
   }))
 
-  const ticketsRows = await db
-    .select({ id: tickets.id, title: tickets.title, status: tickets.status, dueDate: tickets.dueDate })
-    .from(tickets)
-    .orderBy(desc(tickets.createdAt))
-    .limit(100)
+  const ticketsRows = await find(tickets, { orderBy: [['createdAt', 'desc']], limit: 100 })
 
   const ticketsData = ticketsRows.map((t) => ({
     id: t.id,

@@ -1,9 +1,7 @@
-import { asc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { tags } from '@/lib/db'
+import { find, insert, tags } from '@/lib/fsdb'
 import { logSettingsCreated } from '@/lib/settings-activity-log'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 
@@ -14,7 +12,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const rows = await db.select().from(tags).orderBy(asc(tags.name))
+  const rows = await find(tags, { orderBy: [['name', 'asc']] })
 
   const data = rows.map((r) => ({
     id: r.id,
@@ -42,14 +40,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'name and slug required' }, { status: 400 })
   }
 
-  const [inserted] = await db
-    .insert(tags)
-    .values({
-      name: String(name).trim(),
-      slug: String(slug).trim().toLowerCase().replace(/\s+/g, '_'),
-      color: color || '#000000',
-    })
-    .returning()
+  const normalizedSlug = String(slug).trim().toLowerCase().replace(/\s+/g, '_')
+  if ((await find(tags, { where: [['slug', '==', normalizedSlug]], limit: 1 })).length > 0) {
+    return NextResponse.json({ error: 'A tag with this slug already exists' }, { status: 409 })
+  }
+  const inserted = await insert(tags, {
+    name: String(name).trim(),
+    slug: normalizedSlug,
+    color: color || '#000000',
+  })
 
   if (!inserted) {
     return NextResponse.json({ error: 'Insert failed' }, { status: 500 })

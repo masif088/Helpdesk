@@ -2,11 +2,11 @@
 
 import { LockOutlined } from '@ant-design/icons'
 import { Button, Card, Form, Input, Layout, message,Typography } from 'antd'
-import { signIn, signOut } from 'next-auth/react'
 import { useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import { signIn, signOut } from '@/lib/auth-client'
 
 const { Content } = Layout
 const { Title, Text } = Typography
@@ -53,15 +53,10 @@ export default function ChangePasswordContent({ user }: ChangePasswordContentPro
 
       message.success('Password changed successfully! Redirecting…')
       form.resetFields()
-      // Sign out to clear the old JWT (which may still have mustChangePassword: true),
-      // then sign in fresh so middleware sees mustChangePassword: false immediately.
+      // The password change revokes existing Firebase sessions — sign in again with the new password.
       await signOut({ redirect: false })
-      const result = await signIn('credentials', {
-        email: user.email!,
-        password: values.newPassword,
-        redirect: false,
-      })
-      window.location.href = result?.ok ? '/dashboard' : '/login'
+      const result = await signIn(user.email!, values.newPassword)
+      window.location.href = result.ok ? '/dashboard' : '/login'
     } catch (error) {
       message.error((error as Error).message || 'An error occurred while changing password')
     } finally {

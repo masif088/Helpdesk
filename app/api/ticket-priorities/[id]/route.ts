@@ -1,9 +1,7 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { ticketPriorities } from '@/lib/db'
+import { get, type Patch, remove, ticketPriorities, update } from '@/lib/fsdb'
 import { logSettingsDeleted, logSettingsUpdated } from '@/lib/settings-activity-log'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 
@@ -39,16 +37,12 @@ export async function PATCH(
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
   }
 
-  const [current] = await db.select().from(ticketPriorities).where(eq(ticketPriorities.id, priorityId)).limit(1)
+  const current = await get(ticketPriorities, priorityId)
   if (!current) {
     return NextResponse.json({ error: 'Priority not found' }, { status: 404 })
   }
 
-  const [updated] = await db
-    .update(ticketPriorities)
-    .set(values as typeof ticketPriorities.$inferInsert)
-    .where(eq(ticketPriorities.id, priorityId))
-    .returning()
+  const updated = await update(ticketPriorities, priorityId, values as Patch<typeof ticketPriorities.$inferSelect>)
 
   if (!updated) {
     return NextResponse.json({ error: 'Priority not found' }, { status: 404 })
@@ -101,15 +95,12 @@ export async function DELETE(
   }
 
   try {
-    const [current] = await db.select().from(ticketPriorities).where(eq(ticketPriorities.id, priorityId)).limit(1)
+    const current = await get(ticketPriorities, priorityId)
     if (!current) {
       return NextResponse.json({ error: 'Priority not found' }, { status: 404 })
     }
 
-    const [deleted] = await db
-      .delete(ticketPriorities)
-      .where(eq(ticketPriorities.id, priorityId))
-      .returning({ id: ticketPriorities.id })
+    const deleted = await remove(ticketPriorities, priorityId)
 
     if (!deleted) {
       return NextResponse.json({ error: 'Priority not found' }, { status: 404 })

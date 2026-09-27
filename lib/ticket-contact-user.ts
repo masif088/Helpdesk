@@ -1,23 +1,16 @@
-import { asc, eq } from 'drizzle-orm'
-
-import { companyUsers, db, users } from '@/lib/db'
+import { companyUsers, find, get, users } from '@/lib/fsdb'
 
 /**
  * Primary company for a user: `users.company_id`, else earliest `company_users` row.
  */
 export async function getEffectiveCompanyIdForUser(userId: string): Promise<string | null> {
-  const [u] = await db
-    .select({ companyId: users.companyId })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1)
+  const u = await get(users, userId)
   if (u?.companyId) return u.companyId
-  const [cu] = await db
-    .select({ companyId: companyUsers.companyId })
-    .from(companyUsers)
-    .where(eq(companyUsers.userId, userId))
-    .orderBy(asc(companyUsers.createdAt))
-    .limit(1)
+  const [cu] = await find(companyUsers, {
+    where: [['userId', '==', userId]],
+    orderBy: [['createdAt', 'asc']],
+    limit: 1,
+  })
   return cu?.companyId ?? null
 }
 
@@ -29,14 +22,7 @@ export async function assertTicketContactUserAllowed(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!contactUserId) return { ok: true }
 
-  const [u] = await db
-    .select({
-      id: users.id,
-      email: users.email,
-    })
-    .from(users)
-    .where(eq(users.id, contactUserId))
-    .limit(1)
+  const u = await get(users, contactUserId)
 
   if (!u) {
     return { ok: false, error: 'Contact user not found' }

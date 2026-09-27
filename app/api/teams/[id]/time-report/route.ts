@@ -1,10 +1,8 @@
-import { and, desc,eq, gte, inArray, lte } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessTeams } from '@/lib/auth-utils'
-import { db } from '@/lib/db'
-import { teamMembers, tickets, ticketTimeTracker, users } from '@/lib/db'
+import { find, findBy, getManyMap, teamMembers, tickets, ticketTimeTracker, users } from '@/lib/fsdb'
 import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 
 function sessionRole(session: { user?: { role?: string } } | null) {
@@ -37,10 +35,7 @@ export async function GET(
   const startDate = new Date(startParam)
   const endDate = new Date(endParam)
 
-  const membersRows = await db
-    .select({ userId: teamMembers.userId })
-    .from(teamMembers)
-    .where(eq(teamMembers.teamId, teamId))
+  const membersRows = await findBy(teamMembers, { teamId })
   let memberUserIds = membersRows.map((r) => r.userId)
   if (memberUserIds.length === 0) {
     return NextResponse.json([])
@@ -53,23 +48,23 @@ export async function GET(
     memberUserIds = [filterUserId]
   }
 
-  const rows = await db
-    .select({
-      tracker: ticketTimeTracker,
-      ticket: tickets,
-      user: users,
-    })
-    .from(ticketTimeTracker)
-    .leftJoin(tickets, eq(ticketTimeTracker.ticketId, tickets.id))
-    .leftJoin(users, eq(ticketTimeTracker.userId, users.id))
-    .where(
-      and(
-        inArray(ticketTimeTracker.userId, memberUserIds),
-        gte(ticketTimeTracker.startTime, startDate),
-        lte(ticketTimeTracker.startTime, endDate)
-      )
-    )
-    .orderBy(desc(ticketTimeTracker.startTime))
+  const trackers = await find(ticketTimeTracker, {
+    where: [
+      ['userId', 'in', memberUserIds],
+      ['startTime', '>=', startDate],
+      ['startTime', '<=', endDate],
+    ],
+    orderBy: [['startTime', 'desc']],
+  })
+  const [ticketById, userById] = await Promise.all([
+    getManyMap(tickets, trackers.map((t) => t.ticketId)),
+    getManyMap(users, trackers.map((t) => t.userId)),
+  ])
+  const rows = trackers.map((tracker) => ({
+    tracker,
+    ticket: ticketById.get(String(tracker.ticketId)) ?? null,
+    user: userById.get(tracker.userId) ?? null,
+  }))
 
   const result = rows.map((r) => {
     const rep = reportedDurationSeconds({

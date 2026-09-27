@@ -1,80 +1,59 @@
 /**
- * GET /api/auth/check-db — verify DATABASE_URL / DB connectivity (login page only shows errors).
+ * GET /api/auth/check-db — verify Firestore / Firebase Auth connectivity (login page only shows errors).
  */
-import { isNotNull,sql } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/postgres-js'
 import { NextResponse } from 'next/server'
-import postgres from 'postgres'
 
-import { users } from '@/lib/db/schema'
+import { isFirebaseAdminConfigured } from '@/lib/firebase/admin'
+import { count, users } from '@/lib/fsdb'
 
-function getConnectionString() {
-  const url = process.env.DATABASE_URL || ''
-  const idx = url.indexOf('?')
-  if (idx <= 0) return url
-  const params = url.slice(idx + 1).split('&').filter((p) => !p.startsWith('schema='))
-  return url.slice(0, idx) + (params.length ? '?' + params.join('&') : '')
-}
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const connStr = getConnectionString()
-  const host = connStr.includes('@') ? connStr.split('@')[1]?.split('/')[0] : 'unknown'
+  const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'unknown'
 
-  try {
-    const client = postgres(connStr, { prepare: false, max: 1 })
-    const db = drizzle(client)
-
-    // Test query: count users
-    const result = await db.select({ count: sql<number>`count(*)::int` }).from(users)
-    const userCount = result[0]?.count ?? 0
-
-    // Check users that have password_hash
-    const withPassword = await db
-      .select({ email: users.email })
-      .from(users)
-      .where(isNotNull(users.passwordHash))
-      .limit(5)
-    const usersWithPassword = withPassword.length
-
-    await client.end()
-
-    return NextResponse.json({
-      ok: true,
-      host,
-      userCount,
-      usersWithPassword,
-      message: userCount === 0
-        ? 'The users table is empty. Run: npm run db:seed'
-        : usersWithPassword === 0
-          ? 'No users have password_hash set. Run the seed or update password_hash.'
-          : 'DB OK',
-    })
-  } catch (err: unknown) {
-    const e = err as Error & { code?: string; address?: string }
-    let message = e?.message || String(err)
-    const code = e?.code || (err as { code?: string })?.code
-    const cause = e?.cause as Error | undefined
-    const pg = code === '28P01' || /password authentication failed/i.test(message)
-
-    if (pg) {
-      message = 'Wrong password (database). Check the password in DATABASE_URL in .env.'
-    }
-
+  if (!isFirebaseAdminConfigured()) {
     return NextResponse.json(
       {
         ok: false,
-        host,
-        error: message,
-        code,
-        detail: cause?.message,
-        hint:
-          pg
-            ? 'If your password contains @, #, or %, URL-encode them in DATABASE_URL (e.g. %40 for @).'
-            : code === 'ETIMEDOUT' || code === 'ECONNREFUSED'
-              ? 'Check DATABASE_URL in .env and ensure PostgreSQL is running.'
-              : code === 'ENOTFOUND'
-                ? 'Host not found. Special characters in the URL password must be percent-encoded.'
-                : undefined,
+        host: projectId,
+        error: 'Firebase Admin is not configured.',
+        hint: 'Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY in .env.',
+      },
+      { status: 500 }
+    )
+  }
+  if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY && !process.env.FIREBASE_API_KEY) {
+    return NextResponse.json(
+      {
+        ok: false,
+        host: projectId,
+        error: 'Firebase Web API key is not set.',
+        hint: 'Set NEXT_PUBLIC_FIREBASE_API_KEY (Project settings → General → Web API key).',
+      },
+      { status: 500 }
+    )
+  }
+
+  try {
+    const userCount = await count(users)
+    return NextResponse.json({
+      ok: true,
+      host: projectId,
+      userCount,
+      message:
+        userCount === 0
+          ? 'The users collection is empty. Run: npm run db:seed (or import from Postgres).'
+          : 'Firestore OK',
+    })
+  } catch (err: unknown) {
+    const e = err as Error & { code?: string | number }
+    return NextResponse.json(
+      {
+        ok: false,
+        host: projectId,
+        error: e?.message || String(err),
+        code: e?.code != null ? String(e.code) : undefined,
+        hint: 'Check the Firebase service account credentials and that Firestore is enabled for the project.',
       },
       { status: 500 }
     )

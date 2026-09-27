@@ -1,7 +1,6 @@
-import { and,eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
-import { apiTokens,db, screenshots } from '@/lib/db'
+import { apiTokens, findOneBy, get, remove, screenshots, update } from '@/lib/fsdb'
 import { deleteObject } from '@/lib/storage-idrive'
 
 function validateToken(request: Request) {
@@ -11,11 +10,7 @@ function validateToken(request: Request) {
 }
 
 async function getUserIdFromToken(token: string) {
-  const [row] = await db
-    .select({ userId: apiTokens.userId })
-    .from(apiTokens)
-    .where(and(eq(apiTokens.token, token), eq(apiTokens.isActive, true)))
-    .limit(1)
+  const row = await findOneBy(apiTokens, { token, isActive: true })
   return row?.userId ?? null
 }
 
@@ -39,16 +34,16 @@ export async function PATCH(
     const { todo_id, ticket_id, title, description } = body
     const tId = ticket_id ?? todo_id
 
-    const [updated] = await db
-      .update(screenshots)
-      .set({
-        ticketId: tId != null && tId !== '' ? Number(tId) : null,
-        title: title || null,
-        description: description || null,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(screenshots.id, id), eq(screenshots.userId, userId)))
-      .returning()
+    const existing = await get(screenshots, id)
+    const updated =
+      existing && existing.userId === userId
+        ? await update(screenshots, id, {
+            ticketId: tId != null && tId !== '' ? Number(tId) : null,
+            title: title || null,
+            description: description || null,
+            updatedAt: new Date(),
+          })
+        : null
 
     if (!updated) {
       return NextResponse.json({ error: 'Screenshot not found' }, { status: 404 })
@@ -81,19 +76,13 @@ export async function DELETE(
 
     const { id } = await params
 
-    const [row] = await db
-      .select({ filePath: screenshots.filePath })
-      .from(screenshots)
-      .where(and(eq(screenshots.id, id), eq(screenshots.userId, userId)))
-      .limit(1)
+    const row = await get(screenshots, id)
 
-    if (!row) {
+    if (!row || row.userId !== userId) {
       return NextResponse.json({ error: 'Screenshot not found' }, { status: 404 })
     }
 
-    await db
-      .delete(screenshots)
-      .where(and(eq(screenshots.id, id), eq(screenshots.userId, userId)))
+    await remove(screenshots, id)
 
     if (row.filePath) {
       try {

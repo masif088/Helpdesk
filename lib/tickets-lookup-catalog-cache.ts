@@ -1,16 +1,15 @@
-import { asc } from 'drizzle-orm'
 import { revalidateTag, unstable_cache } from 'next/cache'
 
 import {
   companies,
-  db,
+  find,
   tags,
   teams,
   ticketPriorities,
   ticketStatuses,
   ticketTypes,
   users,
-} from '@/lib/db'
+} from '@/lib/fsdb'
 /** Seconds; clamp 30s–24h. Default 30 min if env unset or invalid. */
 const DEFAULT_TICKETS_LOOKUP_CATALOG_REVALIDATE_SEC = 30 * 60
 
@@ -30,59 +29,17 @@ async function loadTicketsLookupCatalog() {
     tagsData,
     statusesData,
   ] = await Promise.all([
-    db.select({ id: teams.id, name: teams.name, type: teams.type }).from(teams).orderBy(asc(teams.name)),
-    db
-      .select({
-        id: users.id,
-        fullName: users.fullName,
-        email: users.email,
-        role: users.role,
-        companyId: users.companyId,
-      })
-      .from(users)
-      .orderBy(asc(users.fullName)),
-    db
-      .select({
-        id: ticketTypes.id,
-        title: ticketTypes.title,
-        slug: ticketTypes.slug,
-        color: ticketTypes.color,
-        isAgentOnly: ticketTypes.isAgentOnly,
-      })
-      .from(ticketTypes)
-      .orderBy(asc(ticketTypes.sortOrder)),
-    db
-      .select({
-        id: ticketPriorities.id,
-        title: ticketPriorities.title,
-        slug: ticketPriorities.slug,
-        color: ticketPriorities.color,
-        sortOrder: ticketPriorities.sortOrder,
-      })
-      .from(ticketPriorities)
-      .orderBy(asc(ticketPriorities.sortOrder)),
-    db
-      .select({ id: companies.id, name: companies.name, color: companies.color, email: companies.email })
-      .from(companies)
-      .orderBy(asc(companies.name)),
-    db.select({ id: tags.id, name: tags.name, slug: tags.slug, color: tags.color }).from(tags).orderBy(asc(tags.name)),
-    db
-      .select({
-        id: ticketStatuses.id,
-        slug: ticketStatuses.slug,
-        title: ticketStatuses.title,
-        customerTitle: ticketStatuses.customerTitle,
-        color: ticketStatuses.color,
-        showInKanban: ticketStatuses.showInKanban,
-        sortOrder: ticketStatuses.sortOrder,
-        isActive: ticketStatuses.isActive,
-      })
-      .from(ticketStatuses)
-      .orderBy(asc(ticketStatuses.sortOrder)),
+    find(teams, { orderBy: [['name', 'asc']] }),
+    find(users, { orderBy: [['fullName', 'asc']] }),
+    find(ticketTypes, { orderBy: [['sortOrder', 'asc']] }),
+    find(ticketPriorities, { orderBy: [['sortOrder', 'asc']] }),
+    find(companies, { orderBy: [['name', 'asc']] }),
+    find(tags, { orderBy: [['name', 'asc']] }),
+    find(ticketStatuses, { orderBy: [['sortOrder', 'asc']] }),
   ])
 
   return {
-    teams: teamsData,
+    teams: teamsData.map((t) => ({ id: t.id, name: t.name, type: t.type })),
     users: usersData.map((u) => ({
       id: u.id,
       full_name: u.fullName,
@@ -90,10 +47,22 @@ async function loadTicketsLookupCatalog() {
       role: u.role,
       company_id: u.companyId ?? null,
     })),
-    ticketTypes: ticketTypesData,
-    ticketPriorities: ticketPrioritiesData,
-    companies: companiesData,
-    tags: tagsData,
+    ticketTypes: ticketTypesData.map((t) => ({
+      id: t.id,
+      title: t.title,
+      slug: t.slug,
+      color: t.color,
+      isAgentOnly: t.isAgentOnly,
+    })),
+    ticketPriorities: ticketPrioritiesData.map((p) => ({
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      color: p.color,
+      sortOrder: p.sortOrder,
+    })),
+    companies: companiesData.map((c) => ({ id: c.id, name: c.name, color: c.color, email: c.email })),
+    tags: tagsData.map((t) => ({ id: t.id, name: t.name, slug: t.slug, color: t.color })),
     statuses: statusesData.map((s) => ({
       id: s.id,
       slug: s.slug,
@@ -110,7 +79,7 @@ async function loadTicketsLookupCatalog() {
 
 /**
  * Shared catalog for `/api/tickets/lookup` (teams, users, types, priorities, companies, tags, statuses).
- * Time-based revalidation lowers Postgres load; user-specific slices stay uncached in the route.
+ * Time-based revalidation lowers Firestore reads; user-specific slices stay uncached in the route.
  */
 export const TICKETS_LOOKUP_CATALOG_TAG = 'tickets-lookup-catalog' as const
 

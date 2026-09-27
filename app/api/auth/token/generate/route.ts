@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { apiTokens,db } from '@/lib/db'
+import { apiTokens, insert } from '@/lib/fsdb'
 
 export async function POST(request: Request) {
   try {
@@ -18,16 +18,13 @@ export async function POST(request: Request) {
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 30)
 
-    const [inserted] = await db
-      .insert(apiTokens)
-      .values({
-        userId: session.user.id,
-        token,
-        name: name || 'Chrome Extension',
-        expiresAt,
-        isActive: true,
-      })
-      .returning()
+    const inserted = await insert(apiTokens, {
+      userId: session.user.id,
+      token,
+      name: name || 'Chrome Extension',
+      expiresAt,
+      isActive: true,
+    })
 
     if (!inserted) {
       return NextResponse.json({ error: 'Failed to create token' }, { status: 500 })

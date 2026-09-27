@@ -1,9 +1,8 @@
-import { and,eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import EmailIntegrationContent from '@/components/content/settings/EmailIntegrationContent'
-import { db, emailIntegrations } from '@/lib/db'
+import { emailIntegrations, findOneBy } from '@/lib/fsdb'
 
 export default async function EmailIntegrationPage() {
   const session = await auth()
@@ -12,19 +11,7 @@ export default async function EmailIntegrationPage() {
     redirect('/login')
   }
 
-  const [integrationRow] = await db
-    .select({
-      id: emailIntegrations.id,
-      provider: emailIntegrations.provider,
-      emailAddress: emailIntegrations.emailAddress,
-      isActive: emailIntegrations.isActive,
-      expiresAt: emailIntegrations.expiresAt,
-      createdAt: emailIntegrations.createdAt,
-      lastSyncAt: emailIntegrations.lastSyncAt,
-    })
-    .from(emailIntegrations)
-    .where(and(eq(emailIntegrations.provider, 'google')))
-    .limit(1)
+  const integrationRow = await findOneBy(emailIntegrations, { provider: 'google' })
 
   const integration = integrationRow
     ? {

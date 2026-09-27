@@ -1,6 +1,4 @@
-import { eq } from 'drizzle-orm'
-
-import { aiSettings, db } from '@/lib/db'
+import { aiSettings, findOneBy } from '@/lib/fsdb'
 
 export type AiChatProvider = 'openai' | 'codex'
 
@@ -39,12 +37,7 @@ export function parseAiChatProvider(raw: string): AiChatProvider {
 /** Load the active AI config row from DB. Returns null if none is active. */
 export async function getAiSettingsFromDb() {
   try {
-    const [row] = await db
-      .select()
-      .from(aiSettings)
-      .where(eq(aiSettings.isActive, true))
-      .limit(1)
-    return row ?? null
+    return await findOneBy(aiSettings, { isActive: true })
   } catch {
     return null
   }

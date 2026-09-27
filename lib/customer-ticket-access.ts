@@ -1,7 +1,5 @@
-import { and, eq, inArray, isNull, not, or, type SQL } from 'drizzle-orm'
-
 import { getCustomerCompanyId } from '@/lib/customer-company'
-import { db, tickets } from '@/lib/db'
+import { find, get, tickets, type TicketsRow } from '@/lib/fsdb'
 import { coerceTicketType } from '@/lib/ticket-classification'
 import {
   isTicketVisibilityLevel,
@@ -57,22 +55,42 @@ export async function customerBlockedVisibilityLevels(): Promise<string[]> {
   )
 }
 
-/** SQL condition for the customer ticket list. */
-export async function customerTicketsAccessCondition(
+/** Access check for the customer ticket list (company tickets + own personal tickets, minus blocked levels). */
+export async function customerTicketsAccessPredicate(
   userId: string,
   customerCompanyId: string | null
-): Promise<SQL> {
-  const personalOwned = and(
-    isNull(tickets.companyId),
-    or(eq(tickets.contactUserId, userId), eq(tickets.createdBy, userId))!
-  )!
-  const scope = customerCompanyId
-    ? or(eq(tickets.companyId, customerCompanyId), personalOwned)!
-    : personalOwned
+): Promise<(t: Pick<TicketsRow, 'companyId' | 'contactUserId' | 'createdBy' | 'visibility'>) => boolean> {
+  const blocked = new Set(await customerBlockedVisibilityLevels())
+  return (t) => {
+    const inScope = t.companyId
+      ? customerCompanyId !== null && t.companyId === customerCompanyId
+      : t.contactUserId === userId || t.createdBy === userId
+    return inScope && !blocked.has(t.visibility)
+  }
+}
 
-  const blocked = await customerBlockedVisibilityLevels()
-  if (blocked.length === 0) return scope
-  return and(scope, not(inArray(tickets.visibility, blocked)))!
+/**
+ * All tickets a customer may see (before type/status filters): company tickets + personal ones.
+ * Indexed equality queries merged; callers filter further in memory.
+ */
+export async function loadCustomerAccessibleTickets(
+  userId: string,
+  customerCompanyId: string | null
+): Promise<TicketsRow[]> {
+  const [byCompany, byContact, byCreator] = await Promise.all([
+    customerCompanyId ? find(tickets, { where: [['companyId', '==', customerCompanyId]] }) : Promise.resolve([]),
+    find(tickets, { where: [['contactUserId', '==', userId], ['companyId', '==', null]] }),
+    find(tickets, { where: [['createdBy', '==', userId], ['companyId', '==', null]] }),
+  ])
+  const allow = await customerTicketsAccessPredicate(userId, customerCompanyId)
+  const seen = new Set<number>()
+  const out: TicketsRow[] = []
+  for (const t of [...byCompany, ...byContact, ...byCreator]) {
+    if (seen.has(t.id) || !allow(t)) continue
+    seen.add(t.id)
+    out.push(t)
+  }
+  return out
 }
 
 export async function assertCustomerMayAccessTicket(
@@ -80,17 +98,7 @@ export async function assertCustomerMayAccessTicket(
   ticketId: number
 ): Promise<{ ok: true } | { ok: false; status: 403 | 404 }> {
   const customerCompanyId = await getCustomerCompanyId(userId)
-  const [trow] = await db
-    .select({
-      companyId: tickets.companyId,
-      contactUserId: tickets.contactUserId,
-      createdBy: tickets.createdBy,
-      ticketType: tickets.ticketType,
-      visibility: tickets.visibility,
-    })
-    .from(tickets)
-    .where(eq(tickets.id, ticketId))
-    .limit(1)
+  const trow = await get(tickets, ticketId)
   if (!trow) return { ok: false, status: 404 }
   if (!customerCanAccessTicket(trow, userId, customerCompanyId)) {
     return { ok: false, status: 403 }

@@ -1,8 +1,7 @@
-import { eq, inArray } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, tickets } from '@/lib/db'
+import { findBy, patchMany, sortRows, tickets } from '@/lib/fsdb'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
 export async function POST(req: NextRequest) {
@@ -13,26 +12,17 @@ export async function POST(req: NextRequest) {
   const companyId: string | undefined = body.company_id
   if (!companyId) return NextResponse.json({ error: 'company_id required' }, { status: 400 })
 
-  const rows = await db
-    .select({ id: tickets.id, status: tickets.status, priority: tickets.priority })
-    .from(tickets)
-    .where(eq(tickets.companyId, companyId))
-    .orderBy(tickets.id)
+  const rows = sortRows(await findBy(tickets, { companyId }), [['id', 'asc']])
 
   // Clear priority from closed tickets that still have one
   const closedWithPriority = rows.filter(
     (r) => isClosedLikeTicketStatus(r.status) && r.priority != null && r.priority !== 0,
   )
   if (closedWithPriority.length > 0) {
-    await db
-      .update(tickets)
-      .set({ priority: null })
-      .where(
-        inArray(
-          tickets.id,
-          closedWithPriority.map((r) => r.id),
-        ),
-      )
+    await patchMany(
+      tickets,
+      closedWithPriority.map((r) => ({ id: r.id, patch: { priority: null } }))
+    )
   }
 
   // Open tickets: keep existing priorities, only assign to those missing one (priority null/0)
@@ -51,17 +41,11 @@ export async function POST(req: NextRequest) {
   // Next rank starts after the highest existing priority
   const maxExisting = withPriority.length > 0 ? Math.max(...withPriority.map((r) => r.priority ?? 0)) : 0
 
-  // Phase 1: negative temps to avoid unique constraint conflicts
-  for (const r of withoutPriority) {
-    await db.update(tickets).set({ priority: -Math.abs(r.id) }).where(eq(tickets.id, r.id))
-  }
-  // Phase 2: assign rank maxExisting+1 .. maxExisting+N
-  for (let i = 0; i < withoutPriority.length; i++) {
-    await db
-      .update(tickets)
-      .set({ priority: maxExisting + i + 1 })
-      .where(eq(tickets.id, withoutPriority[i]!.id))
-  }
+  // Assign rank maxExisting+1 .. maxExisting+N
+  await patchMany(
+    tickets,
+    withoutPriority.map((r, i) => ({ id: r.id, patch: { priority: maxExisting + i + 1 } }))
+  )
 
   return NextResponse.json({ updated: withoutPriority.length, cleared: closedWithPriority.length })
 }

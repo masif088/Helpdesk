@@ -1,8 +1,7 @@
-import { sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
+import { companyDailyActiveAssignments, find, patchMany } from '@/lib/fsdb'
 
 function sessionRole(session: { user?: { role?: string } } | null) {
   return (session?.user as { role?: string } | undefined)?.role
@@ -15,14 +14,16 @@ export async function POST() {
   if ((sessionRole(session) ?? '').toLowerCase() !== 'admin')
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  // EXTRACT(DOW FROM date): 0 = Sunday, 6 = Saturday (PostgreSQL)
-  const result = await db.execute(sql`
-    UPDATE company_daily_active_assignments
-    SET active_time = 0
-    WHERE EXTRACT(DOW FROM snapshot_date::date) IN (0, 6)
-      AND active_time != 0
-  `)
+  // snapshot_date is 'YYYY-MM-DD' (UTC calendar day): 0 = Sunday, 6 = Saturday
+  const nonZero = await find(companyDailyActiveAssignments, { where: [['activeTime', '!=', 0]] })
+  const weekend = nonZero.filter((r) => {
+    const dow = new Date(`${r.snapshotDate}T00:00:00Z`).getUTCDay()
+    return dow === 0 || dow === 6
+  })
+  await patchMany(
+    companyDailyActiveAssignments,
+    weekend.map((r) => ({ id: r.id, patch: { activeTime: 0 } }))
+  )
 
-  const rows = typeof result.count === 'number' ? result.count : null
-  return NextResponse.json({ ok: true, rows_updated: rows })
+  return NextResponse.json({ ok: true, rows_updated: weekend.length })
 }

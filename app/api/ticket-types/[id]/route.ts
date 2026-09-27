@@ -1,9 +1,7 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { ticketTypes } from '@/lib/db'
+import { deleteTicketTypeRestrict, get, type Patch, ticketTypes, update } from '@/lib/fsdb'
 import { logSettingsDeleted, logSettingsUpdated } from '@/lib/settings-activity-log'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 
@@ -40,16 +38,12 @@ export async function PATCH(
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
   }
 
-  const [current] = await db.select().from(ticketTypes).where(eq(ticketTypes.id, typeId)).limit(1)
+  const current = await get(ticketTypes, typeId)
   if (!current) {
     return NextResponse.json({ error: 'Ticket type not found' }, { status: 404 })
   }
 
-  const [updated] = await db
-    .update(ticketTypes)
-    .set(values as typeof ticketTypes.$inferInsert)
-    .where(eq(ticketTypes.id, typeId))
-    .returning()
+  const updated = await update(ticketTypes, typeId, values as Patch<typeof ticketTypes.$inferSelect>)
 
   if (!updated) {
     return NextResponse.json({ error: 'Ticket type not found' }, { status: 404 })
@@ -104,15 +98,12 @@ export async function DELETE(
   }
 
   try {
-    const [current] = await db.select().from(ticketTypes).where(eq(ticketTypes.id, typeId)).limit(1)
+    const current = await get(ticketTypes, typeId)
     if (!current) {
       return NextResponse.json({ error: 'Ticket type not found' }, { status: 404 })
     }
 
-    const [deleted] = await db
-      .delete(ticketTypes)
-      .where(eq(ticketTypes.id, typeId))
-      .returning({ id: ticketTypes.id })
+    const deleted = await deleteTicketTypeRestrict(typeId)
 
     if (!deleted) {
       return NextResponse.json({ error: 'Ticket type not found' }, { status: 404 })

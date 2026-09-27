@@ -1,10 +1,9 @@
-import bcrypt from 'bcryptjs'
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { afterUserRowChanged, setUserPassword } from '@/lib/app-users'
 import { isCompanyPortalAdmin, userBelongsToCompany } from '@/lib/customer-company'
-import { db, users } from '@/lib/db'
+import { get, update, users } from '@/lib/fsdb'
 import { upsertCompanyUserMembership } from '@/lib/upsert-company-user-membership'
 
 const COMPANY_ROLES = ['member', 'company_admin'] as const
@@ -32,7 +31,7 @@ export async function PATCH(
   const sessionRole = (session.user as { role?: string }).role?.toLowerCase()
   const isGlobalAdmin = sessionRole === 'admin'
 
-  const [target] = await db.select().from(users).where(eq(users.id, targetUserId)).limit(1)
+  const target = await get(users, targetUserId)
   if (!target) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
@@ -69,10 +68,8 @@ export async function PATCH(
     if (password.length < 6) {
       return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
     }
-    await db
-      .update(users)
-      .set({ passwordHash: await bcrypt.hash(password, 10), updatedAt: new Date() })
-      .where(eq(users.id, targetUserId))
+    await setUserPassword(target, password)
+    await update(users, targetUserId, { updatedAt: new Date() })
     didSomething = true
   }
 
@@ -93,7 +90,8 @@ export async function PATCH(
         { status: 403 },
       )
     }
-    await db.update(users).set({ status: st, updatedAt: new Date() }).where(eq(users.id, targetUserId))
+    const after = await update(users, targetUserId, { status: st, updatedAt: new Date() })
+    if (after) await afterUserRowChanged(target, after)
     didSomething = true
   }
 

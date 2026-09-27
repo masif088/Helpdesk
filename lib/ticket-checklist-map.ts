@@ -1,4 +1,4 @@
-import type { ticketChecklist, users } from '@/lib/db/schema'
+import type { ticketChecklist, users } from '@/lib/fsdb'
 
 type ChecklistRow = typeof ticketChecklist.$inferSelect
 type CompleterRow = Pick<typeof users.$inferSelect, 'id' | 'fullName' | 'email'> | null | undefined

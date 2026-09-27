@@ -1,7 +1,6 @@
-import { count, sql } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
-import { companies, db } from '@/lib/db'
+import { companies, companyDailyActiveAssignments, find, upsert } from '@/lib/fsdb'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -68,30 +67,19 @@ export async function POST(request: NextRequest) {
     const dow = new Date(Date.UTC(sy, sm - 1, sd)).getUTCDay()
     const isWeekend = dow === 0 || dow === 6
 
-    const [{ n: companyCount }] = await db.select({ n: count() }).from(companies)
+    const allCompanies = await find(companies)
+    const companyCount = allCompanies.length
 
-    const result = await db.execute(sql`
-      INSERT INTO company_daily_active_assignments (
-        company_id,
-        snapshot_date,
-        active_team_id,
-        active_manager_id,
-        active_time
-      )
-      SELECT
-        id,
-        ${snapshotDate}::date,
-        active_team_id,
-        active_manager_id,
-        ${isWeekend ? sql`0` : sql`active_time`}
-      FROM companies
-      ON CONFLICT (company_id, snapshot_date) DO UPDATE SET
-        active_team_id = EXCLUDED.active_team_id,
-        active_manager_id = EXCLUDED.active_manager_id,
-        active_time = EXCLUDED.active_time
-    `)
-
-    const rowsAffected = typeof result.count === 'number' ? result.count : null
+    // One row per company per day (doc key = company + date): insert or refresh the active_* snapshot.
+    for (const c of allCompanies) {
+      const snapshot = {
+        activeTeamId: c.activeTeamId,
+        activeManagerId: c.activeManagerId,
+        activeTime: isWeekend ? 0 : c.activeTime,
+      }
+      await upsert(companyDailyActiveAssignments, { companyId: c.id, snapshotDate, ...snapshot }, snapshot)
+    }
+    const rowsAffected = companyCount
 
     return NextResponse.json({
       ok: true,

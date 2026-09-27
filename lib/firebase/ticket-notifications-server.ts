@@ -1,8 +1,7 @@
-import { inArray } from 'drizzle-orm'
 import { FieldValue } from 'firebase-admin/firestore'
 
-import { db, users } from '@/lib/db'
 import { getFirebaseAdminFirestore } from '@/lib/firebase/admin'
+import { getMany, users } from '@/lib/fsdb'
 
 export type TicketNotificationType =
   | 'mention'
@@ -31,10 +30,7 @@ async function filterRecipientsByRoleAndType(
   const actorIsCustomer = actor === 'customer'
   if (recipientUserIds.length === 0) return []
 
-  const rows = await db
-    .select({ id: users.id, role: users.role })
-    .from(users)
-    .where(inArray(users.id, recipientUserIds))
+  const rows = await getMany(users, recipientUserIds)
   const roleById = new Map(rows.map((r) => [r.id, (r.role ?? '').toLowerCase().trim()]))
 
   return recipientUserIds.filter((id) => {

@@ -1,20 +1,32 @@
-import { and, count, desc, eq, ilike, inArray, or, type SQL,sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
 import { getCustomerCompanyId } from '@/lib/customer-company'
-import { customerTicketsAccessCondition } from '@/lib/customer-ticket-access'
-import { db, tags, ticketActivityLog, tickets, ticketTags, users } from '@/lib/db'
+import { customerTicketsAccessPredicate } from '@/lib/customer-ticket-access'
+import {
+  type Cond,
+  find,
+  getManyMap,
+  scan,
+  tags,
+  ticketActivityLog,
+  type TicketActivityLogRow,
+  tickets,
+  type TicketsRow,
+  ticketTags,
+  users,
+  type UsersRow,
+} from '@/lib/fsdb'
 import { TICKET_ACTIVITY_ACTIONS, type TicketActivityAction } from '@/lib/ticket-activity-actions'
-import { buildTicketVisibilityAccessSql } from '@/lib/ticket-visibility-server'
+import { buildTicketVisibilityPredicate } from '@/lib/ticket-visibility-server'
 
 const DEFAULT_LIMIT = 50
 const MAX_LIMIT = 100
+/** Upper bound of activity rows inspected per request when filtering in memory (search / access rules). */
+const MAX_SCAN = 10_000
 
-function escapeIlikePattern(s: string): string {
-  return `%${s.trim().replace(/[%_\\]/g, '\\$&')}%`
-}
+type Joined = { log: TicketActivityLogRow; ticket: TicketsRow; actor: UsersRow | null }
 
 /**
  * GET /api/ticket-activity — recent ticket_activity_log rows scoped like GET /api/tickets (company / visibility).
@@ -43,114 +55,84 @@ export async function GET(request: Request) {
       : null
 
   const searchRaw = url.searchParams.get('search')?.trim() ?? ''
+  const needle = searchRaw.toLowerCase()
+  const idStr = searchRaw.startsWith('#') ? searchRaw.slice(1).trim() : searchRaw
+  const idNum = parseInt(idStr, 10)
+  const searchId = !Number.isNaN(idNum) && idStr !== '' && String(idNum) === idStr ? idNum : null
 
-  const visibilityAccess = await buildTicketVisibilityAccessSql(userId, role)
-
-  let ticketFilter: SQL | null = null
-
+  let ticketAllowed: ((t: TicketsRow) => boolean) | null = null
   if (role === 'customer') {
     const companyId = await getCustomerCompanyId(userId)
-    ticketFilter = await customerTicketsAccessCondition(userId, companyId)
+    ticketAllowed = await customerTicketsAccessPredicate(userId, companyId)
   } else if (!isAdmin(role)) {
-    ticketFilter = visibilityAccess
+    ticketAllowed = await buildTicketVisibilityPredicate(userId, role)
   }
 
-  const fields = {
-    id: ticketActivityLog.id,
-    ticket_id: tickets.id,
-    ticket_title: tickets.title,
-    ticket_status: tickets.status,
-    action: ticketActivityLog.action,
-    actor_role: ticketActivityLog.actorRole,
-    metadata: ticketActivityLog.metadata,
-    created_at: ticketActivityLog.createdAt,
-    actor_name: users.fullName,
-    actor_email: users.email,
-    actor_avatar_url: users.avatarUrl,
+  const matchesSearch = (j: Joined): boolean => {
+    if (!needle) return true
+    if (searchId !== null && j.ticket.id === searchId) return true
+    return (
+      (j.ticket.title ?? '').toLowerCase().includes(needle) ||
+      (j.actor?.fullName ?? '').toLowerCase().includes(needle) ||
+      (j.actor?.email ?? '').toLowerCase().includes(needle) ||
+      JSON.stringify(j.log.metadata ?? '').toLowerCase().includes(needle)
+    )
   }
 
-  const listBase = db
-    .select(fields)
-    .from(ticketActivityLog)
-    .innerJoin(tickets, eq(ticketActivityLog.ticketId, tickets.id))
-    .leftJoin(users, eq(ticketActivityLog.actorUserId, users.id))
+  // Logs without a ticket are skipped below (inner join); no inequality filter keeps the index simple.
+  const where: Cond<TicketActivityLogRow>[] = []
+  if (actionFilter) where.push(['action', '==', actionFilter])
 
-  const extraConds: SQL[] = []
-  if (actionFilter) extraConds.push(eq(ticketActivityLog.action, actionFilter))
-
-  if (searchRaw.length > 0) {
-    const pattern = escapeIlikePattern(searchRaw)
-    const searchParts: SQL[] = [
-      ilike(tickets.title, pattern),
-      ilike(users.fullName, pattern),
-      ilike(users.email, pattern),
-      sql`(${ticketActivityLog.metadata})::text ilike ${pattern}`,
-    ]
-    const idStr = searchRaw.startsWith('#') ? searchRaw.slice(1).trim() : searchRaw
-    const idNum = parseInt(idStr, 10)
-    if (!Number.isNaN(idNum) && idStr !== '' && String(idNum) === idStr) {
-      searchParts.push(eq(tickets.id, idNum))
+  // Rows are joined to their ticket (inner join: logs of deleted tickets are skipped) and actor, then filtered.
+  const matched: Joined[] = []
+  let total = 0
+  let scanned = 0
+  for await (const page of scan(ticketActivityLog, { where, orderBy: [['createdAt', 'desc']] }, 500)) {
+    scanned += page.length
+    const [ticketById, actorById] = await Promise.all([
+      getManyMap(tickets, page.map((l) => l.ticketId)),
+      getManyMap(users, page.map((l) => l.actorUserId)),
+    ])
+    for (const log of page) {
+      const ticket = log.ticketId != null ? ticketById.get(String(log.ticketId)) : undefined
+      if (!ticket) continue
+      if (ticketAllowed && !ticketAllowed(ticket)) continue
+      const j: Joined = { log, ticket, actor: log.actorUserId ? actorById.get(log.actorUserId) ?? null : null }
+      if (!matchesSearch(j)) continue
+      total++
+      if (total > offset && matched.length < limit) matched.push(j)
     }
-    extraConds.push(or(...searchParts)!)
+    if (scanned >= MAX_SCAN) break
   }
-
-  const accessAndExtras =
-    extraConds.length > 0
-      ? ticketFilter
-        ? and(ticketFilter, ...extraConds)!
-        : and(...extraConds)!
-      : ticketFilter ?? undefined
-
-  const listFiltered = accessAndExtras ? listBase.where(accessAndExtras) : listBase
-
-  const rows = await listFiltered
-    .orderBy(desc(ticketActivityLog.createdAt))
-    .limit(limit)
-    .offset(offset)
-
-  const countBase = db
-    .select({ total: count() })
-    .from(ticketActivityLog)
-    .innerJoin(tickets, eq(ticketActivityLog.ticketId, tickets.id))
-    .leftJoin(users, eq(ticketActivityLog.actorUserId, users.id))
-
-  const countFiltered = accessAndExtras ? countBase.where(accessAndExtras) : countBase
-
-  const [countRow] = await countFiltered
-
-  const total = Number(countRow?.total ?? 0)
 
   // Fetch tags for all ticket IDs in this page
-  const ticketIds = [...new Set(rows.map((r) => r.ticket_id))]
-  const tagRows = ticketIds.length > 0
-    ? await db
-        .select({ ticketId: ticketTags.ticketId, tagId: tags.id, tagName: tags.name, tagColor: tags.color })
-        .from(ticketTags)
-        .innerJoin(tags, eq(ticketTags.tagId, tags.id))
-        .where(inArray(ticketTags.ticketId, ticketIds))
-    : []
+  const ticketIds = [...new Set(matched.map((r) => r.ticket.id))]
+  const links = await find(ticketTags, { where: [['ticketId', 'in', ticketIds]] })
+  const tagById = await getManyMap(tags, links.map((l) => l.tagId))
   const tagsByTicket: Record<number, { id: string; name: string; color: string | null }[]> = {}
-  for (const t of tagRows) {
-    if (!tagsByTicket[t.ticketId]) tagsByTicket[t.ticketId] = []
-    tagsByTicket[t.ticketId].push({ id: t.tagId, name: t.tagName ?? '', color: t.tagColor ?? null })
+  for (const l of links) {
+    const t = tagById.get(l.tagId)
+    if (!t) continue
+    if (!tagsByTicket[l.ticketId]) tagsByTicket[l.ticketId] = []
+    tagsByTicket[l.ticketId].push({ id: t.id, name: t.name ?? '', color: t.color ?? null })
   }
 
-  const data = rows.map((r) => ({
-    id: r.id,
-    ticket_id: r.ticket_id,
-    ticket_title: r.ticket_title,
-    ticket_status: r.ticket_status ?? null,
-    ticket_tags: tagsByTicket[r.ticket_id] ?? [],
-    action: r.action,
-    actor_role: r.actor_role,
-    metadata: r.metadata,
-    created_at: r.created_at ? new Date(r.created_at).toISOString() : '',
+  const data = matched.map(({ log, ticket, actor }) => ({
+    id: log.id,
+    ticket_id: ticket.id,
+    ticket_title: ticket.title,
+    ticket_status: ticket.status ?? null,
+    ticket_tags: tagsByTicket[ticket.id] ?? [],
+    action: log.action,
+    actor_role: log.actorRole,
+    metadata: log.metadata,
+    created_at: log.createdAt ? new Date(log.createdAt).toISOString() : '',
     actor:
-      r.actor_name || r.actor_email || r.actor_avatar_url
+      actor?.fullName || actor?.email || actor?.avatarUrl
         ? {
-            name: r.actor_name ?? null,
-            email: r.actor_email ?? null,
-            avatar_url: r.actor_avatar_url ?? null,
+            name: actor?.fullName ?? null,
+            email: actor?.email ?? null,
+            avatar_url: actor?.avatarUrl ?? null,
           }
         : null,
   }))

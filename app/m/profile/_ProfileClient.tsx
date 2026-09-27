@@ -1,6 +1,6 @@
 'use client'
 
-import { signOut } from 'next-auth/react'
+import { signOut } from '@/lib/auth-client'
 
 import { BottomNav } from '../_components'
 

@@ -1,9 +1,7 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { tags } from '@/lib/db'
+import { deleteTagRestrict, get, type Patch, tags, update } from '@/lib/fsdb'
 import { logSettingsDeleted, logSettingsUpdated } from '@/lib/settings-activity-log'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 
@@ -32,16 +30,12 @@ export async function PATCH(
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
   }
 
-  const [current] = await db.select().from(tags).where(eq(tags.id, id)).limit(1)
+  const current = await get(tags, id)
   if (!current) {
     return NextResponse.json({ error: 'Tag not found' }, { status: 404 })
   }
 
-  const [updated] = await db
-    .update(tags)
-    .set(values as typeof tags.$inferInsert)
-    .where(eq(tags.id, id))
-    .returning()
+  const updated = await update(tags, id, values as Patch<typeof tags.$inferSelect>)
 
   if (!updated) {
     return NextResponse.json({ error: 'Tag not found' }, { status: 404 })
@@ -89,15 +83,12 @@ export async function DELETE(
   const { id } = await params
 
   try {
-    const [current] = await db.select().from(tags).where(eq(tags.id, id)).limit(1)
+    const current = await get(tags, id)
     if (!current) {
       return NextResponse.json({ error: 'Tag not found' }, { status: 404 })
     }
 
-    const [deleted] = await db
-      .delete(tags)
-      .where(eq(tags.id, id))
-      .returning({ id: tags.id })
+    const deleted = await deleteTagRestrict(id)
 
     if (!deleted) {
       return NextResponse.json({ error: 'Tag not found' }, { status: 404 })

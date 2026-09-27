@@ -1,8 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { companyUsers, db, teamMembers, users } from '@/lib/db'
+import { getCustomerCompanyId } from '@/lib/customer-company'
+import { findBy, teamMembers } from '@/lib/fsdb'
 import { getTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 
 /** GET /api/tickets/lookup - Lookup data for ticket form */
@@ -20,13 +20,8 @@ export async function GET() {
       getTicketsLookupCatalog(),
       role === 'customer'
         ? Promise.resolve([] as Array<{ teamId: string }>)
-        : db.select({ teamId: teamMembers.teamId }).from(teamMembers).where(eq(teamMembers.userId, userId)),
-      role === 'customer'
-        ? Promise.all([
-            db.select({ companyId: users.companyId }).from(users).where(eq(users.id, userId)).limit(1),
-            db.select({ companyId: companyUsers.companyId }).from(companyUsers).where(eq(companyUsers.userId, userId)).limit(1),
-          ]).then(([ur, cu]) => (ur[0]?.companyId ?? cu[0]?.companyId ?? null))
-        : Promise.resolve(null as string | null),
+        : findBy(teamMembers, { userId }),
+      role === 'customer' ? getCustomerCompanyId(userId) : Promise.resolve(null as string | null),
     ])
 
     const userCompanyId = typeof userCompanyRow === 'string' ? userCompanyRow : null

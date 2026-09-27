@@ -1,10 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessAutomationRules } from '@/lib/auth-utils'
-import { db } from '@/lib/db'
-import { automationRules } from '@/lib/db'
+import { automationRules, get, type Patch, remove, update } from '@/lib/fsdb'
 import { logSettingsDeleted, logSettingsUpdated } from '@/lib/settings-activity-log'
 
 function ruleSnapshot(r: {
@@ -65,16 +63,12 @@ export async function PATCH(
   }
 
   const ruleId = parseInt(id, 10)
-  const [current] = await db.select().from(automationRules).where(eq(automationRules.id, ruleId)).limit(1)
+  const current = await get(automationRules, ruleId)
   if (!current) {
     return NextResponse.json({ error: 'Rule not found' }, { status: 404 })
   }
 
-  const [updated] = await db
-    .update(automationRules)
-    .set(values as typeof automationRules.$inferInsert)
-    .where(eq(automationRules.id, ruleId))
-    .returning()
+  const updated = await update(automationRules, ruleId, values as Patch<typeof automationRules.$inferSelect>)
 
   if (!updated) {
     return NextResponse.json({ error: 'Rule not found' }, { status: 404 })
@@ -121,15 +115,12 @@ export async function DELETE(
   const { id } = await params
   const ruleId = parseInt(id, 10)
 
-  const [current] = await db.select().from(automationRules).where(eq(automationRules.id, ruleId)).limit(1)
+  const current = await get(automationRules, ruleId)
   if (!current) {
     return NextResponse.json({ error: 'Rule not found' }, { status: 404 })
   }
 
-  const [deleted] = await db
-    .delete(automationRules)
-    .where(eq(automationRules.id, ruleId))
-    .returning({ id: automationRules.id })
+  const deleted = await remove(automationRules, ruleId)
 
   if (!deleted) {
     return NextResponse.json({ error: 'Rule not found' }, { status: 404 })

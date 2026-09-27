@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, ticketAttributs } from '@/lib/db'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
+import { get, remove, ticketAttributs, update } from '@/lib/fsdb'
 import { logTicketActivity, type TicketActorRole } from '@/lib/ticket-activity-log'
 
 /** PATCH /api/tickets/[id]/attributes/[attrId] - Update attribute */
@@ -21,15 +20,12 @@ export async function PATCH(
   const body = await request.json()
   const { meta_value } = body
 
-  const [current] = await db.select().from(ticketAttributs).where(eq(ticketAttributs.id, attrId)).limit(1)
+  const current = await get(ticketAttributs, attrId)
   if (!current) {
     return NextResponse.json({ error: 'Attribute not found' }, { status: 404 })
   }
 
-  await db
-    .update(ticketAttributs)
-    .set({ metaValue: meta_value ?? null, updatedAt: new Date() })
-    .where(eq(ticketAttributs.id, attrId))
+  await update(ticketAttributs, attrId, { metaValue: meta_value ?? null, updatedAt: new Date() })
 
   if (!isNaN(ticketId)) bumpTicketDataVersion(ticketId)
 
@@ -65,12 +61,12 @@ export async function DELETE(
 
   const { id, attrId } = await params
   const ticketId = parseInt(id, 10)
-  const [current] = await db.select().from(ticketAttributs).where(eq(ticketAttributs.id, attrId)).limit(1)
+  const current = await get(ticketAttributs, attrId)
   if (!current) {
     return NextResponse.json({ error: 'Attribute not found' }, { status: 404 })
   }
 
-  await db.delete(ticketAttributs).where(eq(ticketAttributs.id, attrId))
+  await remove(ticketAttributs, attrId)
   if (isNaN(ticketId)) {
     return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 })
   }

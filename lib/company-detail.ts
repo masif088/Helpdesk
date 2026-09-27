@@ -2,52 +2,38 @@
  * Server-side helper to fetch company with related data
  * Used by company detail page and API
  */
-import { eq, inArray } from 'drizzle-orm'
-
-import { db } from '@/lib/db'
 import {
   companies,
   companyDatas,
   companyDataTemplates,
   companyUsers,
   companyWebsites,
+  findBy,
+  get,
+  getMany,
+  getManyMap,
   teams,
   users,
-} from '@/lib/db'
+} from '@/lib/fsdb'
 
 export async function getCompanyDetail(id: string) {
-  const [companyRow] = await db.select().from(companies).where(eq(companies.id, id)).limit(1)
+  const companyRow = await get(companies, id)
 
   if (!companyRow) return null
 
   // Users: `users.company_id` plus `company_users` junction (e.g. email CC)
-  const [usersByCompanyId, companyDatasRows, companyWebsitesRows] = await Promise.all([
-    db.select().from(users).where(eq(users.companyId, id)),
-    db
-      .select({
-        data: companyDatas,
-        template: companyDataTemplates,
-      })
-      .from(companyDatas)
-      .leftJoin(companyDataTemplates, eq(companyDatas.dataTemplateId, companyDataTemplates.id))
-      .where(eq(companyDatas.companyId, id)),
-    db.select().from(companyWebsites).where(eq(companyWebsites.companyId, id)),
+  const [usersByCompanyId, dataRows, companyWebsitesRows, cuRows] = await Promise.all([
+    findBy(users, { companyId: id }),
+    findBy(companyDatas, { companyId: id }),
+    findBy(companyWebsites, { companyId: id }),
+    findBy(companyUsers, { companyId: id }),
   ])
-
-  let cuRows: (typeof companyUsers.$inferSelect)[] = []
-  try {
-    cuRows = await db.select().from(companyUsers).where(eq(companyUsers.companyId, id))
-  } catch (err) {
-    console.error(
-      '[getCompanyDetail] company_users query failed — run: npm run db:migrate:both:company-users',
-      err,
-    )
-  }
+  const templateMap = await getManyMap(companyDataTemplates, dataRows.map((d) => d.dataTemplateId))
+  const companyDatasRows = dataRows.map((data) => ({ data, template: templateMap.get(data.dataTemplateId) ?? null }))
 
   const byId = new Map(usersByCompanyId.map((u) => [u.id, u]))
   const cuOnlyIds = cuRows.map((r) => r.userId).filter((uid) => !byId.has(uid))
-  const extraUsers =
-    cuOnlyIds.length > 0 ? await db.select().from(users).where(inArray(users.id, cuOnlyIds)) : []
+  const extraUsers = await getMany(users, cuOnlyIds)
 
   const cuMap = new Map(cuRows.map((r) => [r.userId, r]))
   const mergedUsers = [...usersByCompanyId, ...extraUsers]
@@ -93,19 +79,11 @@ export async function getCompanyDetail(id: string) {
   let active_team_name: string | null = null
   let active_manager_display: string | null = null
   if (companyRow.activeTeamId) {
-    const [t] = await db
-      .select({ name: teams.name })
-      .from(teams)
-      .where(eq(teams.id, companyRow.activeTeamId))
-      .limit(1)
+    const t = await get(teams, companyRow.activeTeamId)
     active_team_name = t?.name ?? null
   }
   if (companyRow.activeManagerId) {
-    const [m] = await db
-      .select({ fullName: users.fullName, email: users.email })
-      .from(users)
-      .where(eq(users.id, companyRow.activeManagerId))
-      .limit(1)
+    const m = await get(users, companyRow.activeManagerId)
     if (m?.email) {
       active_manager_display = `${m.fullName || m.email} (${m.email})`
     }

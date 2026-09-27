@@ -1,20 +1,13 @@
-import { asc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
-import { db, slackTicketNotificationRules } from '@/lib/db'
+import { find, insert, slackTicketNotificationRules } from '@/lib/fsdb'
 import { normalizeSlackRuleFilter } from '@/lib/slack-notification-rule-filter'
 import { isSlackIncomingWebhookUrl, maskWebhookUrlForDisplay } from '@/lib/slack-ticket-notify'
 
 function dbErrorMessage(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e)
-  if (/slack_ticket_notification_rules|42P01|relation .* does not exist/i.test(msg)) {
-    return (
-      'Database: table slack_ticket_notification_rules is missing. ' +
-      'Run migration `drizzle/migrations/025_slack_ticket_notification_rules.sql` on your database and try again.'
-    )
-  }
   return msg || 'Database error'
 }
 
@@ -30,10 +23,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden — admin role only.' }, { status: 403 })
     }
 
-    const rows = await db
-      .select()
-      .from(slackTicketNotificationRules)
-      .orderBy(asc(slackTicketNotificationRules.sortOrder), asc(slackTicketNotificationRules.createdAt))
+    const rows = await find(slackTicketNotificationRules, { orderBy: [['sortOrder', 'asc'], ['createdAt', 'asc']] })
 
     const data = rows.map((r) => ({
       id: r.id,
@@ -82,17 +72,14 @@ export async function POST(request: Request) {
   const isEnabled = body.is_enabled !== false
   const filter = normalizeSlackRuleFilter(body)
 
-  const [created] = await db
-    .insert(slackTicketNotificationRules)
-    .values({
-      name: name || null,
-      webhookUrl,
-      isEnabled,
-      filter,
-      sortOrder,
-      updatedAt: new Date(),
-    })
-    .returning()
+  const created = await insert(slackTicketNotificationRules, {
+    name: name || null,
+    webhookUrl,
+    isEnabled,
+    filter,
+    sortOrder,
+    updatedAt: new Date(),
+  })
 
   if (!created) {
     return NextResponse.json({ error: 'Failed to create rule' }, { status: 500 })

@@ -1,16 +1,15 @@
-import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import TicketPrintView from '@/components/ticket/TicketPrintView'
-import { db, tickets, users } from '@/lib/db'
+import { get, tickets, users } from '@/lib/fsdb'
 import { getTicketDetail } from '@/lib/ticket-detail'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const ticketId = parseInt(id, 10)
   if (Number.isNaN(ticketId)) return {}
-  const [row] = await db.select({ title: tickets.title }).from(tickets).where(eq(tickets.id, ticketId)).limit(1)
+  const row = await get(tickets, ticketId)
   if (!row) return {}
   const now = new Date()
   const ts = now.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(/\//g, '-').replace(',', '')
@@ -29,9 +28,7 @@ export default async function TicketPrintPage({ params }: { params: Promise<{ id
   const isCustomer = role === 'customer'
 
   // Customers see filtered view (no internal notes)
-  const [userRow] = isCustomer
-    ? await db.select({ companyId: users.companyId }).from(users).where(eq(users.id, session.user.id!)).limit(1)
-    : [null]
+  const userRow = isCustomer ? await get(users, session.user.id) : null
 
   const options = isCustomer
     ? { customerPortal: { userId: session.user.id!, companyId: (userRow as { companyId: string | null } | null)?.companyId ?? null }, screenshotUserId: session.user.id! }

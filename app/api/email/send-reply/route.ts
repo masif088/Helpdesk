@@ -1,11 +1,9 @@
-import { and, asc, desc, eq, ilike, isNotNull, isNull } from 'drizzle-orm'
 import { google } from 'googleapis'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
-import { db } from '@/lib/db'
-import { emailIntegrations, emailMessages, tickets } from '@/lib/db/schema'
+import { emailIntegrations, emailMessages, findBy, findOneBy, get, insert, sortRows, tickets, update } from '@/lib/fsdb'
 import { getObjectBuffer } from '@/lib/storage-idrive'
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -147,17 +145,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const [integration] = await db
-      .select({
-        id: emailIntegrations.id,
-        emailAddress: emailIntegrations.emailAddress,
-        accessToken: emailIntegrations.accessToken,
-        refreshToken: emailIntegrations.refreshToken,
-        expiresAt: emailIntegrations.expiresAt,
-      })
-      .from(emailIntegrations)
-      .where(and(eq(emailIntegrations.provider, 'google'), eq(emailIntegrations.isActive, true)))
-      .limit(1)
+    const integration = await findOneBy(emailIntegrations, { provider: 'google', isActive: true })
 
     if (!integration?.accessToken) {
       return NextResponse.json(
@@ -181,14 +169,11 @@ export async function POST(request: NextRequest) {
       const { credentials } = await oauth2Client.refreshAccessToken()
       accessToken = credentials.access_token ?? integration.accessToken
       if (credentials.access_token && credentials.expiry_date) {
-        await db
-          .update(emailIntegrations)
-          .set({
-            accessToken: credentials.access_token,
-            expiresAt: new Date(credentials.expiry_date),
-            updatedAt: new Date(),
-          })
-          .where(eq(emailIntegrations.id, integration.id))
+        await update(emailIntegrations, integration.id, {
+          accessToken: credentials.access_token,
+          expiresAt: new Date(credentials.expiry_date),
+          updatedAt: new Date(),
+        })
       }
     } else {
       oauth2Client.setCredentials({ access_token: accessToken })
@@ -201,11 +186,7 @@ export async function POST(request: NextRequest) {
     const displayName = appSettings.email_sender_name?.trim() || null
     const fromEmail = formatFromHeader(displayName, fromEmailAddress)
 
-    const [ticketRow] = await db
-      .select({ gmailThreadId: tickets.gmailThreadId, title: tickets.title })
-      .from(tickets)
-      .where(eq(tickets.id, ticketIdNum))
-      .limit(1)
+    const ticketRow = await get(tickets, ticketIdNum)
 
     // Subject is resolved after firstIncoming is fetched below — placeholder here.
     let subjectPlain = ''
@@ -214,36 +195,20 @@ export async function POST(request: NextRequest) {
     // Agent replies thread to the notification email we sent when the ticket was created.
     // This keeps all replies in the same thread as the customer's original email (the notification
     // was sent as a reply to the customer's email, so they share a threadId).
-    const [notificationEmail] = await db
-      .select({ rfcMessageId: emailMessages.rfcMessageId, threadId: emailMessages.threadId, subject: emailMessages.subject })
-      .from(emailMessages)
-      .where(
-        and(
-          eq(emailMessages.ticketId, ticketIdNum),
-          eq(emailMessages.direction, 'outgoing'),
-          isNotNull(emailMessages.rfcMessageId)
-        )
-      )
-      .orderBy(asc(emailMessages.syncedAt))
-      .limit(1)
+    const ticketEmails = sortRows(await findBy(emailMessages, { ticketId: ticketIdNum }), [['syncedAt', 'asc']])
+    const notificationEmail = ticketEmails.find((m) => m.direction === 'outgoing' && m.rfcMessageId != null)
 
     // Fallback: if no outgoing notification exists (e.g. ticket created via portal),
     // use the first incoming email from the customer.
-    const [firstIncoming] = notificationEmail
-      ? [undefined]
-      : await db
-          .select({ rfcMessageId: emailMessages.rfcMessageId, threadId: emailMessages.threadId })
-          .from(emailMessages)
-          .where(
-            and(
-              eq(emailMessages.ticketId, ticketIdNum),
-              eq(emailMessages.direction, 'incoming'),
-              isNotNull(emailMessages.rfcMessageId),
-              ilike(emailMessages.fromEmail, `%${recipientEmail}%`)
-            )
-          )
-          .orderBy(asc(emailMessages.syncedAt))
-          .limit(1)
+    const recipientLower = recipientEmail.toLowerCase()
+    const firstIncoming = notificationEmail
+      ? undefined
+      : ticketEmails.find(
+          (m) =>
+            m.direction === 'incoming' &&
+            m.rfcMessageId != null &&
+            (m.fromEmail ?? '').toLowerCase().includes(recipientLower)
+        )
 
     const threadId = ticketRow?.gmailThreadId || notificationEmail?.threadId || firstIncoming?.threadId || null
     let inReplyTo = notificationEmail?.rfcMessageId || firstIncoming?.rfcMessageId || null
@@ -350,7 +315,7 @@ export async function POST(request: NextRequest) {
     const sentThreadId = sendRes.data.threadId
 
     if (sentMessageId) {
-      await db.insert(emailMessages).values({
+      await insert(emailMessages, {
         gmailMessageId: sentMessageId,
         threadId: sentThreadId || null,
         fromEmail,
@@ -361,10 +326,7 @@ export async function POST(request: NextRequest) {
         direction: 'outgoing',
       })
       if (sentThreadId && ticketRow && !ticketRow.gmailThreadId) {
-        await db
-          .update(tickets)
-          .set({ gmailThreadId: sentThreadId, updatedAt: new Date() })
-          .where(and(eq(tickets.id, ticketIdNum), isNull(tickets.gmailThreadId)))
+        await update(tickets, ticketIdNum, { gmailThreadId: sentThreadId, updatedAt: new Date() })
       }
     }
 

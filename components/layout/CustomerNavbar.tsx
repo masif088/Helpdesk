@@ -13,11 +13,11 @@ import {
 } from '@ant-design/icons'
 import { Avatar, Dropdown, Flex,Layout, Menu, Typography } from 'antd'
 import { usePathname,useRouter } from 'next/navigation'
-import { signOut } from 'next-auth/react'
 import { useEffect,useMemo, useState } from 'react'
 
 import { shouldOpenHrefInNewTab,SpaNavLink } from '@/components/common/SpaNavLink'
 import ThemeToggle from '@/components/common/ThemeToggle'
+import { signOut } from '@/lib/auth-client'
 
 const { Header } = Layout
 const { Text } = Typography

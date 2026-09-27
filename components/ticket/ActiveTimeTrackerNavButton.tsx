@@ -3,8 +3,9 @@
 import { ClockCircleOutlined, PauseCircleOutlined, PlayCircleOutlined, StopOutlined } from '@ant-design/icons'
 import { App, Badge, Button, Empty, Popover, Space, Spin, Typography } from 'antd'
 import { useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import { useCallback, useEffect, useState } from 'react'
+
+import { useSession } from '@/lib/auth-client'
 
 const { Text } = Typography
 

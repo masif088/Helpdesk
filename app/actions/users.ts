@@ -1,10 +1,7 @@
 'use server'
 
-import bcrypt from 'bcryptjs'
-import { eq } from 'drizzle-orm'
-
 import { auth } from '@/auth'
-import { db, users } from '@/lib/db'
+import { createAppUser, findUserByEmail } from '@/lib/app-users'
 
 export async function createUser(formData: {
   email: string
@@ -23,25 +20,20 @@ export async function createUser(formData: {
   try {
     const { email, password, full_name, first_name, last_name, role, status } = formData
 
-    const [existing] = await db.select().from(users).where(eq(users.email, email)).limit(1)
+    const existing = await findUserByEmail(email)
     if (existing) {
       return { error: 'Email already registered' }
     }
 
-    const passwordHash = await bcrypt.hash(password, 10)
-
-    const [row] = await db
-      .insert(users)
-      .values({
-        email,
-        passwordHash,
-        firstName: first_name?.trim() ? first_name.trim() : null,
-        lastName: last_name?.trim() ? last_name.trim() : null,
-        fullName: full_name || null,
-        role: role || 'user',
-        status: status || 'active',
-      })
-      .returning()
+    const row = await createAppUser({
+      email,
+      password,
+      firstName: first_name?.trim() ? first_name.trim() : null,
+      lastName: last_name?.trim() ? last_name.trim() : null,
+      fullName: full_name || null,
+      role: role || 'user',
+      status: status || 'active',
+    })
 
     if (!row) {
       return { error: 'Failed to create user' }

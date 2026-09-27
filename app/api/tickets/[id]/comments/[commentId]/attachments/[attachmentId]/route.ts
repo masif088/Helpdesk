@@ -1,9 +1,8 @@
-import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { commentAttachments, db, ticketComments } from '@/lib/db'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
+import { commentAttachments, get, remove, ticketComments } from '@/lib/fsdb'
 import { deleteObject } from '@/lib/storage-idrive'
 import type { TicketActorRole } from '@/lib/ticket-activity-log'
 import { logTicketActivity } from '@/lib/ticket-activity-log'
@@ -24,15 +23,8 @@ export async function DELETE(
     return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 })
   }
 
-  const [comment] = await db
-    .select({
-      id: ticketComments.id,
-      ticketId: ticketComments.ticketId,
-      userId: ticketComments.userId,
-    })
-    .from(ticketComments)
-    .where(and(eq(ticketComments.id, commentId), eq(ticketComments.ticketId, ticketId)))
-    .limit(1)
+  const commentDoc = await get(ticketComments, commentId)
+  const comment = commentDoc && commentDoc.ticketId === ticketId ? commentDoc : null
 
   if (!comment) {
     return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
@@ -41,21 +33,14 @@ export async function DELETE(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const [att] = await db
-    .select({
-      id: commentAttachments.id,
-      filePath: commentAttachments.filePath,
-      fileName: commentAttachments.fileName,
-    })
-    .from(commentAttachments)
-    .where(and(eq(commentAttachments.id, attachmentId), eq(commentAttachments.commentId, commentId)))
-    .limit(1)
+  const attDoc = await get(commentAttachments, attachmentId)
+  const att = attDoc && attDoc.commentId === commentId ? attDoc : null
 
   if (!att) {
     return NextResponse.json({ error: 'Attachment not found' }, { status: 404 })
   }
 
-  await db.delete(commentAttachments).where(eq(commentAttachments.id, attachmentId))
+  await remove(commentAttachments, attachmentId)
 
   const fp = att.filePath?.trim()
   if (fp) {

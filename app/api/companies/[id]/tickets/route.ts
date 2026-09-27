@@ -1,8 +1,7 @@
-import { and, asc, eq, ne, notInArray } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, tickets, ticketStatuses } from '@/lib/db'
+import { find, findBy, tickets, ticketStatuses } from '@/lib/fsdb'
 
 /** GET /api/companies/[id]/tickets?limit=5 — top tickets by priority (lowest number = highest priority) */
 export async function GET(
@@ -18,26 +17,15 @@ export async function GET(
   const excludeSlugs = (url.searchParams.get('exclude') ?? '')
     .split(',').map(s => s.trim()).filter(Boolean)
 
-  const whereClause = and(
-    eq(tickets.companyId, id),
-    ne(tickets.ticketType, 'trash'),
-    ne(tickets.ticketType, 'spam'),
-    excludeSlugs.length > 0 ? notInArray(tickets.status, excludeSlugs) : undefined,
-  )
-
-  const rows = await db
-    .select({
-      id: tickets.id,
-      title: tickets.title,
-      status: tickets.status,
-      statusLabel: ticketStatuses.title,
-      priority: tickets.priority,
-    })
-    .from(tickets)
-    .leftJoin(ticketStatuses, eq(tickets.status, ticketStatuses.slug))
-    .where(whereClause)
-    .orderBy(asc(tickets.priority))
-    .limit(limit)
+  const exclude = new Set(excludeSlugs)
+  const [companyTickets, statuses] = await Promise.all([findBy(tickets, { companyId: id }), find(ticketStatuses)])
+  const statusTitle = new Map(statuses.map((s) => [s.slug, s.title]))
+  // priority ascending, NULLs last (Postgres default)
+  const rows = companyTickets
+    .filter((t) => t.ticketType !== 'trash' && t.ticketType !== 'spam' && !exclude.has(t.status))
+    .sort((a, b) => (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER))
+    .slice(0, limit)
+    .map((t) => ({ id: t.id, title: t.title, status: t.status, statusLabel: statusTitle.get(t.status) ?? null, priority: t.priority }))
 
   return NextResponse.json({
     data: rows.map(r => ({

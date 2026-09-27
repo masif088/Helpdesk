@@ -1,10 +1,8 @@
-import { desc,eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessTeams, canAdminTeams } from '@/lib/auth-utils'
-import { db } from '@/lib/db'
-import { teamMembers,teams, users } from '@/lib/db'
+import { find, getManyMap, insert, teamMembers, teams, users } from '@/lib/fsdb'
 import { normalizeTeamVisibilityBody } from '@/lib/team-type'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 
@@ -22,28 +20,18 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const teamsRows = await db
-    .select({
-      team: teams,
-      creator: users,
-    })
-    .from(teams)
-    .leftJoin(users, eq(teams.createdBy, users.id))
-    .orderBy(desc(teams.createdAt))
-
-  const teamIds = teamsRows.map((r) => r.team.id)
+  const teamDocs = await find(teams, { orderBy: [['createdAt', 'desc']] })
+  const teamIds = teamDocs.map((t) => t.id)
+  const allMemberDocs = await find(teamMembers, { where: [['teamId', 'in', teamIds]] })
+  const peopleById = await getManyMap(users, [
+    ...teamDocs.map((t) => t.createdBy),
+    ...allMemberDocs.map((m) => m.userId),
+  ])
+  const teamsRows = teamDocs.map((team) => ({ team, creator: peopleById.get(team.createdBy) ?? null }))
   const membersByTeam: Record<string, Array<{ id: string; team_id: string; user_id: string; role: string; joined_at: string; user_name?: string; user_email?: string; user_avatar_url?: string | null }>> = {}
 
   if (teamIds.length > 0) {
-    const { inArray } = await import('drizzle-orm')
-    const allMembersRows = await db
-      .select({
-        member: teamMembers,
-        user: users,
-      })
-      .from(teamMembers)
-      .leftJoin(users, eq(teamMembers.userId, users.id))
-      .where(inArray(teamMembers.teamId, teamIds))
+    const allMembersRows = allMemberDocs.map((member) => ({ member, user: peopleById.get(member.userId) ?? null }))
 
     for (const row of allMembersRows) {
       const tid = row.member.teamId
@@ -100,21 +88,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'type is required and must be public or private' }, { status: 400 })
   }
 
-  const [inserted] = await db
-    .insert(teams)
-    .values({
-      name: name.trim(),
-      type: visibility,
-      createdBy: session.user.id,
-    })
-    .returning()
+  const inserted = await insert(teams, {
+    name: name.trim(),
+    type: visibility,
+    createdBy: session.user.id,
+  })
 
   if (!inserted) {
     return NextResponse.json({ error: 'Failed to create team' }, { status: 500 })
   }
 
   // Add creator as team member (manager role)
-  await db.insert(teamMembers).values({
+  await insert(teamMembers, {
     teamId: inserted.id,
     userId: session.user.id,
     role: 'manager',

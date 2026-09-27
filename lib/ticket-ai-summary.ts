@@ -1,6 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm'
-
-import { db, ticketAiSummaries } from '@/lib/db'
+import { getByKey, insert, ticketAiSummaries, updateByKey } from '@/lib/fsdb'
 import {
   summarizeAnchorType,
   summarizeFocalCommentId,
@@ -14,21 +12,13 @@ export {
 
 export type TicketAiSummaryRow = typeof ticketAiSummaries.$inferSelect
 
-function anchorWhere(ticketId: number, anchor: SummarizeAnchorRequest) {
-  const anchorType = summarizeAnchorType(anchor)
-  const focalCommentId = summarizeFocalCommentId(anchor)
-  if (focalCommentId) {
-    return and(
-      eq(ticketAiSummaries.ticketId, ticketId),
-      eq(ticketAiSummaries.anchorType, anchorType),
-      eq(ticketAiSummaries.focalCommentId, focalCommentId)
-    )
+/** Doc key of the one saved summary per anchor (ticket + anchor type + focal comment or null). */
+function anchorKey(ticketId: number, anchor: SummarizeAnchorRequest) {
+  return {
+    ticketId,
+    anchorType: summarizeAnchorType(anchor),
+    focalCommentId: summarizeFocalCommentId(anchor) ?? null,
   }
-  return and(
-    eq(ticketAiSummaries.ticketId, ticketId),
-    eq(ticketAiSummaries.anchorType, anchorType),
-    isNull(ticketAiSummaries.focalCommentId)
-  )
 }
 
 function normalizeStringArray(value: unknown): string[] {
@@ -59,12 +49,7 @@ export async function getTicketAiSummary(
   ticketId: number,
   anchor: SummarizeAnchorRequest
 ): Promise<TicketAiSummaryRow | null> {
-  const [row] = await db
-    .select()
-    .from(ticketAiSummaries)
-    .where(anchorWhere(ticketId, anchor))
-    .limit(1)
-  return row ?? null
+  return getByKey(ticketAiSummaries, anchorKey(ticketId, anchor))
 }
 
 export async function saveTicketAiSummary(params: {
@@ -74,18 +59,12 @@ export async function saveTicketAiSummary(params: {
   checklist: string[]
   createdByUserId: string
 }): Promise<TicketAiSummaryRow> {
-  const [row] = await db
-    .insert(ticketAiSummaries)
-    .values({
-      ticketId: params.ticketId,
-      anchorType: summarizeAnchorType(params.anchor),
-      focalCommentId: summarizeFocalCommentId(params.anchor),
-      summary: params.summary,
-      checklist: params.checklist,
-      createdByUserId: params.createdByUserId,
-    })
-    .returning()
-  return row
+  return insert(ticketAiSummaries, {
+    ...anchorKey(params.ticketId, params.anchor),
+    summary: params.summary,
+    checklist: params.checklist,
+    createdByUserId: params.createdByUserId,
+  })
 }
 
 export type TicketAiSummaryApplyTarget = 'comment' | 'description' | 'checklist'
@@ -102,5 +81,5 @@ export async function markTicketAiSummaryApplied(
       : target === 'description'
         ? { appliedToDescriptionAt: now }
         : { appliedToChecklistAt: now }
-  await db.update(ticketAiSummaries).set(patch).where(anchorWhere(ticketId, anchor))
+  await updateByKey(ticketAiSummaries, anchorKey(ticketId, anchor), patch)
 }

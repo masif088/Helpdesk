@@ -1,8 +1,8 @@
-import { and, eq, gte, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { companies, db, tickets, ticketTimeTracker, users } from '@/lib/db'
+import { companies, find, getMany, getManyMap, tickets, ticketTimeTracker, users } from '@/lib/fsdb'
+import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 
 
 export type ActiveTrackerEntry = {
@@ -40,103 +40,55 @@ export async function GET(request: Request) {
   if (companyIds.length === 0) {
     return NextResponse.json([])
   }
+  const wanted = new Set(companyIds)
 
   // Start of today in UTC (UTC midnight = 07:00 WIB, which naturally covers overnight shifts ending before 07:00 WIB)
   const todayStart = new Date()
   todayStart.setUTCHours(0, 0, 0, 0)
 
-  // Total time logged today per company — join ticket_time_tracker → tickets on company_id
-  const timeRows = await db
-    .select({
-      companyId: tickets.companyId,
-      totalSeconds: sql<number>`coalesce(sum(
-        case
-          when ${ticketTimeTracker.durationAdjustment} is not null then ${ticketTimeTracker.durationAdjustment}
-          when ${ticketTimeTracker.durationSeconds} is not null then ${ticketTimeTracker.durationSeconds}
-          else 0
-        end
-      ), 0)`.mapWith(Number),
-    })
-    .from(ticketTimeTracker)
-    .innerJoin(tickets, eq(ticketTimeTracker.ticketId, tickets.id))
-    .where(
-      and(
-        isNotNull(tickets.companyId),
-        inArray(tickets.companyId, companyIds),
-        gte(ticketTimeTracker.startTime, todayStart),
-        isNotNull(ticketTimeTracker.stopTime),
-      )
-    )
-    .groupBy(tickets.companyId)
+  // Today's sessions + running sessions are few; join them to tickets in memory to get the company.
+  const [todaySessions, activeSessions] = await Promise.all([
+    find(ticketTimeTracker, { where: [['startTime', '>=', todayStart]] }),
+    find(ticketTimeTracker, { where: [['stopTime', '==', null]] }),
+  ])
+  const ticketById = await getManyMap(tickets, [...todaySessions, ...activeSessions].map((s) => s.ticketId))
+  const companyOf = (ticketId: number) => ticketById.get(String(ticketId))?.companyId ?? null
 
-  // Active trackers (stopTime IS NULL) — get the earliest running session per company with user info
-  const activeRows = await db
-    .select({
-      companyId: tickets.companyId,
-      userId: ticketTimeTracker.userId,
-      startTime: ticketTimeTracker.startTime,
-      ticketId: tickets.id,
-      ticketTitle: tickets.title,
-    })
-    .from(ticketTimeTracker)
-    .innerJoin(tickets, eq(ticketTimeTracker.ticketId, tickets.id))
-    .where(
-      and(
-        isNotNull(tickets.companyId),
-        inArray(tickets.companyId, companyIds),
-        isNull(ticketTimeTracker.stopTime),
-      )
-    )
-
-  // Resolve active tracker user names
-  const activeUserIds = [...new Set(activeRows.map(r => r.userId).filter(Boolean))]
-  const activeUserMap = new Map<string, string>()
-  if (activeUserIds.length > 0) {
-    const activeUserRows = await db
-      .select({ id: users.id, fullName: users.fullName })
-      .from(users)
-      .where(inArray(users.id, activeUserIds))
-    for (const u of activeUserRows) activeUserMap.set(u.id, u.fullName ?? u.id)
+  // Total time logged today per company (completed sessions)
+  const timeMap = new Map<string, number>()
+  for (const s of todaySessions) {
+    if (!s.stopTime) continue
+    const cid = companyOf(s.ticketId)
+    if (!cid || !wanted.has(cid)) continue
+    timeMap.set(cid, (timeMap.get(cid) ?? 0) + reportedDurationSeconds(s))
   }
 
-  // Group ALL active trackers per company
+  // Active trackers (stopTime IS NULL) grouped per company
   const activeMap = new Map<string, { userId: string; startTime: Date; ticketId: number | null; ticketTitle: string | null }[]>()
-  for (const r of activeRows) {
-    if (!r.companyId) continue
-    const arr = activeMap.get(r.companyId) ?? []
-    arr.push({ userId: r.userId, startTime: r.startTime, ticketId: r.ticketId, ticketTitle: r.ticketTitle })
-    activeMap.set(r.companyId, arr)
+  for (const s of activeSessions) {
+    const cid = companyOf(s.ticketId)
+    if (!cid || !wanted.has(cid)) continue
+    const arr = activeMap.get(cid) ?? []
+    arr.push({
+      userId: s.userId,
+      startTime: s.startTime,
+      ticketId: s.ticketId,
+      ticketTitle: ticketById.get(String(s.ticketId))?.title ?? null,
+    })
+    activeMap.set(cid, arr)
   }
 
   // Company active_time + active_manager_id
-  const companyRows = await db
-    .select({
-      id: companies.id,
-      activeTime: companies.activeTime,
-      activeManagerId: companies.activeManagerId,
-    })
-    .from(companies)
-    .where(inArray(companies.id, companyIds))
+  const companyRows = await getMany(companies, companyIds)
 
-  // Collect manager ids to resolve names
-  const managerIds = companyRows
-    .map((c) => c.activeManagerId)
-    .filter((id): id is string => id != null)
-
-  const managerMap = new Map<string, string>()
-  if (managerIds.length > 0) {
-    const managerRows = await db
-      .select({ id: users.id, fullName: users.fullName })
-      .from(users)
-      .where(inArray(users.id, managerIds))
-    for (const m of managerRows) {
-      managerMap.set(m.id, m.fullName ?? m.id)
-    }
-  }
-
-  const timeMap = new Map<string, number>()
-  for (const r of timeRows) {
-    if (r.companyId) timeMap.set(r.companyId, r.totalSeconds)
+  // Resolve tracker user and manager names in one batch
+  const people = await getManyMap(users, [
+    ...[...activeMap.values()].flat().map((a) => a.userId),
+    ...companyRows.map((c) => c.activeManagerId),
+  ])
+  const nameOf = (id: string) => {
+    const u = people.get(id)
+    return u ? u.fullName ?? u.id : null
   }
 
   const result: CompanyTimeStat[] = companyRows.map((c) => {
@@ -148,12 +100,12 @@ export async function GET(request: Request) {
       company_id: c.id,
       today_seconds: timeMap.get(c.id) ?? 0,
       active_time_hours: c.activeTime ?? 0,
-      active_manager_name: c.activeManagerId ? (managerMap.get(c.activeManagerId) ?? null) : null,
+      active_manager_name: c.activeManagerId ? nameOf(c.activeManagerId) : null,
       has_active_tracker: actives.length > 0,
-      active_tracker_user_name: first ? (activeUserMap.get(first.userId) ?? null) : null,
+      active_tracker_user_name: first ? nameOf(first.userId) : null,
       active_tracker_start_time: first ? first.startTime.toISOString() : null,
-      active_trackers: actives.map(a => ({
-        user_name: activeUserMap.get(a.userId) ?? null,
+      active_trackers: actives.map((a) => ({
+        user_name: nameOf(a.userId),
         start_time: a.startTime.toISOString(),
         ticket_id: a.ticketId,
         ticket_title: a.ticketTitle,

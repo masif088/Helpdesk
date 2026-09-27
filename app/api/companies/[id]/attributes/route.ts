@@ -1,8 +1,7 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { companyAttributes, db } from '@/lib/db'
+import { companyAttributes, find, insert } from '@/lib/fsdb'
 
 function canEdit(role?: string) {
   return ['admin', 'manager'].includes((role ?? '').toLowerCase())
@@ -16,11 +15,10 @@ export async function GET(
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
-  const rows = await db
-    .select()
-    .from(companyAttributes)
-    .where(eq(companyAttributes.companyId, id))
-    .orderBy(companyAttributes.createdAt)
+  const rows = await find(companyAttributes, {
+    where: [['companyId', '==', id]],
+    orderBy: [['createdAt', 'asc']],
+  })
   return NextResponse.json({
     data: rows.map((r) => ({
       id: r.id,
@@ -48,10 +46,7 @@ export async function POST(
   const metaKey = String(body.meta_key || '').trim()
   if (!metaKey) return NextResponse.json({ error: 'meta_key is required' }, { status: 400 })
 
-  const [row] = await db
-    .insert(companyAttributes)
-    .values({ companyId: id, metaKey, metaValue: body.meta_value ?? null })
-    .returning()
+  const row = await insert(companyAttributes, { companyId: id, metaKey, metaValue: body.meta_value ?? null })
 
   if (!row) return NextResponse.json({ error: 'Failed to create' }, { status: 500 })
 

@@ -1,10 +1,9 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { getCustomerCompanyId } from '@/lib/customer-company'
 import { customerCanAccessTicket } from '@/lib/customer-ticket-access'
-import { db, tickets } from '@/lib/db'
+import { get, tickets } from '@/lib/fsdb'
 import {
   fetchTicketCommentsWindow,
   TICKET_COMMENTS_PAGE_SIZE,
@@ -38,15 +37,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     customerPortal = { userId, companyId: await getCustomerCompanyId(userId) }
   }
 
-  const [trow] = await db
-    .select({
-      companyId: tickets.companyId,
-      contactUserId: tickets.contactUserId,
-      createdBy: tickets.createdBy,
-    })
-    .from(tickets)
-    .where(eq(tickets.id, ticketId))
-    .limit(1)
+  const trow = await get(tickets, ticketId)
   if (!trow) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }

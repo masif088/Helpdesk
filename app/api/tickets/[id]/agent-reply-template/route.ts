@@ -1,17 +1,12 @@
-import { and, eq } from 'drizzle-orm'
-import { alias } from 'drizzle-orm/pg-core'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, messageTemplates, tickets, users } from '@/lib/db'
+import { findOneBy, get, messageTemplates, tickets, users } from '@/lib/fsdb'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
 
 export const dynamic = 'force-dynamic'
 
 const AGENT_REPLY_TEMPLATE_KEY = 'template_agent_reply' as const
-
-const tplCreator = alias(users, 'tpl_creator')
-const tplContact = alias(users, 'tpl_contact')
 
 function requestOrigin(request: Request): string {
   const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? 'localhost:3000'
@@ -40,29 +35,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 })
   }
 
-  const [tpl] = await db
-    .select()
-    .from(messageTemplates)
-    .where(and(eq(messageTemplates.key, AGENT_REPLY_TEMPLATE_KEY), eq(messageTemplates.status, 'active')))
-    .limit(1)
+  const tpl = await findOneBy(messageTemplates, { key: AGENT_REPLY_TEMPLATE_KEY, status: 'active' })
   const raw = tpl?.content?.trim() ?? ''
   if (!raw) {
     return NextResponse.json({ html: '' })
   }
 
-  const [ticketRow] = await db
-    .select({ ticket: tickets, creator: tplCreator, contact: tplContact })
-    .from(tickets)
-    .leftJoin(tplCreator, eq(tickets.createdBy, tplCreator.id))
-    .leftJoin(tplContact, eq(tickets.contactUserId, tplContact.id))
-    .where(eq(tickets.id, ticketIdNum))
-    .limit(1)
-
-  if (!ticketRow?.ticket) {
+  const ticket = await get(tickets, ticketIdNum)
+  if (!ticket) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
-
-  const [senderRow] = await db.select().from(users).where(eq(users.id, session.user.id)).limit(1)
+  const [creator, contact, senderRow] = await Promise.all([
+    get(users, ticket.createdBy),
+    get(users, ticket.contactUserId),
+    get(users, session.user.id),
+  ])
+  const ticketRow = { ticket, creator, contact }
 
   const recipientUser = ticketRow.contact ?? ticketRow.creator ?? null
   const recipientMap = userRowToMergeMap(recipientUser)

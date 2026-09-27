@@ -1,5 +1,5 @@
 /**
- * Auth helpers — migrated from Supabase Auth to NextAuth.
+ * Auth helpers (Firebase Authentication session).
  * Use `auth()` from `@/auth` to read the session.
  */
 

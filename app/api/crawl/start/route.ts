@@ -1,10 +1,8 @@
-import { and, eq } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { companyWebsites, crawlSessions } from '@/lib/db/schema'
+import { companyWebsites, crawlSessions, get, insert, update, updateWhere } from '@/lib/fsdb'
 
 // Vercel serverless function configuration
 export const maxDuration = 300 // 5 minutes (max for Pro plan, 10s for Hobby)
@@ -44,28 +42,24 @@ export async function POST(request: Request) {
 
       // If setting as primary, unset other primary websites for this company
       if (is_primary) {
-        await db
-          .update(companyWebsites)
-          .set({ isPrimary: false })
-          .where(
-            and(
-              eq(companyWebsites.companyId, company_id),
-              eq(companyWebsites.isPrimary, true)
-            )
-          )
+        await updateWhere(
+          companyWebsites,
+          [
+            ['companyId', '==', company_id],
+            ['isPrimary', '==', true],
+          ],
+          { isPrimary: false }
+        )
       }
 
       // Create company website
-      const [websiteData] = await db
-        .insert(companyWebsites)
-        .values({
-          companyId: company_id,
-          url,
-          title: title || null,
-          description: description || null,
-          isPrimary: is_primary || false,
-        })
-        .returning()
+      const websiteData = await insert(companyWebsites, {
+        companyId: company_id,
+        url,
+        title: title || null,
+        description: description || null,
+        isPrimary: is_primary || false,
+      })
 
       if (!websiteData) {
         return NextResponse.json({ error: 'Failed to create company website' }, { status: 500 })
@@ -74,11 +68,7 @@ export async function POST(request: Request) {
       websiteId = websiteData.id
     } else {
       // Verify the company_website_id exists
-      const [existingWebsite] = await db
-        .select({ id: companyWebsites.id })
-        .from(companyWebsites)
-        .where(eq(companyWebsites.id, websiteId))
-        .limit(1)
+      const existingWebsite = await get(companyWebsites, websiteId)
 
       if (!existingWebsite) {
         return NextResponse.json({ error: 'Invalid company_website_id' }, { status: 400 })
@@ -86,26 +76,20 @@ export async function POST(request: Request) {
     }
 
     // Create crawl session
-    const [sessionData] = await db
-      .insert(crawlSessions)
-      .values({
-        companyWebsiteId: websiteId,
-        status: 'pending',
-        maxDepth: max_depth,
-        maxPages: max_pages,
-        startedAt: new Date(),
-      })
-      .returning()
+    const sessionData = await insert(crawlSessions, {
+      companyWebsiteId: websiteId,
+      status: 'pending',
+      maxDepth: max_depth,
+      maxPages: max_pages,
+      startedAt: new Date(),
+    })
 
     if (!sessionData) {
       return NextResponse.json({ error: 'Failed to create crawl session' }, { status: 500 })
     }
 
     // Update session status to 'crawling'
-    await db
-      .update(crawlSessions)
-      .set({ status: 'crawling' })
-      .where(eq(crawlSessions.id, sessionData.id))
+    await update(crawlSessions, sessionData.id, { status: 'crawling' })
 
     // Start crawl process by calling separate endpoint (better for Vercel)
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
@@ -129,14 +113,11 @@ export async function POST(request: Request) {
       }),
     }).catch(async (error) => {
       console.error('[API] Error triggering crawl process:', error)
-      await db
-        .update(crawlSessions)
-        .set({
-          status: 'failed',
-          errorMessage: `Failed to trigger crawl: ${error.message}`,
-          completedAt: new Date(),
-        })
-        .where(eq(crawlSessions.id, sessionData.id))
+      await update(crawlSessions, sessionData.id, {
+        status: 'failed',
+        errorMessage: `Failed to trigger crawl: ${error.message}`,
+        completedAt: new Date(),
+      })
     })
 
     return NextResponse.json(

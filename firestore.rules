@@ -1,4 +1,7 @@
 rules_version = '2';
+// All app data (users, tickets, companies, …) is read and written only by the Next.js server through the
+// Firebase Admin SDK, which bypasses these rules. Browsers may only touch the realtime helper paths below;
+// everything else is denied by default.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId}/ticketNotifications/{docId} {

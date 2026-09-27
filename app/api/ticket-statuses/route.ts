@@ -1,9 +1,7 @@
-import { asc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { ticketStatuses } from '@/lib/db'
+import { find, findOneBy, insert, ticketStatuses } from '@/lib/fsdb'
 import { logSettingsCreated } from '@/lib/settings-activity-log'
 import { isTicketStatusInKanban } from '@/lib/ticket-status-kanban'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
@@ -39,10 +37,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const rows = await db
-    .select()
-    .from(ticketStatuses)
-    .orderBy(asc(ticketStatuses.sortOrder))
+  const rows = await find(ticketStatuses, { orderBy: [['sortOrder', 'asc']] })
 
   const data = rows.map((r) => ({
     id: r.id,
@@ -77,11 +72,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'title and slug required' }, { status: 400 })
   }
 
-  const [inserted] = await db
-    .insert(ticketStatuses)
-    .values({
+  const normalizedSlug = String(slug).trim().toLowerCase().replace(/\s+/g, '_')
+  if (await findOneBy(ticketStatuses, { slug: normalizedSlug })) {
+    return NextResponse.json({ error: 'A status with this slug already exists' }, { status: 409 })
+  }
+  const inserted = await insert(ticketStatuses, {
       title: String(title).trim(),
-      slug: String(slug).trim().toLowerCase().replace(/\s+/g, '_'),
+      slug: normalizedSlug,
       customerTitle: customer_title?.trim() || null,
       description: description?.trim() || '',
       color: color || '#8c8c8c',
@@ -90,7 +87,6 @@ export async function POST(request: Request) {
       isActive: is_active !== false,
       sortOrder: Number(sort_order) ?? 0,
     })
-    .returning()
 
   if (!inserted) {
     return NextResponse.json({ error: 'Insert failed' }, { status: 500 })

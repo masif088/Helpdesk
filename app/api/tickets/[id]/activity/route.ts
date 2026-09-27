@@ -1,8 +1,7 @@
-import { count, desc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, ticketActivityLog, users } from '@/lib/db'
+import { count, find, getManyMap, ticketActivityLog, users } from '@/lib/fsdb'
 
 const DEFAULT_LIMIT = 20
 
@@ -26,29 +25,32 @@ export async function GET(
   const limit = Math.min(Math.max(1, parseInt(url.searchParams.get('limit') || String(DEFAULT_LIMIT), 10)), 100)
   const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10))
 
-  const [[{ total }], rows] = await Promise.all([
-    db.select({ total: count() }).from(ticketActivityLog).where(eq(ticketActivityLog.ticketId, ticketId)),
-    db
-      .select({
-        id: ticketActivityLog.id,
-        ticket_id: ticketActivityLog.ticketId,
-        actor_user_id: ticketActivityLog.actorUserId,
-        actor_role: ticketActivityLog.actorRole,
-        action: ticketActivityLog.action,
-        metadata: ticketActivityLog.metadata,
-        related_comment_id: ticketActivityLog.relatedCommentId,
-        created_at: ticketActivityLog.createdAt,
-        actor_name: users.fullName,
-        actor_email: users.email,
-        actor_avatar_url: users.avatarUrl,
-      })
-      .from(ticketActivityLog)
-      .leftJoin(users, eq(ticketActivityLog.actorUserId, users.id))
-      .where(eq(ticketActivityLog.ticketId, ticketId))
-      .orderBy(desc(ticketActivityLog.createdAt))
-      .limit(limit)
-      .offset(offset),
+  const [total, logRows] = await Promise.all([
+    count(ticketActivityLog, [['ticketId', '==', ticketId]]),
+    find(ticketActivityLog, {
+      where: [['ticketId', '==', ticketId]],
+      orderBy: [['createdAt', 'desc']],
+      limit,
+      offset,
+    }),
   ])
+  const actorById = await getManyMap(users, logRows.map((r) => r.actorUserId))
+  const rows = logRows.map((r) => {
+    const actor = r.actorUserId ? actorById.get(r.actorUserId) : undefined
+    return {
+      id: r.id,
+      ticket_id: r.ticketId,
+      actor_user_id: r.actorUserId,
+      actor_role: r.actorRole,
+      action: r.action,
+      metadata: r.metadata,
+      related_comment_id: r.relatedCommentId,
+      created_at: r.createdAt,
+      actor_name: actor?.fullName ?? null,
+      actor_email: actor?.email ?? null,
+      actor_avatar_url: actor?.avatarUrl ?? null,
+    }
+  })
 
   const data = rows.map((r) => ({
     id: r.id,

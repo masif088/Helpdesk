@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessChecklistTemplates } from '@/lib/auth-utils'
-import { checklistTemplateItems, db } from '@/lib/db'
+import { checklistTemplateItems, find, insert } from '@/lib/fsdb'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -12,11 +11,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-  const rows = await db
-    .select()
-    .from(checklistTemplateItems)
-    .where(eq(checklistTemplateItems.templateId, id))
-    .orderBy(checklistTemplateItems.orderIndex)
+  const rows = await find(checklistTemplateItems, {
+    where: [['templateId', '==', id]],
+    orderBy: [['orderIndex', 'asc']],
+  })
 
   return NextResponse.json(rows)
 }
@@ -32,16 +30,13 @@ export async function POST(request: NextRequest, { params }: Params) {
   const title = typeof body.title === 'string' ? body.title.trim() : ''
   if (!title) return NextResponse.json({ error: 'title is required' }, { status: 400 })
 
-  const [row] = await db
-    .insert(checklistTemplateItems)
-    .values({
-      templateId: id,
-      groupId: typeof body.group_id === 'string' ? body.group_id : null,
-      title,
-      note: typeof body.note === 'string' ? body.note.trim() || null : null,
-      orderIndex: typeof body.order_index === 'number' ? body.order_index : 0,
-    })
-    .returning()
+  const row = await insert(checklistTemplateItems, {
+    templateId: id,
+    groupId: typeof body.group_id === 'string' ? body.group_id : null,
+    title,
+    note: typeof body.note === 'string' ? body.note.trim() || null : null,
+    orderIndex: typeof body.order_index === 'number' ? body.order_index : 0,
+  })
 
   return NextResponse.json(row, { status: 201 })
 }

@@ -1,4 +1,4 @@
-import type { users } from '@/lib/db/schema'
+import type { users } from '@/lib/fsdb'
 import { allMessageTemplatePlaceholderKeys } from '@/lib/message-template-placeholders'
 
 export type MessageTemplateMergeUserMaps = {

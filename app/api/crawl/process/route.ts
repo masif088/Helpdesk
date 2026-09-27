@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
 
 // Vercel serverless function configuration
 export const maxDuration = 300 // 5 minutes
@@ -27,7 +26,7 @@ export async function POST(request: Request) {
     const { startCrawlProcess } = await import('../utils')
 
     // Start the crawl process
-    await startCrawlProcess(db, crawl_session_id, company_website_id, max_depth, max_pages)
+    await startCrawlProcess(crawl_session_id, company_website_id, max_depth, max_pages)
 
     return NextResponse.json({ success: true, message: 'Crawl process completed' })
   } catch (error: any) {

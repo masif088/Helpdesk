@@ -1,7 +1,17 @@
-import { and, asc, desc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
-import { db, projects, projectStatuses, tickets, ticketTypes } from '@/lib/db'
+import {
+  find,
+  get,
+  getManyMap,
+  projects,
+  projectStatuses,
+  remove,
+  tickets,
+  ticketTypes,
+  update,
+  updateWhere,
+} from '@/lib/fsdb'
 import { requireProjectApiSession } from '@/lib/project-api-auth'
 
 function serializeProject(row: typeof projects.$inferSelect) {
@@ -68,28 +78,30 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if ('error' in gate) return gate.error
 
   const { id } = await params
-  const [projectRow] = await db.select().from(projects).where(eq(projects.id, id)).limit(1)
+  const projectRow = await get(projects, id)
   if (!projectRow) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const statusRows = await db
-    .select()
-    .from(projectStatuses)
-    .where(eq(projectStatuses.projectId, id))
-    .orderBy(asc(projectStatuses.sortOrder), asc(projectStatuses.id))
+  const statusRows = await find(projectStatuses, {
+    where: [['projectId', '==', id]],
+    orderBy: [['sortOrder', 'asc'], ['id', 'asc']],
+  })
 
   const firstStatusId = statusRows[0]?.id ?? null
 
-  const ticketJoinRows = await db
-    .select({
-      t: tickets,
-      type: ticketTypes,
-    })
-    .from(tickets)
-    .leftJoin(ticketTypes, eq(tickets.typeId, ticketTypes.id))
-    .where(and(eq(tickets.projectId, id), eq(tickets.ticketType, 'project')))
-    .orderBy(desc(tickets.updatedAt))
+  const boardTickets = await find(tickets, {
+    where: [
+      ['projectId', '==', id],
+      ['ticketType', '==', 'project'],
+    ],
+    orderBy: [['updatedAt', 'desc']],
+  })
+  const typeById = await getManyMap(ticketTypes, boardTickets.map((t) => t.typeId))
+  const ticketJoinRows = boardTickets.map((t) => ({
+    t,
+    type: t.typeId != null ? typeById.get(String(t.typeId)) ?? null : null,
+  }))
 
   return NextResponse.json({
     ...serializeProject(projectRow),
@@ -104,7 +116,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if ('error' in gate) return gate.error
 
   const { id } = await params
-  const [existing] = await db.select().from(projects).where(eq(projects.id, id)).limit(1)
+  const existing = await get(projects, id)
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
@@ -129,7 +141,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         : null
   }
 
-  const [row] = await db.update(projects).set(patch).where(eq(projects.id, id)).returning()
+  const row = await update(projects, id, patch)
   if (!row) {
     return NextResponse.json({ error: 'Update failed' }, { status: 500 })
   }
@@ -143,21 +155,29 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if ('error' in gate) return gate.error
 
   const { id } = await params
-  const [existing] = await db.select().from(projects).where(eq(projects.id, id)).limit(1)
+  const existing = await get(projects, id)
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  await db
-    .update(tickets)
-    .set({
+  await updateWhere(
+    tickets,
+    [
+      ['projectId', '==', id],
+      ['ticketType', '==', 'project'],
+    ],
+    {
       ticketType: 'support',
       projectId: null,
       projectStatusId: null,
       updatedAt: new Date(),
-    })
-    .where(and(eq(tickets.projectId, id), eq(tickets.ticketType, 'project')))
+    }
+  )
 
-  await db.delete(projects).where(eq(projects.id, id))
+  // project_statuses cascade; remaining references (non-project tickets, screenshots) are set to null
+  const statuses = await find(projectStatuses, { where: [['projectId', '==', id]] })
+  for (const s of statuses) await remove(projectStatuses, s.id)
+  await updateWhere(tickets, [['projectId', '==', id]], { projectId: null, projectStatusId: null })
+  await remove(projects, id)
   return NextResponse.json({ ok: true })
 }

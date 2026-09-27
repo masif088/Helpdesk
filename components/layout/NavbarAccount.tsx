@@ -3,9 +3,9 @@
 import { UserOutlined } from '@ant-design/icons'
 import { Avatar, Dropdown, Typography } from 'antd'
 import { useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 
 import { signOutAction } from '@/app/actions/auth'
+import { useSession } from '@/lib/auth-client'
 
 import { adminNavbarAccountMenuItems } from './adminNavbarAccountMenu'
 

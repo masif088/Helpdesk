@@ -1,18 +1,18 @@
-import { and, eq, gte, inArray, lte, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdminOrManager } from '@/lib/auth-utils'
 import {
   companies,
-  db,
+  find,
+  getMany,
   teamMembers,
   teams,
   ticketAssignees,
   tickets,
   ticketTimeTracker,
   users,
-} from '@/lib/db'
+} from '@/lib/fsdb'
 import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 
 function sessionRole(session: { user?: { role?: string } } | null) {
@@ -41,93 +41,52 @@ export async function GET(request: Request) {
   to.setHours(23, 59, 59, 999)
 
   // Fetch all tickets in date range
-  const ticketRows = await db
-    .select({
-      id: tickets.id,
-      title: tickets.title,
-      status: tickets.status,
-      companyId: tickets.companyId,
-      createdAt: tickets.createdAt,
+  const ticketRows = (
+    await find(tickets, {
+      where: [
+        ['createdAt', '>=', from],
+        ['createdAt', '<=', to],
+      ],
     })
-    .from(tickets)
-    .where(
-      and(
-        gte(tickets.createdAt, from),
-        lte(tickets.createdAt, to),
-        sql`${tickets.ticketType} NOT IN ('spam', 'trash')`
-      )
-    )
+  ).filter((t) => t.ticketType !== 'spam' && t.ticketType !== 'trash')
 
   const ticketIds = ticketRows.map((t) => t.id)
   const companyIds = [...new Set(ticketRows.map((t) => t.companyId).filter(Boolean) as string[])]
 
   // Fetch assignees for all tickets
-  const assigneeRows = ticketIds.length
-    ? await db
-        .select({ ticketId: ticketAssignees.ticketId, userId: ticketAssignees.userId })
-        .from(ticketAssignees)
-        .where(inArray(ticketAssignees.ticketId, ticketIds))
-    : []
+  const assigneeRows = await find(ticketAssignees, { where: [['ticketId', 'in', ticketIds]] })
 
-  // Fetch time tracker for all tickets in range
+  // Fetch time tracker in range, restricted to these tickets
+  const ticketIdSet = new Set(ticketIds)
   const trackerRows = ticketIds.length
-    ? await db
-        .select({
-          ticketId: ticketTimeTracker.ticketId,
-          userId: ticketTimeTracker.userId,
-          durationSeconds: ticketTimeTracker.durationSeconds,
-          durationAdjustment: ticketTimeTracker.durationAdjustment,
-          startTime: ticketTimeTracker.startTime,
-          stopTime: ticketTimeTracker.stopTime,
+    ? (
+        await find(ticketTimeTracker, {
+          where: [
+            ['startTime', '>=', from],
+            ['startTime', '<=', to],
+          ],
         })
-        .from(ticketTimeTracker)
-        .where(
-          and(
-            inArray(ticketTimeTracker.ticketId, ticketIds),
-            gte(ticketTimeTracker.startTime, from),
-            lte(ticketTimeTracker.startTime, to)
-          )
-        )
+      ).filter((tr) => ticketIdSet.has(tr.ticketId))
     : []
 
   // Fetch companies (include activeTeamId)
-  const companyRows = companyIds.length
-    ? await db
-        .select({ id: companies.id, name: companies.name, color: companies.color, activeTeamId: companies.activeTeamId })
-        .from(companies)
-        .where(inArray(companies.id, companyIds))
-    : []
+  const companyRows = await getMany(companies, companyIds)
   const companyMap = new Map(companyRows.map((c) => [c.id, c]))
 
   // Collect all user ids
   const allUserIds = [
     ...new Set([...assigneeRows.map((a) => a.userId), ...trackerRows.map((t) => t.userId)]),
   ]
-  const userRows = allUserIds.length
-    ? await db
-        .select({ id: users.id, fullName: users.fullName, email: users.email, avatarUrl: users.avatarUrl })
-        .from(users)
-        .where(inArray(users.id, allUserIds))
-    : []
+  const userRows = await getMany(users, allUserIds)
   const userMap = new Map(userRows.map((u) => [u.id, u]))
 
   // Fetch team memberships for these users (used in user/team views)
-  const teamMemberRows = allUserIds.length
-    ? await db
-        .select({ userId: teamMembers.userId, teamId: teamMembers.teamId })
-        .from(teamMembers)
-        .where(inArray(teamMembers.userId, allUserIds))
-    : []
+  const teamMemberRows = await find(teamMembers, { where: [['userId', 'in', allUserIds]] })
 
   // Fetch teams for active team IDs from companies + user memberships
   const activeTeamIds = companyRows.map((c) => c.activeTeamId).filter(Boolean) as string[]
   const allTeamIds = [...new Set([...teamMemberRows.map((m) => m.teamId), ...activeTeamIds])]
-  const teamRows = allTeamIds.length
-    ? await db
-        .select({ id: teams.id, name: teams.name })
-        .from(teams)
-        .where(inArray(teams.id, allTeamIds))
-    : []
+  const teamRows = await getMany(teams, allTeamIds)
   const teamMap = new Map(teamRows.map((t) => [t.id, t]))
 
   // userId -> teamIds (for user/team views)

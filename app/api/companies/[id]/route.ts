@@ -1,11 +1,21 @@
-import { and, eq, ne } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canEditCompanies } from '@/lib/auth-utils'
 import { getCompanyDetail } from '@/lib/company-detail'
 import { customerOwnsCompany, isCompanyPortalAdmin, userBelongsToCompany } from '@/lib/customer-company'
-import { companies, companyUsers, db, teams, users } from '@/lib/db'
+import {
+  companies,
+  companyUsers,
+  deleteCompanyCascade,
+  findOne,
+  get,
+  type Patch,
+  teams,
+  update,
+  updateWhere,
+  users,
+} from '@/lib/fsdb'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 import { upsertCompanyUserMembership } from '@/lib/upsert-company-user-membership'
 
@@ -80,7 +90,7 @@ export async function PUT(
     }
   }
 
-  const updateData: Record<string, unknown> = {}
+  const updateData: Patch<typeof companies.$inferSelect> = {}
   if (name !== undefined) updateData.name = name
   if (email !== undefined) updateData.email = email?.trim() || null
   if (!isCustomer && is_active !== undefined) updateData.isActive = is_active
@@ -89,7 +99,7 @@ export async function PUT(
   if (!isCustomer) {
     if (activeTeamId !== undefined) {
       if (activeTeamId) {
-        const [teamRow] = await db.select({ id: teams.id }).from(teams).where(eq(teams.id, activeTeamId)).limit(1)
+        const teamRow = await get(teams, activeTeamId)
         if (!teamRow) {
           return NextResponse.json({ error: 'Active team not found' }, { status: 400 })
         }
@@ -98,11 +108,7 @@ export async function PUT(
     }
     if (activeManagerId !== undefined) {
       if (activeManagerId) {
-        const [mgr] = await db
-          .select({ id: users.id, role: users.role })
-          .from(users)
-          .where(eq(users.id, activeManagerId))
-          .limit(1)
+        const mgr = await get(users, activeManagerId)
         if (!mgr) {
           return NextResponse.json({ error: 'Active manager not found' }, { status: 404 })
         }
@@ -124,11 +130,7 @@ export async function PUT(
       if (typeof leader_user_id !== 'string') {
         return NextResponse.json({ error: 'Invalid leader_user_id' }, { status: 400 })
       }
-      const [leader] = await db
-        .select({ id: users.id, role: users.role })
-        .from(users)
-        .where(eq(users.id, leader_user_id))
-        .limit(1)
+      const leader = await get(users, leader_user_id)
       if (!leader) {
         return NextResponse.json({ error: 'Company leader not found' }, { status: 404 })
       }
@@ -138,25 +140,22 @@ export async function PUT(
     }
   }
 
-  const [row] = await db
-    .update(companies)
-    .set({ ...updateData, updatedAt: new Date() })
-    .where(eq(companies.id, id))
-    .returning()
+  const row = await update(companies, id, { ...updateData, updatedAt: new Date() })
 
   if (!row) {
     return NextResponse.json({ error: 'Company not found' }, { status: 404 })
   }
 
   if (leader_user_id && !isCustomer) {
-    await db
-      .update(companyUsers)
-      .set({ companyRole: 'member', updatedAt: new Date() })
-      .where(and(eq(companyUsers.companyId, id), ne(companyUsers.userId, leader_user_id)))
-    await db
-      .update(users)
-      .set({ companyId: id, updatedAt: new Date() })
-      .where(eq(users.id, leader_user_id))
+    await updateWhere(
+      companyUsers,
+      [
+        ['companyId', '==', id],
+        ['userId', '!=', leader_user_id],
+      ],
+      { companyRole: 'member', updatedAt: new Date() }
+    )
+    await update(users, leader_user_id, { companyId: id, updatedAt: new Date() })
     await upsertCompanyUserMembership({
       companyId: id,
       userId: leader_user_id,
@@ -164,11 +163,12 @@ export async function PUT(
     })
   }
 
-  const [leaderRow] = await db
-    .select({ userId: companyUsers.userId })
-    .from(companyUsers)
-    .where(and(eq(companyUsers.companyId, id), eq(companyUsers.companyRole, 'company_admin')))
-    .limit(1)
+  const leaderRow = await findOne(companyUsers, {
+    where: [
+      ['companyId', '==', id],
+      ['companyRole', '==', 'company_admin'],
+    ],
+  })
 
   revalidateTicketsLookupCatalog()
   return NextResponse.json({
@@ -206,7 +206,7 @@ export async function DELETE(
   }
 
   const { id } = await params
-  await db.delete(companies).where(eq(companies.id, id))
+  await deleteCompanyCascade(id)
 
   revalidateTicketsLookupCatalog()
   return NextResponse.json({ success: true, message: 'Company deleted successfully' })

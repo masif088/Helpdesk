@@ -1,8 +1,7 @@
-import { and, eq } from 'drizzle-orm'
 import { google } from 'googleapis'
 
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
-import { companies, db, emailIntegrations, messageTemplates, users } from '@/lib/db'
+import { companies, emailIntegrations, findOneBy, get, messageTemplates, update, users } from '@/lib/fsdb'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
 
 export const RECURRING_TICKET_CREATED_TEMPLATE_KEY =
@@ -44,17 +43,13 @@ export async function sendRecurringTicketCreatedEmail(
   let companyEmail: string | null = null
 
   if (companyId) {
-    const [companyRow] = await db
-      .select({ name: companies.name, email: companies.email })
-      .from(companies)
-      .where(eq(companies.id, companyId))
-      .limit(1)
+    const companyRow = await get(companies, companyId)
     companyName = companyRow?.name ?? null
     companyEmail = companyRow?.email?.trim() || null
   }
 
   if (contactUserId) {
-    const [contact] = await db.select().from(users).where(eq(users.id, contactUserId)).limit(1)
+    const contact = await get(users, contactUserId)
     const email = contact?.email?.trim() || null
     if (email) {
       recipientEmail = email
@@ -87,17 +82,7 @@ export async function sendRecurringTicketCreatedEmail(
     return false
   }
 
-  const [integration] = await db
-    .select({
-      id: emailIntegrations.id,
-      emailAddress: emailIntegrations.emailAddress,
-      accessToken: emailIntegrations.accessToken,
-      refreshToken: emailIntegrations.refreshToken,
-      expiresAt: emailIntegrations.expiresAt,
-    })
-    .from(emailIntegrations)
-    .where(and(eq(emailIntegrations.provider, 'google'), eq(emailIntegrations.isActive, true)))
-    .limit(1)
+  const integration = await findOneBy(emailIntegrations, { provider: 'google', isActive: true })
 
   if (!integration?.accessToken) {
     console.warn(
@@ -120,14 +105,11 @@ export async function sendRecurringTicketCreatedEmail(
     const { credentials } = await oauth2Client.refreshAccessToken()
     accessToken = credentials.access_token ?? integration.accessToken
     if (credentials.access_token && credentials.expiry_date) {
-      await db
-        .update(emailIntegrations)
-        .set({
-          accessToken: credentials.access_token,
-          expiresAt: new Date(credentials.expiry_date),
-          updatedAt: new Date(),
-        })
-        .where(eq(emailIntegrations.id, integration.id))
+      await update(emailIntegrations, integration.id, {
+        accessToken: credentials.access_token,
+        expiresAt: new Date(credentials.expiry_date),
+        updatedAt: new Date(),
+      })
     }
   } else {
     oauth2Client.setCredentials({ access_token: accessToken })
@@ -140,16 +122,7 @@ export async function sendRecurringTicketCreatedEmail(
   const safeBase = baseUrl.replace(/\/$/, '')
   const ticketUrl = `${safeBase}/tickets/${ticketId}`
 
-  const [tpl] = await db
-    .select({ content: messageTemplates.content, emailSubject: messageTemplates.emailSubject })
-    .from(messageTemplates)
-    .where(
-      and(
-        eq(messageTemplates.key, RECURRING_TICKET_CREATED_TEMPLATE_KEY),
-        eq(messageTemplates.status, 'active')
-      )
-    )
-    .limit(1)
+  const tpl = await findOneBy(messageTemplates, { key: RECURRING_TICKET_CREATED_TEMPLATE_KEY, status: 'active' })
 
   if (!tpl) {
     console.warn(
@@ -160,8 +133,7 @@ export async function sendRecurringTicketCreatedEmail(
 
   let senderUser: typeof users.$inferSelect | null = null
   if (createdByUserId) {
-    const [row] = await db.select().from(users).where(eq(users.id, createdByUserId)).limit(1)
-    senderUser = row ?? null
+    senderUser = await get(users, createdByUserId)
   }
 
   const recipientMap = userRowToMergeMap(recipientUser, companyName)

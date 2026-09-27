@@ -3,11 +3,11 @@
 import { CopyOutlined, DeleteOutlined, KeyOutlined, MailOutlined, PhoneOutlined, PlusOutlined,UploadOutlined, UserOutlined } from '@ant-design/icons'
 import { Avatar, Button, Card, Col, Divider, Form, Input, Layout, message, Popconfirm,Row, Select, Space, Tag, Typography, Upload } from 'antd'
 import { useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import { useEffect,useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import { useSession } from '@/lib/auth-client'
 import { USER_DEPARTMENTS, USER_POSITIONS } from '@/lib/user-work-dropdowns'
 import { uploadAvatar } from '@/utils/storage'
 

@@ -1,8 +1,7 @@
-import { and,eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { apiTokens,db } from '@/lib/db'
+import { apiTokens, get, remove } from '@/lib/fsdb'
 
 /** DELETE /api/auth/tokens/[id] - Delete API token */
 export async function DELETE(
@@ -16,10 +15,8 @@ export async function DELETE(
 
   const { id } = await params
 
-  const [deleted] = await db
-    .delete(apiTokens)
-    .where(and(eq(apiTokens.id, id), eq(apiTokens.userId, session.user.id!)))
-    .returning()
+  const existing = await get(apiTokens, id)
+  const deleted = existing && existing.userId === session.user.id ? await remove(apiTokens, id) : null
 
   if (!deleted) {
     return NextResponse.json({ error: 'Token not found' }, { status: 404 })

@@ -1,21 +1,20 @@
-import { and, asc, desc, eq, gte, inArray } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { getCustomerCompanyId } from '@/lib/customer-company'
-import { customerTicketsAccessCondition } from '@/lib/customer-ticket-access'
-import { db } from '@/lib/db'
+import { loadCustomerAccessibleTickets } from '@/lib/customer-ticket-access'
 import {
-  companies,
+  find,
+  getManyMap,
+  sortRows,
   tags,
   ticketComments,
-  tickets,
   ticketStatuses,
   ticketTags,
   ticketTimeTracker,
   ticketTypes,
   users,
-} from '@/lib/db'
+} from '@/lib/fsdb'
 import { DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
 
 type TimePeriod = 'current-day' | 'week' | 'all'
@@ -51,25 +50,14 @@ export async function GET(request: Request) {
   const companyId = await getCustomerCompanyId(userId)
 
   // Support tickets: company + personal (no company); exclude spam/trash
-  const customerAccess = await customerTicketsAccessCondition(userId, companyId)
-  const myTickets = await db
-    .select({
-      id: tickets.id,
-      typeId: tickets.typeId,
-      priority: tickets.priority,
-      status: tickets.status,
-      title: tickets.title,
-      dueDate: tickets.dueDate,
-      updatedAt: tickets.updatedAt,
-      customerLastReadAt: tickets.customerLastReadAt,
-    })
-    .from(tickets)
-    .where(and(customerAccess, eq(tickets.ticketType, DEFAULT_TICKET_TYPE)))
+  const myTickets = (await loadCustomerAccessibleTickets(userId, companyId)).filter(
+    (t) => t.ticketType === DEFAULT_TICKET_TYPE
+  )
 
   const typeIds = [...new Set(myTickets.map((t) => t.typeId).filter(Boolean))] as number[]
   const typeMap: Record<number, { title: string; color: string }> = {}
   if (typeIds.length > 0) {
-    const types = await db.select({ id: ticketTypes.id, title: ticketTypes.title, color: ticketTypes.color }).from(ticketTypes).where(inArray(ticketTypes.id, typeIds))
+    const types = await getManyMap(ticketTypes, typeIds)
     types.forEach((t) => { typeMap[t.id] = { title: t.title, color: t.color ?? '#1890ff' } })
   }
   const typeCounts: Record<string | number, { type_title: string; type_id: number | null; count: number; color: string }> = {}
@@ -96,13 +84,9 @@ export async function GET(request: Request) {
   let totalTimeSeconds = 0
   if (myTicketIds.length > 0) {
     const periodStart = timePeriodStart(timePeriod)
-    const trackerWhere = periodStart
-      ? and(inArray(ticketTimeTracker.ticketId, myTicketIds), gte(ticketTimeTracker.startTime, periodStart))
-      : inArray(ticketTimeTracker.ticketId, myTicketIds)
-    const trackerRows = await db
-      .select({ ticketId: ticketTimeTracker.ticketId, durationSeconds: ticketTimeTracker.durationSeconds })
-      .from(ticketTimeTracker)
-      .where(trackerWhere)
+    const trackerRows = await find(ticketTimeTracker, {
+      where: [['ticketId', 'in', myTicketIds], periodStart && ['startTime', '>=', periodStart]],
+    })
     const ticketToType: Record<number, number | null> = {}
     myTickets.forEach((t) => { ticketToType[t.id] = t.typeId })
     const secondsByType: Record<number | string, number> = {}
@@ -118,7 +102,7 @@ export async function GET(request: Request) {
     })
   }
 
-  const statusRows = await db.select({ slug: ticketStatuses.slug, customerTitle: ticketStatuses.customerTitle, title: ticketStatuses.title, color: ticketStatuses.color, sortOrder: ticketStatuses.sortOrder }).from(ticketStatuses).orderBy(asc(ticketStatuses.sortOrder))
+  const statusRows = await find(ticketStatuses, { orderBy: [['sortOrder', 'asc']] })
   const sCounts: Record<string, number> = {}
   myTickets.forEach((t) => { sCounts[t.status ?? 'unknown'] = (sCounts[t.status ?? 'unknown'] ?? 0) + 1 })
   const statusCounts = statusRows.map((s) => ({
@@ -149,21 +133,22 @@ export async function GET(request: Request) {
   }> = []
 
   if (recentIds.length > 0) {
-    const rows = await db
-      .select({
-        ticket: tickets,
-        company: companies,
-        statusRow: ticketStatuses,
-        creatorFullName: users.fullName,
-        creatorEmail: users.email,
-      })
-      .from(tickets)
-      .leftJoin(companies, eq(tickets.companyId, companies.id))
-      .leftJoin(ticketStatuses, eq(tickets.status, ticketStatuses.slug))
-      .leftJoin(users, eq(tickets.createdBy, users.id))
-      .where(inArray(tickets.id, recentIds))
+    const recentTicketRows = sortedForRecent.slice(0, 5)
+    const statusBySlug = new Map(statusRows.map((s) => [s.slug, s]))
+    const creatorById = await getManyMap(users, recentTicketRows.map((t) => t.createdBy))
+    const rows = recentTicketRows.map((ticket) => {
+      const creator = ticket.createdBy ? creatorById.get(ticket.createdBy) : undefined
+      return {
+        ticket,
+        statusRow: statusBySlug.get(ticket.status) ?? null,
+        creatorFullName: creator?.fullName ?? null,
+        creatorEmail: creator?.email ?? null,
+      }
+    })
 
-    const tagRows = await db.select({ ticketId: ticketTags.ticketId, tag: tags }).from(ticketTags).leftJoin(tags, eq(ticketTags.tagId, tags.id)).where(inArray(ticketTags.ticketId, recentIds))
+    const tagLinks = await find(ticketTags, { where: [['ticketId', 'in', recentIds]] })
+    const tagById = await getManyMap(tags, tagLinks.map((l) => l.tagId))
+    const tagRows = tagLinks.map((l) => ({ ticketId: l.ticketId, tag: tagById.get(l.tagId) ?? null }))
     const tagsByTicketId: Record<number, Array<{ id: string; name: string; color: string | null }>> = {}
     tagRows.forEach((row) => {
       if (!row.tag) return
@@ -171,10 +156,7 @@ export async function GET(request: Request) {
       tagsByTicketId[row.ticketId].push({ id: row.tag.id, name: row.tag.name, color: row.tag.color })
     })
 
-    const timeRows = await db
-      .select({ ticketId: ticketTimeTracker.ticketId, durationSeconds: ticketTimeTracker.durationSeconds })
-      .from(ticketTimeTracker)
-      .where(inArray(ticketTimeTracker.ticketId, recentIds))
+    const timeRows = await find(ticketTimeTracker, { where: [['ticketId', 'in', recentIds]] })
     const timeByTicketId: Record<number, number> = {}
     timeRows.forEach((r) => { timeByTicketId[r.ticketId] = (timeByTicketId[r.ticketId] ?? 0) + (r.durationSeconds ?? 0) })
 
@@ -224,10 +206,12 @@ export async function GET(request: Request) {
 
   let monthTimeSeconds = 0
   if (myTicketIds.length > 0) {
-    const monthRows = await db
-      .select({ durationSeconds: ticketTimeTracker.durationSeconds })
-      .from(ticketTimeTracker)
-      .where(and(inArray(ticketTimeTracker.ticketId, myTicketIds), gte(ticketTimeTracker.startTime, startOfThisMonth)))
+    const monthRows = await find(ticketTimeTracker, {
+      where: [
+        ['ticketId', 'in', myTicketIds],
+        ['startTime', '>=', startOfThisMonth],
+      ],
+    })
     monthTimeSeconds = monthRows.reduce((s, r) => s + (r.durationSeconds ?? 0), 0)
   }
 
@@ -243,23 +227,24 @@ export async function GET(request: Request) {
   type RecentUpdate = { ticket_id: number; ticket_title: string; comment: string; author_name: string | null; created_at: string }
   let recentTeamUpdates: RecentUpdate[] = []
   if (myTicketIds.length > 0) {
-    const commentRows = await db
-      .select({
-        ticketId: ticketComments.ticketId,
-        comment: ticketComments.comment,
-        createdAt: ticketComments.createdAt,
-        authorFullName: users.fullName,
-        authorEmail: users.email,
-      })
-      .from(ticketComments)
-      .leftJoin(users, eq(ticketComments.userId, users.id))
-      .where(and(
-        inArray(ticketComments.ticketId, myTicketIds),
-        eq(ticketComments.authorType, 'agent'),
-        inArray(ticketComments.visibility, ['reply', 'public']),
-      ))
-      .orderBy(desc(ticketComments.createdAt))
-      .limit(5)
+    const agentComments = await find(ticketComments, {
+      where: [
+        ['ticketId', 'in', myTicketIds],
+        ['authorType', '==', 'agent'],
+      ],
+    })
+    const latest = sortRows(
+      agentComments.filter((c) => c.visibility === 'reply' || c.visibility === 'public'),
+      [['createdAt', 'desc']]
+    ).slice(0, 5)
+    const authorById = await getManyMap(users, latest.map((c) => c.userId))
+    const commentRows = latest.map((c) => ({
+      ticketId: c.ticketId,
+      comment: c.comment,
+      createdAt: c.createdAt,
+      authorFullName: authorById.get(c.userId)?.fullName ?? null,
+      authorEmail: authorById.get(c.userId)?.email ?? null,
+    }))
 
     const titleMap: Record<number, string> = {}
     myTickets.forEach((t) => { titleMap[t.id] = t.title })

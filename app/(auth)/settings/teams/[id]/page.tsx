@@ -1,9 +1,8 @@
-import { asc,eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import TeamDetailContent from '@/components/content/team/TeamDetailContent'
-import { db, teamMembers,teams, users } from '@/lib/db'
+import { find, get, getManyMap, teamMembers, teams, users } from '@/lib/fsdb'
 
 export default async function SettingsTeamDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -11,21 +10,13 @@ export default async function SettingsTeamDetailPage({ params }: { params: Promi
 
   const { id } = await params
 
-  const [teamRow] = await db
-    .select({ team: teams, creator: users })
-    .from(teams)
-    .leftJoin(users, eq(teams.createdBy, users.id))
-    .where(eq(teams.id, id))
-    .limit(1)
+  const teamDoc = await get(teams, id)
+  if (!teamDoc) redirect('/settings/teams')
+  const teamRow = { team: teamDoc, creator: await get(users, teamDoc.createdBy) }
 
-  if (!teamRow) redirect('/settings/teams')
-
-  const membersRows = await db
-    .select({ member: teamMembers, user: users })
-    .from(teamMembers)
-    .leftJoin(users, eq(teamMembers.userId, users.id))
-    .where(eq(teamMembers.teamId, id))
-    .orderBy(asc(teamMembers.joinedAt))
+  const memberDocs = await find(teamMembers, { where: [['teamId', '==', id]], orderBy: [['joinedAt', 'asc']] })
+  const memberUsers = await getManyMap(users, memberDocs.map((m) => m.userId))
+  const membersRows = memberDocs.map((member) => ({ member, user: memberUsers.get(member.userId) ?? null }))
 
   const members = membersRows.map((m) => ({
     id: m.member.id,

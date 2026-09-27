@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import CrawlSessionDetailContent from '@/components/content/crawl/CrawlSessionDetailContent'
-import { companies,companyWebsites, crawlSessions, db } from '@/lib/db'
+import { companies, companyWebsites, crawlSessions, get } from '@/lib/fsdb'
 
 export default async function CrawlSessionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -11,15 +10,12 @@ export default async function CrawlSessionDetailPage({ params }: { params: Promi
 
   const { id } = await params
 
-  const [row] = await db
-    .select({ session: crawlSessions, website: companyWebsites, company: companies })
-    .from(crawlSessions)
-    .innerJoin(companyWebsites, eq(crawlSessions.companyWebsiteId, companyWebsites.id))
-    .innerJoin(companies, eq(companyWebsites.companyId, companies.id))
-    .where(eq(crawlSessions.id, id))
-    .limit(1)
+  const crawl = await get(crawlSessions, id)
+  const website = crawl ? await get(companyWebsites, crawl.companyWebsiteId) : null
+  const company = website ? await get(companies, website.companyId) : null
 
-  if (!row) redirect('/crawl-sessions')
+  if (!crawl || !website || !company) redirect('/crawl-sessions')
+  const row = { session: crawl, website, company }
 
   const s = row.session
   const crawlSession = {

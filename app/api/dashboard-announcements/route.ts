@@ -1,9 +1,8 @@
-import { asc, desc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { announcementVisibleForViewer } from '@/lib/dashboard-announcement'
-import { dashboardAnnouncements,db } from '@/lib/db'
+import { dashboardAnnouncements, find } from '@/lib/fsdb'
 
 /** GET — published announcements visible to current user (id + title only). */
 export async function GET() {
@@ -14,11 +13,10 @@ export async function GET() {
   const viewerRole = (session.user as { role?: string }).role
 
   try {
-    const rows = await db
-      .select()
-      .from(dashboardAnnouncements)
-      .where(eq(dashboardAnnouncements.isPublished, true))
-      .orderBy(asc(dashboardAnnouncements.sortOrder), desc(dashboardAnnouncements.updatedAt))
+    const rows = await find(dashboardAnnouncements, {
+      where: [['isPublished', '==', true]],
+      orderBy: [['sortOrder', 'asc'], ['updatedAt', 'desc']],
+    })
 
     const items = rows
       .filter((r) => announcementVisibleForViewer(r, viewerRole))

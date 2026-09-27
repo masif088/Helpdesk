@@ -1,8 +1,9 @@
-import { asc, eq, or } from 'drizzle-orm'
-
-import { db } from '@/lib/db'
 import {
   companies,
+  find,
+  findBy,
+  findOneBy,
+  get,
   slackTicketNotificationRules,
   teams,
   ticketPriorities,
@@ -10,7 +11,7 @@ import {
   ticketTags,
   ticketTypes,
   users,
-} from '@/lib/db'
+} from '@/lib/fsdb'
 
 export type SlackTicketNotifyEvent = 'ticket_created' | 'status_changed' | 'client_reply' | 'tag_added'
 
@@ -99,21 +100,14 @@ async function matchesDimensions(
   }
   if (account_manager_ids && account_manager_ids.length > 0) {
     if (!ticket.companyId) return false
-    const [c] = await db
-      .select({ activeManagerId: companies.activeManagerId })
-      .from(companies)
-      .where(eq(companies.id, ticket.companyId))
-      .limit(1)
+    const c = await get(companies, ticket.companyId)
     if (!c?.activeManagerId || !account_manager_ids.includes(c.activeManagerId)) return false
   }
   return true
 }
 
 async function loadTicketTagIds(ticketId: number): Promise<string[]> {
-  const rows = await db
-    .select({ tagId: ticketTags.tagId })
-    .from(ticketTags)
-    .where(eq(ticketTags.ticketId, ticketId))
+  const rows = await findBy(ticketTags, { ticketId })
   return rows.map((r) => r.tagId)
 }
 
@@ -156,30 +150,18 @@ async function loadLabels(ticket: SlackTicketPayload): Promise<{
   priority?: string
   type?: string
 }> {
-  const [ticketRow] = await db
-    .select({ companyId: tickets.companyId, createdBy: tickets.createdBy })
-    .from(tickets)
-    .where(eq(tickets.id, ticket.id))
-    .limit(1)
+  const ticketRow = await get(tickets, ticket.id)
 
   let companyId = ticket.companyId ?? ticketRow?.companyId ?? null
   const createdBy = ticketRow?.createdBy ?? null
   if (!companyId && createdBy) {
-    const [u] = await db
-      .select({ companyId: users.companyId })
-      .from(users)
-      .where(eq(users.id, createdBy))
-      .limit(1)
+    const u = await get(users, createdBy)
     companyId = u?.companyId ?? null
   }
 
   let companyLabel = 'Not set'
   if (companyId) {
-    const [c] = await db
-      .select({ name: companies.name })
-      .from(companies)
-      .where(eq(companies.id, companyId))
-      .limit(1)
+    const c = await get(companies, companyId)
     companyLabel = c?.name?.trim() || 'Unknown company'
   }
 
@@ -194,7 +176,7 @@ async function loadLabels(ticket: SlackTicketPayload): Promise<{
   if (ticket.teamId) {
     jobs.push(
       (async () => {
-        const [r] = await db.select({ name: teams.name }).from(teams).where(eq(teams.id, ticket.teamId!)).limit(1)
+        const r = await get(teams, ticket.teamId!)
         if (r?.name) out.team = r.name
       })()
     )
@@ -203,11 +185,7 @@ async function loadLabels(ticket: SlackTicketPayload): Promise<{
     const pRank = ticket.priority
     jobs.push(
       (async () => {
-        const [match] = await db
-          .select({ title: ticketPriorities.title })
-          .from(ticketPriorities)
-          .where(or(eq(ticketPriorities.sortOrder, pRank), eq(ticketPriorities.id, pRank)))
-          .limit(1)
+        const match = (await findOneBy(ticketPriorities, { sortOrder: pRank })) ?? (await get(ticketPriorities, pRank))
         out.priority = match?.title?.trim() ? match.title : `Level ${pRank}`
       })()
     )
@@ -215,11 +193,7 @@ async function loadLabels(ticket: SlackTicketPayload): Promise<{
   if (ticket.typeId != null) {
     jobs.push(
       (async () => {
-        const [r] = await db
-          .select({ title: ticketTypes.title })
-          .from(ticketTypes)
-          .where(eq(ticketTypes.id, ticket.typeId!))
-          .limit(1)
+        const r = await get(ticketTypes, ticket.typeId!)
         if (r?.title) out.type = r.title
       })()
     )
@@ -282,11 +256,10 @@ export async function notifySlackTicketEvent(
   ticket: SlackTicketPayload
 ): Promise<void> {
   try {
-    const rules = await db
-      .select()
-      .from(slackTicketNotificationRules)
-      .where(eq(slackTicketNotificationRules.isEnabled, true))
-      .orderBy(asc(slackTicketNotificationRules.sortOrder), asc(slackTicketNotificationRules.createdAt))
+    const rules = await find(slackTicketNotificationRules, {
+      where: [['isEnabled', '==', true]],
+      orderBy: [['sortOrder', 'asc'], ['createdAt', 'asc']],
+    })
 
     const needTagLookup = rules.some((r) => {
       const f = parseFilter(r.filter)

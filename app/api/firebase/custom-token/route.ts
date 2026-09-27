@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { getFirebaseAdminApp } from '@/lib/firebase/admin'
 
-/** Returns a Firebase custom token so the client can sign in with uid = NextAuth user id (Firestore rules). */
+/** Returns a Firebase custom token so the client can sign in with uid = app user id (Firestore rules). */
 export async function GET() {
   const session = await auth()
   if (!session?.user?.id) {

@@ -1,8 +1,7 @@
-import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
-import { companies, companyDatas, companyDataTemplates, companyWebsites,db, users } from '@/lib/db'
+import { companies, companyDatas, companyDataTemplates, companyWebsites, findBy, get, getManyMap, users } from '@/lib/fsdb'
 
 export async function getCustomerCompanyData() {
   const session = await auth()
@@ -11,33 +10,24 @@ export async function getCustomerCompanyData() {
     redirect('/login')
   }
 
-  const [userRow] = await db
-    .select({ companyId: users.companyId })
-    .from(users)
-    .where(eq(users.id, session.user.id))
-    .limit(1)
+  const userRow = await get(users, session.user.id)
 
   const companyId = userRow?.companyId
   if (!companyId) {
     redirect('/dashboard')
   }
 
-  const [companyRow] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1)
+  const companyRow = await get(companies, companyId)
   if (!companyRow) {
     redirect('/dashboard')
   }
 
-  const [companyDatasRows, companyWebsitesRows] = await Promise.all([
-    db
-      .select({
-        data: companyDatas,
-        template: companyDataTemplates,
-      })
-      .from(companyDatas)
-      .leftJoin(companyDataTemplates, eq(companyDatas.dataTemplateId, companyDataTemplates.id))
-      .where(eq(companyDatas.companyId, companyId)),
-    db.select().from(companyWebsites).where(eq(companyWebsites.companyId, companyId)),
+  const [dataRows, companyWebsitesRows] = await Promise.all([
+    findBy(companyDatas, { companyId }),
+    findBy(companyWebsites, { companyId }),
   ])
+  const templateMap = await getManyMap(companyDataTemplates, dataRows.map((d) => d.dataTemplateId))
+  const companyDatasRows = dataRows.map((data) => ({ data, template: templateMap.get(data.dataTemplateId) ?? null }))
 
   const companyData = {
     id: companyRow.id,

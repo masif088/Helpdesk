@@ -1,10 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import RecurringTicketFormPage from '@/components/content/recurring-tickets/RecurringTicketFormPage'
-import { db } from '@/lib/db'
-import { recurringTickets } from '@/lib/db/schema'
+import { get, recurringTickets } from '@/lib/fsdb'
 
 export default async function EditRecurringTicketPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -12,7 +10,7 @@ export default async function EditRecurringTicketPage({ params }: { params: Prom
   if (!session?.user || !['admin', 'manager'].includes(role ?? '')) redirect('/settings/recurring-tickets')
 
   const { id } = await params
-  const [row] = await db.select().from(recurringTickets).where(eq(recurringTickets.id, id)).limit(1)
+  const row = await get(recurringTickets, id)
   if (!row) redirect('/settings/recurring-tickets')
 
   const initialValues = {

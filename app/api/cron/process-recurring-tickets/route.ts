@@ -4,10 +4,9 @@
  * Finds all active recurring rules whose nextRunAt <= now, creates the ticket,
  * logs the run, and schedules the next run.
  */
-import { and, eq, isNotNull, lte } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
-import { db, recurringTicketRuns, recurringTickets, ticketAssignees, tickets } from '@/lib/db'
+import { find, insert, insertIgnore, recurringTicketRuns, recurringTickets, ticketAssignees, tickets, update } from '@/lib/fsdb'
 import { sendRecurringTicketCreatedEmail } from '@/lib/recurring-ticket-email'
 import { computeNextRunAt, type Frequency } from '@/lib/recurring-ticket-schedule'
 import { applyRecurringTicketTemplate } from '@/lib/recurring-ticket-template'
@@ -30,16 +29,12 @@ export async function POST(req: NextRequest) {
   const now = new Date()
 
   // Find all active rules whose nextRunAt is due
-  const due = await db
-    .select()
-    .from(recurringTickets)
-    .where(
-      and(
-        eq(recurringTickets.isActive, true),
-        isNotNull(recurringTickets.nextRunAt),
-        lte(recurringTickets.nextRunAt, now)
-      )
-    )
+  const due = await find(recurringTickets, {
+    where: [
+      ['isActive', '==', true],
+      ['nextRunAt', '<=', now],
+    ],
+  })
 
   if (due.length === 0) {
     return NextResponse.json({ processed: 0 })
@@ -57,45 +52,38 @@ export async function POST(req: NextRequest) {
         : null
       let newTicket: { id: number } | undefined
 
-      await db.transaction(async (tx) => {
+      {
         // Create ticket
-        const [row] = await tx
-          .insert(tickets)
-          .values({
-            title: resolvedTitle,
-            description: resolvedDescription,
-            status: rule.ticketStatus ?? 'open',
-            priority: rule.companyId ? null : (rule.ticketPriority || null),
-            teamId: rule.teamId ?? null,
-            companyId: rule.companyId ?? null,
-            typeId: rule.ticketTypeId ?? null,
-            visibility: rule.visibility ?? 'team',
-            createdBy: rule.createdBy ?? null,
-            contactUserId: rule.contactUserId ?? null,
-            createdVia: 'recurring',
-            ticketType: 'support',
-          })
-          .returning({ id: tickets.id })
+        const row = await insert(tickets, {
+          title: resolvedTitle,
+          description: resolvedDescription,
+          status: rule.ticketStatus ?? 'open',
+          priority: rule.companyId ? null : (rule.ticketPriority || null),
+          teamId: rule.teamId ?? null,
+          companyId: rule.companyId ?? null,
+          typeId: rule.ticketTypeId ?? null,
+          visibility: rule.visibility ?? 'team',
+          createdBy: rule.createdBy ?? null,
+          contactUserId: rule.contactUserId ?? null,
+          createdVia: 'recurring',
+          ticketType: 'support',
+        })
 
-        if (!row) throw new Error('Failed to insert ticket')
-
-        // Assign company support queue rank inside same transaction (FOR UPDATE serializes concurrent runs)
-        const scope = await resolveSupportQueueScope(tx, row.id)
+        // Assign company / creator support queue rank
+        const scope = await resolveSupportQueueScope(row.id)
         if (scope) {
           if (scope.kind === 'company') {
-            await assignCompanySupportTicketRank(tx, scope.companyId, row.id, desiredRank)
+            await assignCompanySupportTicketRank(scope.companyId, row.id, desiredRank)
           } else {
-            await assignCreatorSupportTicketRank(tx, scope.userId, row.id, desiredRank)
+            await assignCreatorSupportTicketRank(scope.userId, row.id, desiredRank)
           }
         }
 
         const assigneeIds = Array.isArray(rule.assigneeIds) ? rule.assigneeIds as string[] : []
-        if (assigneeIds.length > 0) {
-          await tx.insert(ticketAssignees).values(assigneeIds.map((userId) => ({ ticketId: row.id, userId })))
-        }
+        for (const userId of assigneeIds) await insertIgnore(ticketAssignees, { ticketId: row.id, userId })
 
         newTicket = row
-      })
+      }
 
       if (!newTicket) throw new Error('Failed to insert ticket')
 
@@ -117,19 +105,16 @@ export async function POST(req: NextRequest) {
       const nextRunAt = computeNextRunAt(schedule, tomorrowMidnight)
 
       // Update rule — set lastRunAt and nextRunAt (null if expired)
-      await db
-        .update(recurringTickets)
-        .set({
-          lastRunAt: now,
-          nextRunAt: nextRunAt ?? null,
-          // Deactivate if past endDate and no future run
-          isActive: nextRunAt !== null ? rule.isActive : false,
-          updatedAt: now,
-        })
-        .where(eq(recurringTickets.id, rule.id))
+      await update(recurringTickets, rule.id, {
+        lastRunAt: now,
+        nextRunAt: nextRunAt ?? null,
+        // Deactivate if past endDate and no future run
+        isActive: nextRunAt !== null ? rule.isActive : false,
+        updatedAt: now,
+      })
 
       // Log run
-      await db.insert(recurringTicketRuns).values({
+      await insert(recurringTicketRuns, {
         recurringTicketId: rule.id,
         ticketId: newTicket.id,
         ranAt: now,
@@ -157,7 +142,7 @@ export async function POST(req: NextRequest) {
       console.error(`[recurring-tickets] Failed to process rule ${rule.id}:`, err)
 
       // Log failed run
-      await db.insert(recurringTicketRuns).values({
+      await insert(recurringTicketRuns, {
         recurringTicketId: rule.id,
         ticketId: null,
         ranAt: now,

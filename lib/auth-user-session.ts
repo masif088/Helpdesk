@@ -1,90 +1,26 @@
-import { eq } from 'drizzle-orm'
+import { get, users, type UsersRow } from '@/lib/fsdb'
 
-import { db, users } from '@/lib/db'
-
-/** Active login + JWT refresh: user must exist, not soft-deleted, status active. */
-export function userRowAllowsSession(row: { status: string | null; deletedAt: Date | null } | undefined): boolean {
+/** Active login + session refresh: user must exist, not soft-deleted, status active. */
+export function userRowAllowsSession(row: { status: string | null; deletedAt: Date | null } | null | undefined): boolean {
   if (!row) return false
   if (row.deletedAt != null) return false
   const s = (row.status ?? 'active').toLowerCase()
   return s === 'active'
 }
 
-function missingUsersDeletedAtColumn(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err)
-  if (/deleted_at/i.test(msg)) return true
-  // PostgreSQL undefined_column
-  if (/42703/i.test(msg) && /column/i.test(msg)) return true
-  return false
+/** Session gate: false when the user row is missing, soft-deleted or not active. */
+export async function fetchUserSessionEligibility(userId: string): Promise<boolean> {
+  return userRowAllowsSession(await get(users, userId))
 }
 
-/**
- * JWT refresh / session gate.
- * Returns false (no throw) when: no row (hard-deleted user or stale token id), status not active,
- * or soft-deleted (`deleted_at` set — needs column; run `drizzle/migrations/026_users_deleted_at.sql`).
- * If `deleted_at` is missing from the DB, falls back to `status` only (same false when row is gone).
- */
-export async function fetchUserSessionEligibility(userId: string) {
-  try {
-    const [row] = await db
-      .select({ status: users.status, deletedAt: users.deletedAt })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-    return userRowAllowsSession(row)
-  } catch (err) {
-    if (!missingUsersDeletedAtColumn(err)) throw err
-    const [row] = await db
-      .select({ status: users.status })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-    // Must not spread undefined: { ...undefined, deletedAt: null } would look “active” via status ?? 'active'
-    if (row === undefined) return false
-    return userRowAllowsSession({ status: row.status, deletedAt: null })
-  }
-}
-
-/**
- * JWT refresh (Node): one DB round-trip for active gate + display fields so session name/avatar
- * stay aligned with `users` after profile edits.
- */
-export async function fetchUserJwtRefreshData(userId: string): Promise<{
+export type UserSessionData = {
   active: boolean
-  fullName: string | null
-  avatarUrl: string | null
-  mustChangePassword: boolean
-}> {
-  try {
-    const [row] = await db
-      .select({
-        status: users.status,
-        deletedAt: users.deletedAt,
-        fullName: users.fullName,
-        avatarUrl: users.avatarUrl,
-        mustChangePassword: users.mustChangePassword,
-      })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-    if (!row || !userRowAllowsSession(row)) {
-      return { active: false, fullName: null, avatarUrl: null, mustChangePassword: false }
-    }
-    return { active: true, fullName: row.fullName, avatarUrl: row.avatarUrl, mustChangePassword: row.mustChangePassword ?? false }
-  } catch (err) {
-    if (!missingUsersDeletedAtColumn(err)) throw err
-    const [row] = await db
-      .select({
-        status: users.status,
-        fullName: users.fullName,
-        avatarUrl: users.avatarUrl,
-      })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1)
-    if (row === undefined || !userRowAllowsSession({ status: row.status, deletedAt: null })) {
-      return { active: false, fullName: null, avatarUrl: null, mustChangePassword: false }
-    }
-    return { active: true, fullName: row.fullName, avatarUrl: row.avatarUrl, mustChangePassword: false }
-  }
+  row: UsersRow | null
+}
+
+/** One read for the active gate + display fields (name / avatar / role / must-change-password). */
+export async function fetchUserSessionData(userId: string): Promise<UserSessionData> {
+  const row = await get(users, userId)
+  if (!row || !userRowAllowsSession(row)) return { active: false, row: null }
+  return { active: true, row }
 }

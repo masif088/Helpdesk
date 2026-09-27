@@ -1,8 +1,8 @@
-import { and, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, ticketTimeTracker, users } from '@/lib/db'
+import { find, getManyMap, ticketTimeTracker, type TicketTimeTrackerRow, users } from '@/lib/fsdb'
+import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 
 export type TicketTrackerStat = {
   ticket_id: number
@@ -26,72 +26,37 @@ export async function GET(request: Request) {
   const yesterdayStart = new Date(todayStart)
   yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1)
 
-  const todayStartIso = todayStart.toISOString()
-  const yesterdayStartIso = yesterdayStart.toISOString()
-
-  const [timeRows, yesterdayRows, activeRows] = await Promise.all([
-    // Completed sessions that STOPPED today (covers sessions started yesterday but finished today)
-    db
-      .select({
-        ticketId: ticketTimeTracker.ticketId,
-        totalSeconds: sql<number>`coalesce(sum(
-          case
-            when ${ticketTimeTracker.durationAdjustment} is not null then ${ticketTimeTracker.durationAdjustment}
-            when ${ticketTimeTracker.durationSeconds} is not null then ${ticketTimeTracker.durationSeconds}
-            else 0
-          end
-        ), 0)`.mapWith(Number),
-      })
-      .from(ticketTimeTracker)
-      .where(and(
-        inArray(ticketTimeTracker.ticketId, ticketIds),
-        sql`${ticketTimeTracker.stopTime} >= ${todayStartIso}`,
-        isNotNull(ticketTimeTracker.stopTime),
-      ))
-      .groupBy(ticketTimeTracker.ticketId),
-    // Completed sessions that stopped yesterday
-    db
-      .select({
-        ticketId: ticketTimeTracker.ticketId,
-        totalSeconds: sql<number>`coalesce(sum(
-          case
-            when ${ticketTimeTracker.durationAdjustment} is not null then ${ticketTimeTracker.durationAdjustment}
-            when ${ticketTimeTracker.durationSeconds} is not null then ${ticketTimeTracker.durationSeconds}
-            else 0
-          end
-        ), 0)`.mapWith(Number),
-      })
-      .from(ticketTimeTracker)
-      .where(and(
-        inArray(ticketTimeTracker.ticketId, ticketIds),
-        sql`${ticketTimeTracker.stopTime} >= ${yesterdayStartIso}`,
-        sql`${ticketTimeTracker.stopTime} < ${todayStartIso}`,
-        isNotNull(ticketTimeTracker.stopTime),
-      ))
-      .groupBy(ticketTimeTracker.ticketId),
-    // Active (running) sessions
-    db
-      .select({
-        ticketId: ticketTimeTracker.ticketId,
-        userId: ticketTimeTracker.userId,
-        startTime: ticketTimeTracker.startTime,
-      })
-      .from(ticketTimeTracker)
-      .where(and(
-        inArray(ticketTimeTracker.ticketId, ticketIds),
-        isNull(ticketTimeTracker.stopTime),
-      )),
+  // All sessions of these tickets that are running or stopped since yesterday; summed in memory.
+  const [recent, activeRows] = await Promise.all([
+    find(ticketTimeTracker, {
+      where: [
+        ['ticketId', 'in', ticketIds],
+        ['stopTime', '>=', yesterdayStart],
+      ],
+    }),
+    find(ticketTimeTracker, {
+      where: [
+        ['ticketId', 'in', ticketIds],
+        ['stopTime', '==', null],
+      ],
+    }),
   ])
 
-  const activeUserIds = [...new Set(activeRows.map((r) => r.userId).filter(Boolean))]
-  const userMap = new Map<string, string>()
-  if (activeUserIds.length > 0) {
-    const userRows = await db
-      .select({ id: users.id, fullName: users.fullName })
-      .from(users)
-      .where(inArray(users.id, activeUserIds))
-    for (const u of userRows) userMap.set(u.id, u.fullName ?? u.id)
+  const sumByTicket = (rows: TicketTimeTrackerRow[]) => {
+    const out: { ticketId: number; totalSeconds: number }[] = []
+    const acc = new Map<number, number>()
+    for (const r of rows) acc.set(r.ticketId, (acc.get(r.ticketId) ?? 0) + reportedDurationSeconds(r))
+    for (const [ticketId, totalSeconds] of acc) out.push({ ticketId, totalSeconds })
+    return out
   }
+  // Completed sessions that STOPPED today (covers sessions started yesterday but finished today)
+  const timeRows = sumByTicket(recent.filter((r) => r.stopTime && r.stopTime >= todayStart))
+  // Completed sessions that stopped yesterday
+  const yesterdayRows = sumByTicket(recent.filter((r) => r.stopTime && r.stopTime < todayStart))
+
+  const userById = await getManyMap(users, activeRows.map((r) => r.userId))
+  const userMap = new Map<string, string>()
+  for (const u of userById.values()) userMap.set(u.id, u.fullName ?? u.id)
 
   const nowMs = Date.now()
 

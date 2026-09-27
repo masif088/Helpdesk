@@ -1,12 +1,22 @@
-import bcrypt from 'bcryptjs'
 import { randomBytes } from 'crypto'
-import { and,eq } from 'drizzle-orm'
 import { google } from 'googleapis'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
-import { companies, companyUsers, db, emailIntegrations, messageTemplates, users } from '@/lib/db'
+import { afterUserRowChanged, findUserByEmail, setUserPassword } from '@/lib/app-users'
+import {
+  companies,
+  companyUsers,
+  emailIntegrations,
+  findOneBy,
+  get,
+  messageTemplates,
+  type Patch,
+  removeWhere,
+  update,
+  users,
+} from '@/lib/fsdb'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
 import {
   actorRoleFromSession,
@@ -42,24 +52,10 @@ async function sendCustomerResetPasswordEmail(params: {
     throw new Error('Email integration not configured')
   }
 
-  const [tpl] = await db
-    .select({ status: messageTemplates.status, content: messageTemplates.content })
-    .from(messageTemplates)
-    .where(eq(messageTemplates.key, 'requester_notification_password_reset'))
-    .limit(1)
+  const tpl = await findOneBy(messageTemplates, { key: 'requester_notification_password_reset' })
   if (!tpl || tpl.status !== 'active') return
 
-  const [integration] = await db
-    .select({
-      id: emailIntegrations.id,
-      emailAddress: emailIntegrations.emailAddress,
-      accessToken: emailIntegrations.accessToken,
-      refreshToken: emailIntegrations.refreshToken,
-      expiresAt: emailIntegrations.expiresAt,
-    })
-    .from(emailIntegrations)
-    .where(and(eq(emailIntegrations.provider, 'google'), eq(emailIntegrations.isActive, true)))
-    .limit(1)
+  const integration = await findOneBy(emailIntegrations, { provider: 'google', isActive: true })
 
   if (!integration?.accessToken) {
     throw new Error('Email integration not connected')
@@ -80,14 +76,11 @@ async function sendCustomerResetPasswordEmail(params: {
     const { credentials } = await oauth2Client.refreshAccessToken()
     accessToken = credentials.access_token ?? integration.accessToken
     if (credentials.access_token && credentials.expiry_date) {
-      await db
-        .update(emailIntegrations)
-        .set({
-          accessToken: credentials.access_token,
-          expiresAt: new Date(credentials.expiry_date),
-          updatedAt: new Date(),
-        })
-        .where(eq(emailIntegrations.id, integration.id))
+      await update(emailIntegrations, integration.id, {
+        accessToken: credentials.access_token,
+        expiresAt: new Date(credentials.expiry_date),
+        updatedAt: new Date(),
+      })
     }
   } else {
     oauth2Client.setCredentials({ access_token: accessToken })
@@ -104,11 +97,7 @@ async function sendCustomerResetPasswordEmail(params: {
   const subjectMime = encodeSubjectHeader(subject)
 
   // Fetch recipient user row for merge maps
-  const [recipientUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, params.toEmail))
-    .limit(1)
+  const recipientUser = await findUserByEmail(params.toEmail)
 
   const recipientMap = userRowToMergeMap(recipientUser ?? null)
 
@@ -165,23 +154,9 @@ async function sendUserActivationEmail(params: { toEmail: string }) {
     throw new Error('Email integration not configured')
   }
 
-  const [tpl] = await db
-    .select({ status: messageTemplates.status, content: messageTemplates.content })
-    .from(messageTemplates)
-    .where(eq(messageTemplates.key, 'requester_notification_user_activation'))
-    .limit(1)
+  const tpl = await findOneBy(messageTemplates, { key: 'requester_notification_user_activation' })
 
-  const [integration] = await db
-    .select({
-      id: emailIntegrations.id,
-      emailAddress: emailIntegrations.emailAddress,
-      accessToken: emailIntegrations.accessToken,
-      refreshToken: emailIntegrations.refreshToken,
-      expiresAt: emailIntegrations.expiresAt,
-    })
-    .from(emailIntegrations)
-    .where(and(eq(emailIntegrations.provider, 'google'), eq(emailIntegrations.isActive, true)))
-    .limit(1)
+  const integration = await findOneBy(emailIntegrations, { provider: 'google', isActive: true })
 
   if (!integration?.accessToken) {
     throw new Error('Email integration not connected')
@@ -202,14 +177,11 @@ async function sendUserActivationEmail(params: { toEmail: string }) {
     const { credentials } = await oauth2Client.refreshAccessToken()
     accessToken = credentials.access_token ?? integration.accessToken
     if (credentials.access_token && credentials.expiry_date) {
-      await db
-        .update(emailIntegrations)
-        .set({
-          accessToken: credentials.access_token,
-          expiresAt: new Date(credentials.expiry_date),
-          updatedAt: new Date(),
-        })
-        .where(eq(emailIntegrations.id, integration.id))
+      await update(emailIntegrations, integration.id, {
+        accessToken: credentials.access_token,
+        expiresAt: new Date(credentials.expiry_date),
+        updatedAt: new Date(),
+      })
     }
   } else {
     oauth2Client.setCredentials({ access_token: accessToken })
@@ -225,11 +197,7 @@ async function sendUserActivationEmail(params: { toEmail: string }) {
   const subject = 'Activate your portal account'
   const subjectMime = encodeSubjectHeader(subject)
 
-  const [recipientUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, params.toEmail))
-    .limit(1)
+  const recipientUser = await findUserByEmail(params.toEmail)
 
   const recipientMap = userRowToMergeMap(recipientUser ?? null)
 
@@ -283,18 +251,11 @@ export async function GET(
   }
 
   const { id } = await params
-  const [row] = await db
-    .select({
-      user: users,
-      company: companies,
-    })
-    .from(users)
-    .leftJoin(companies, eq(users.companyId, companies.id))
-    .where(eq(users.id, id))
-
-  if (!row?.user) {
+  const userDoc = await get(users, id)
+  if (!userDoc) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
+  const row = { user: userDoc, company: await get(companies, userDoc.companyId) }
 
   const u = row.user
   return NextResponse.json({
@@ -336,7 +297,7 @@ export async function PATCH(
   const body = await request.json()
   const role = (session.user as { role?: string }).role?.toLowerCase()
   const isAdmin = role === 'admin'
-  const [targetUser] = await db.select().from(users).where(eq(users.id, id)).limit(1)
+  const targetUser = await get(users, id)
   if (!targetUser) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
@@ -354,11 +315,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Customer email is missing' }, { status: 400 })
     }
     const temporaryPassword = generateTemporaryPassword(12)
-    const passwordHash = await bcrypt.hash(temporaryPassword, 10)
-    await db
-      .update(users)
-      .set({ passwordHash, mustChangePassword: true, updatedAt: new Date() })
-      .where(eq(users.id, id))
+    await setUserPassword(targetUser, temporaryPassword, { mustChangePassword: true, revokeSessions: true })
+    await update(users, id, { updatedAt: new Date() })
     await sendCustomerResetPasswordEmail({
       toEmail: targetUser.email,
       temporaryPassword,
@@ -393,7 +351,7 @@ export async function PATCH(
     return NextResponse.json({ ok: true, sent: true })
   }
 
-  const updateData: Record<string, unknown> = {}
+  const updateData: Patch<typeof users.$inferSelect> = {}
   if (body.full_name !== undefined) updateData.fullName = body.full_name
   if (body.first_name !== undefined) updateData.firstName = body.first_name || null
   if (body.last_name !== undefined) updateData.lastName = body.last_name || null
@@ -420,17 +378,17 @@ export async function PATCH(
     if (body.password.length < 6) {
       return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
     }
-    updateData.passwordHash = await bcrypt.hash(body.password, 10)
+    await setUserPassword(targetUser, String(body.password), { revokeSessions: true })
   }
 
   const passwordChanged = Boolean(isAdmin && body.password)
-  await db.update(users).set({ ...updateData, updatedAt: new Date() }).where(eq(users.id, id))
+  const afterRow = await update(users, id, { ...updateData, updatedAt: new Date() })
   if (removingFromCompany) {
-    await db.delete(companyUsers).where(eq(companyUsers.userId, id))
+    await removeWhere(companyUsers, [['userId', '==', id]])
   }
 
-  const [afterRow] = await db.select().from(users).where(eq(users.id, id)).limit(1)
   if (afterRow) {
+    await afterUserRowChanged(targetUser, afterRow)
     const extra: Record<string, unknown> = {}
     if (passwordChanged) extra.password_changed = true
     await logUserUpdated({
@@ -470,23 +428,17 @@ export async function DELETE(
     return NextResponse.json({ error: 'You cannot deactivate your own account this way' }, { status: 400 })
   }
 
-  const [target] = await db
-    .select({ id: users.id, email: users.email, status: users.status })
-    .from(users)
-    .where(eq(users.id, id))
-    .limit(1)
+  const target = await get(users, id)
   if (!target) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
 
-  await db
-    .update(users)
-    .set({
-      status: 'inactive',
-      deletedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(users.id, id))
+  const deactivated = await update(users, id, {
+    status: 'inactive',
+    deletedAt: new Date(),
+    updatedAt: new Date(),
+  })
+  if (deactivated) await afterUserRowChanged(target, deactivated)
 
   await logSystemActivity({
     category: 'user',

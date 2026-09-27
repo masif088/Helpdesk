@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { commentAttachments,db, ticketComments } from '@/lib/db'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
+import { deleteCommentCascade, get, ticketComments, update } from '@/lib/fsdb'
 import type { TicketActorRole } from '@/lib/ticket-activity-log'
 import { logTicketActivity } from '@/lib/ticket-activity-log'
 
@@ -31,11 +30,7 @@ export async function PATCH(
   const body = await request.json()
   const { comment } = body
 
-  const [prev] = await db
-    .select({ comment: ticketComments.comment, userId: ticketComments.userId, visibility: ticketComments.visibility })
-    .from(ticketComments)
-    .where(eq(ticketComments.id, commentId))
-    .limit(1)
+  const prev = await get(ticketComments, commentId)
 
   if (!prev) {
     return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
@@ -48,14 +43,11 @@ export async function PATCH(
   }
 
   const now = new Date()
-  await db
-    .update(ticketComments)
-    .set({
-      comment: comment ?? '',
-      editedByUserId: session.user.id!,
-      editedAt: now,
-    })
-    .where(eq(ticketComments.id, commentId))
+  await update(ticketComments, commentId, {
+    comment: comment ?? '',
+    editedByUserId: session.user.id!,
+    editedAt: now,
+  })
 
   const actorRole: TicketActorRole = 'agent'
   if (String(prev.comment ?? '') !== String(comment ?? '')) {
@@ -103,8 +95,7 @@ export async function DELETE(
     metadata: { comment_id: commentId },
   })
 
-  await db.delete(commentAttachments).where(eq(commentAttachments.commentId, commentId))
-  await db.delete(ticketComments).where(eq(ticketComments.id, commentId))
+  await deleteCommentCascade(commentId)
   bumpTicketDataVersion(ticketId)
   return NextResponse.json({ ok: true })
 }

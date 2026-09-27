@@ -1,10 +1,8 @@
-import { eq, inArray } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessTeams, canAdminTeams } from '@/lib/auth-utils'
-import { db } from '@/lib/db'
-import { teamMembers, teams, users } from '@/lib/db'
+import { findBy, get, getMany, getManyMap, insertIgnore, teamMembers, teams, users } from '@/lib/fsdb'
 
 const TEAM_INELIGIBLE_ROLES = ['customer', 'guest']
 
@@ -27,14 +25,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Team ID required' }, { status: 400 })
   }
 
-  const rows = await db
-    .select({
-      member: teamMembers,
-      user: users,
-    })
-    .from(teamMembers)
-    .leftJoin(users, eq(teamMembers.userId, users.id))
-    .where(eq(teamMembers.teamId, teamId))
+  const memberDocs = await findBy(teamMembers, { teamId: teamId })
+  const memberUsers = await getManyMap(users, memberDocs.map((m) => m.userId))
+  const rows = memberDocs.map((member) => ({ member, user: memberUsers.get(member.userId) ?? null }))
 
   const result = rows.map((r) => ({
     id: r.member.id,
@@ -65,11 +58,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Team ID required' }, { status: 400 })
   }
 
-  const [teamRow] = await db
-    .select({ createdBy: teams.createdBy })
-    .from(teams)
-    .where(eq(teams.id, teamId))
-    .limit(1)
+  const teamRow = await get(teams, teamId)
   if (!teamRow) {
     return NextResponse.json({ error: 'Team not found' }, { status: 404 })
   }
@@ -86,7 +75,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
   const role = (roleOverride && typeof roleOverride === 'string') ? roleOverride : 'member'
 
-  const userRows = await db.select({ id: users.id, role: users.role }).from(users).where(inArray(users.id, userIds))
+  const userRows = await getMany(users, userIds)
   const ineligible = userRows.filter((u) => TEAM_INELIGIBLE_ROLES.includes((u.role ?? '').toLowerCase()))
   if (ineligible.length > 0) {
     return NextResponse.json(
@@ -95,7 +84,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     )
   }
 
-  const existing = await db.select().from(teamMembers).where(eq(teamMembers.teamId, teamId))
+  const existing = await findBy(teamMembers, { teamId })
   const existingUserIds = new Set(existing.map((e) => e.userId))
   const newUserIds = userIds.filter((uid: string) => !existingUserIds.has(uid))
 
@@ -103,22 +92,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'All selected users are already members', added: 0 }, { status: 400 })
   }
 
-  await db.insert(teamMembers).values(
-    newUserIds.map((userId: string) => ({
-      teamId,
-      userId,
-      role,
-    }))
-  )
+  for (const userId of newUserIds as string[]) {
+    await insertIgnore(teamMembers, { teamId, userId, role })
+  }
 
-  const rows = await db
-    .select({
-      member: teamMembers,
-      user: users,
-    })
-    .from(teamMembers)
-    .leftJoin(users, eq(teamMembers.userId, users.id))
-    .where(eq(teamMembers.teamId, teamId))
+  const memberDocs = await findBy(teamMembers, { teamId: teamId })
+  const memberUsers = await getManyMap(users, memberDocs.map((m) => m.userId))
+  const rows = memberDocs.map((member) => ({ member, user: memberUsers.get(member.userId) ?? null }))
 
   const result = rows.map((r) => ({
     id: r.member.id,

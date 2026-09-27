@@ -1,9 +1,7 @@
-import { desc,eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { companyWebsites } from '@/lib/db'
+import { companyWebsites, find, insert, updateWhere } from '@/lib/fsdb'
 
 /** GET /api/company-websites?company_id=... */
 export async function GET(request: Request) {
@@ -16,11 +14,8 @@ export async function GET(request: Request) {
   const companyId = searchParams.get('company_id')
   const isPrimary = searchParams.get('is_primary')
 
-  let rows = await db.select().from(companyWebsites)
+  let rows = await find(companyWebsites, { where: [companyId && ['companyId', '==', companyId]] })
 
-  if (companyId) {
-    rows = rows.filter((r) => r.companyId === companyId)
-  }
   if (isPrimary !== null && isPrimary !== undefined) {
     rows = rows.filter((r) => r.isPrimary === (isPrimary === 'true'))
   }
@@ -61,22 +56,16 @@ export async function POST(request: Request) {
   }
 
   if (is_primary) {
-    await db
-      .update(companyWebsites)
-      .set({ isPrimary: false })
-      .where(eq(companyWebsites.companyId, company_id))
+    await updateWhere(companyWebsites, [['companyId', '==', company_id]], { isPrimary: false })
   }
 
-  const [row] = await db
-    .insert(companyWebsites)
-    .values({
-      companyId: company_id,
-      url,
-      title: title || null,
-      description: description || null,
-      isPrimary: is_primary || false,
-    })
-    .returning()
+  const row = await insert(companyWebsites, {
+    companyId: company_id,
+    url,
+    title: title || null,
+    description: description || null,
+    isPrimary: is_primary || false,
+  })
 
   if (!row) {
     return NextResponse.json({ error: 'Failed to create' }, { status: 500 })

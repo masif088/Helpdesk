@@ -1,10 +1,8 @@
-import { and,eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessTeams, canAdminTeams } from '@/lib/auth-utils'
-import { db } from '@/lib/db'
-import { teamMembers,teams } from '@/lib/db'
+import { get, remove, teamMembers, teams } from '@/lib/fsdb'
 
 function sessionRole(session: { user?: { role?: string; id?: string } } | null) {
   return (session?.user as { role?: string } | undefined)?.role
@@ -28,20 +26,13 @@ export async function DELETE(
     return NextResponse.json({ error: 'Team ID and Member ID required' }, { status: 400 })
   }
 
-  const [memberRow] = await db
-    .select({ userId: teamMembers.userId })
-    .from(teamMembers)
-    .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.id, memberId)))
-    .limit(1)
+  const member = await get(teamMembers, memberId)
+  const memberRow = member && member.teamId === teamId ? member : null
   if (!memberRow) {
     return NextResponse.json({ error: 'Member not found' }, { status: 404 })
   }
 
-  const [teamRow] = await db
-    .select({ createdBy: teams.createdBy })
-    .from(teams)
-    .where(eq(teams.id, teamId))
-    .limit(1)
+  const teamRow = await get(teams, teamId)
   if (!teamRow) {
     return NextResponse.json({ error: 'Team not found' }, { status: 404 })
   }
@@ -59,10 +50,7 @@ export async function DELETE(
     )
   }
 
-  const [deleted] = await db
-    .delete(teamMembers)
-    .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.id, memberId)))
-    .returning()
+  const deleted = await remove(teamMembers, memberId)
 
   if (!deleted) {
     return NextResponse.json({ error: 'Member not found' }, { status: 404 })

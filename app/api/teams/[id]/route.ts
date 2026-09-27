@@ -1,10 +1,8 @@
-import { and,eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessTeams, canAdminTeams } from '@/lib/auth-utils'
-import { db } from '@/lib/db'
-import { teamMembers,teams, users } from '@/lib/db'
+import { deleteTeamCascade, findBy, get, getByKey, getManyMap, type Patch, teamMembers, teams, update, users } from '@/lib/fsdb'
 import { normalizeTeamVisibilityBody } from '@/lib/team-type'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 
@@ -48,11 +46,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (typeof createdByBody !== 'string') {
       return NextResponse.json({ error: 'created_by must be a user id' }, { status: 400 })
     }
-    const [memberRow] = await db
-      .select({ id: teamMembers.id })
-      .from(teamMembers)
-      .where(and(eq(teamMembers.teamId, id), eq(teamMembers.userId, createdByBody)))
-      .limit(1)
+    const memberRow = await getByKey(teamMembers, { teamId: id, userId: createdByBody })
     if (!memberRow) {
       return NextResponse.json({ error: 'New creator must be a member of this team' }, { status: 400 })
     }
@@ -63,26 +57,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
   }
 
-  const [updated] = await db
-    .update(teams)
-    .set(values as typeof teams.$inferInsert)
-    .where(eq(teams.id, id))
-    .returning()
+  const updated = await update(teams, id, values as Patch<typeof teams.$inferSelect>)
 
   if (!updated) {
     return NextResponse.json({ error: 'Team not found' }, { status: 404 })
   }
 
   revalidateTicketsLookupCatalog()
-  const [creator] = await db.select().from(users).where(eq(users.id, updated.createdBy)).limit(1)
-  const members = await db
-    .select({
-      member: teamMembers,
-      user: users,
-    })
-    .from(teamMembers)
-    .leftJoin(users, eq(teamMembers.userId, users.id))
-    .where(eq(teamMembers.teamId, id))
+  const creator = await get(users, updated.createdBy)
+
+  const memberDocs = await findBy(teamMembers, { teamId: id })
+  const memberUsers = await getManyMap(users, memberDocs.map((m) => m.userId))
+  const members = memberDocs.map((member) => ({ member, user: memberUsers.get(member.userId) ?? null }))
 
   return NextResponse.json({
     id: updated.id,
@@ -120,8 +106,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     return NextResponse.json({ error: 'Team ID required' }, { status: 400 })
   }
 
-  await db.delete(teamMembers).where(eq(teamMembers.teamId, id))
-  const [deleted] = await db.delete(teams).where(eq(teams.id, id)).returning()
+  const deleted = await deleteTeamCascade(id)
 
   if (!deleted) {
     return NextResponse.json({ error: 'Team not found' }, { status: 404 })

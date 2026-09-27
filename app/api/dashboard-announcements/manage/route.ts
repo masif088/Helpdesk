@@ -1,9 +1,8 @@
-import { desc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
-import { dashboardAnnouncements,db } from '@/lib/db'
+import { dashboardAnnouncements, find, insert } from '@/lib/fsdb'
 import { normalizeTargetRolesInput } from '@/lib/knowledge-base-article-roles'
 
 function sessionRole(session: { user?: { role?: string; id?: string } } | null) {
@@ -43,7 +42,7 @@ export async function GET() {
   }
 
   try {
-    const rows = await db.select().from(dashboardAnnouncements).orderBy(desc(dashboardAnnouncements.updatedAt))
+    const rows = await find(dashboardAnnouncements, { orderBy: [['updatedAt', 'desc']] })
     return NextResponse.json({ items: rows.map(rowToAdminJson) })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Database error'
@@ -86,20 +85,17 @@ export async function POST(request: Request) {
   }
 
   try {
-    const [inserted] = await db
-      .insert(dashboardAnnouncements)
-      .values({
-        title,
-        body: textBody,
-        targetRoles,
-        isPublished,
-        startsAt,
-        endsAt,
-        sortOrder,
-        createdBy: session.user.id,
-        updatedAt: new Date(),
-      })
-      .returning()
+    const inserted = await insert(dashboardAnnouncements, {
+      title,
+      body: textBody,
+      targetRoles,
+      isPublished,
+      startsAt,
+      endsAt,
+      sortOrder,
+      createdBy: session.user.id,
+      updatedAt: new Date(),
+    })
 
     if (!inserted) {
       return NextResponse.json({ error: 'Insert failed' }, { status: 500 })

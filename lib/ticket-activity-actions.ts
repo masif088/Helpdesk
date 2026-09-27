@@ -1,6 +1,6 @@
 /**
  * Activity action values stored in `ticket_activity_log.action`.
- * Kept separate from `ticket-activity-log.ts` so client components can import without pulling `postgres`/db.
+ * Kept separate from `ticket-activity-log.ts` so client components can import without pulling the server data layer.
  */
 export const TICKET_ACTIVITY_ACTIONS = [
   'ticket_created',

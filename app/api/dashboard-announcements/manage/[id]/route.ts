@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
-import { dashboardAnnouncements,db } from '@/lib/db'
+import { dashboardAnnouncements, get, remove, update } from '@/lib/fsdb'
 import { normalizeTargetRolesInput } from '@/lib/knowledge-base-article-roles'
 
 function sessionRole(session: { user?: { role?: string; id?: string } } | null) {
@@ -52,7 +51,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const [existing] = await db.select().from(dashboardAnnouncements).where(eq(dashboardAnnouncements.id, id)).limit(1)
+  const existing = await get(dashboardAnnouncements, id)
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
@@ -93,20 +92,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   try {
-    const [updated] = await db
-      .update(dashboardAnnouncements)
-      .set({
-        title,
-        body: textBody ?? '',
-        targetRoles,
-        isPublished,
-        startsAt,
-        endsAt,
-        sortOrder,
-        updatedAt: new Date(),
-      })
-      .where(eq(dashboardAnnouncements.id, id))
-      .returning()
+    const updated = await update(dashboardAnnouncements, id, {
+      title,
+      body: textBody ?? '',
+      targetRoles,
+      isPublished,
+      startsAt,
+      endsAt,
+      sortOrder,
+      updatedAt: new Date(),
+    })
 
     if (!updated) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -133,7 +128,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const [deleted] = await db.delete(dashboardAnnouncements).where(eq(dashboardAnnouncements.id, id)).returning()
+  const deleted = await remove(dashboardAnnouncements, id)
   if (!deleted) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }

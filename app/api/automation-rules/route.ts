@@ -1,10 +1,8 @@
-import { desc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessAutomationRules } from '@/lib/auth-utils'
-import { db } from '@/lib/db'
-import { automationRules } from '@/lib/db'
+import { automationRules, find, insert } from '@/lib/fsdb'
 import { logSettingsCreated } from '@/lib/settings-activity-log'
 
 function ruleSnapshot(r: {
@@ -38,10 +36,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const rows = await db
-    .select()
-    .from(automationRules)
-    .orderBy(desc(automationRules.priority), desc(automationRules.id))
+  const rows = await find(automationRules, { orderBy: [['priority', 'desc'], ['id', 'desc']] })
 
   const data = rows.map((r) => ({
     id: r.id,
@@ -80,18 +75,15 @@ export async function POST(request: Request) {
   const conditionsObj = typeof conditions === 'object' ? conditions : (typeof conditions === 'string' ? JSON.parse(conditions || '{}') : {})
   const actionsObj = typeof actions === 'object' ? actions : (typeof actions === 'string' ? JSON.parse(actions || '{}') : {})
 
-  const [inserted] = await db
-    .insert(automationRules)
-    .values({
-      name: name ? String(name).trim() : null,
-      eventType: String(event_type),
-      conditions: conditionsObj,
-      actions: actionsObj,
-      priority: Number(priority) ?? 0,
-      companyId: company_id || null,
-      status: status !== false,
-    })
-    .returning()
+  const inserted = await insert(automationRules, {
+    name: name ? String(name).trim() : null,
+    eventType: String(event_type),
+    conditions: conditionsObj,
+    actions: actionsObj,
+    priority: Number(priority) ?? 0,
+    companyId: company_id || null,
+    status: status !== false,
+  })
 
   if (!inserted) {
     return NextResponse.json({ error: 'Insert failed' }, { status: 500 })

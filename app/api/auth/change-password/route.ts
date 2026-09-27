@@ -1,9 +1,9 @@
-import bcrypt from 'bcryptjs'
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, users } from '@/lib/db'
+import { setUserPassword } from '@/lib/app-users'
+import { signInWithEmailPassword } from '@/lib/firebase/auth-server'
+import { get, users } from '@/lib/fsdb'
 
 /** POST /api/auth/change-password - Change user password */
 export async function POST(request: Request) {
@@ -23,19 +23,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'New password must be at least 6 characters' }, { status: 400 })
   }
 
-  const [user] = await db.select().from(users).where(eq(users.id, session.user.id)).limit(1)
-
-  if (!user?.passwordHash) {
+  const user = await get(users, session.user.id)
+  if (!user) {
     return NextResponse.json({ error: 'Password not set for this account' }, { status: 400 })
   }
 
-  const valid = await bcrypt.compare(currentPassword, user.passwordHash)
-  if (!valid) {
-    return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 })
+  const check = await signInWithEmailPassword(user.email, currentPassword)
+  if (!check.ok) {
+    if (check.code === 'INVALID_CREDENTIALS') {
+      return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 })
+    }
+    return NextResponse.json({ error: 'Could not verify current password' }, { status: 503 })
   }
 
-  const hash = await bcrypt.hash(newPassword, 10)
-  await db.update(users).set({ passwordHash: hash, mustChangePassword: false }).where(eq(users.id, session.user.id))
+  // Revoking sessions forces a fresh login with the new password (the client signs in again).
+  await setUserPassword(user, newPassword, { mustChangePassword: false, revokeSessions: true })
 
   return NextResponse.json({ success: true })
 }

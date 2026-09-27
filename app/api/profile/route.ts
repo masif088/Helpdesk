@@ -1,8 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, users } from '@/lib/db'
+import { afterUserRowChanged } from '@/lib/app-users'
+import { get, update, users } from '@/lib/fsdb'
 
 /** PATCH /api/profile - Update current user profile */
 export async function PATCH(request: Request) {
@@ -51,15 +51,13 @@ export async function PATCH(request: Request) {
   if (timezone !== undefined) set.timezone = timezone
   if (locale !== undefined) set.locale = locale
 
-  const [updated] = await db
-    .update(users)
-    .set(set)
-    .where(eq(users.id, session.user.id!))
-    .returning()
+  const before = await get(users, session.user.id)
+  const updated = before ? await update(users, session.user.id, set) : null
 
-  if (!updated) {
+  if (!before || !updated) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
+  await afterUserRowChanged(before, updated)
 
   return NextResponse.json({
     success: true,

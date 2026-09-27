@@ -1,9 +1,7 @@
-import { inArray } from 'drizzle-orm'
-
 import { auth } from '@/auth'
 import CustomerDashboardContent from '@/components/content/customer/CustomerDashboardContent'
 import DashboardContent from '@/components/content/dashboard/DashboardContent'
-import { db, teams, tickets,users } from '@/lib/db'
+import { count, teams, tickets, users } from '@/lib/fsdb'
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -32,34 +30,14 @@ export default async function DashboardPage() {
   let totalTicketsCount = 0
 
   try {
-    const [usersResult, teamsResult, completedResult, totalResult] = await Promise.all([
-      db.select().from(users),
-      db.select().from(teams),
-      db
-        .select()
-        .from(tickets)
-        .where(inArray(tickets.status, ['resolved', 'closed', 'completed'])),
-      db.select().from(tickets),
+    ;[usersCount, teamsCount, completedTicketsCount, totalTicketsCount] = await Promise.all([
+      count(users),
+      count(teams),
+      count(tickets, [['status', 'in', ['resolved', 'closed', 'completed']]]),
+      count(tickets),
     ])
-    usersCount = usersResult.length
-    teamsCount = teamsResult.length
-    completedTicketsCount = completedResult.length
-    totalTicketsCount = totalResult.length
   } catch (err) {
-    const cause = err instanceof Error && err.cause instanceof Error ? err.cause : null
-    const code =
-      (cause as NodeJS.ErrnoException | null)?.code ??
-      (err as NodeJS.ErrnoException)?.code
-    const isNetwork =
-      code === 'ETIMEDOUT' || code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'EAI_AGAIN'
-    if (isNetwork) {
-      console.error(
-        'Dashboard: cannot connect to PostgreSQL. Check DATABASE_URL, VPN, and whether your IP is allowed to reach the DB (not a missing-table issue).',
-        err
-      )
-    } else {
-      console.error('Dashboard query failed. If tables are missing, run `npm run db:push`.', err)
-    }
+    console.error('Dashboard query failed (check Firebase Admin credentials / Firestore).', err)
   }
 
   return (

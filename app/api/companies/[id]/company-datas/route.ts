@@ -1,9 +1,7 @@
-import { and,eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { companyDatas } from '@/lib/db'
+import { companyDatas, upsert } from '@/lib/fsdb'
 
 /** POST /api/companies/[id]/company-datas - upsert company data fields */
 export async function POST(
@@ -42,30 +40,12 @@ export async function POST(
 
   const results: unknown[] = []
   for (const item of dataToUpsert) {
-    const existing = await db
-      .select()
-      .from(companyDatas)
-      .where(and(eq(companyDatas.companyId, id), eq(companyDatas.dataTemplateId, item.dataTemplateId)))
-      .limit(1)
-
-    if (existing.length) {
-      const [updated] = await db
-        .update(companyDatas)
-        .set({ value: item.value, updatedAt: new Date() })
-        .where(eq(companyDatas.id, existing[0].id))
-        .returning()
-      if (updated) results.push(updated)
-    } else {
-      const [inserted] = await db
-        .insert(companyDatas)
-        .values({
-          companyId: item.companyId,
-          dataTemplateId: item.dataTemplateId,
-          value: item.value,
-        })
-        .returning()
-      if (inserted) results.push(inserted)
-    }
+    const saved = await upsert(
+      companyDatas,
+      { companyId: item.companyId, dataTemplateId: item.dataTemplateId, value: item.value },
+      { value: item.value, updatedAt: new Date() }
+    )
+    results.push(saved)
   }
 
   return NextResponse.json({

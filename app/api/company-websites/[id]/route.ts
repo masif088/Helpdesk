@@ -1,9 +1,7 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { companyWebsites } from '@/lib/db'
+import { companyWebsites, get, type Patch, remove, update, updateWhere } from '@/lib/fsdb'
 
 /** PATCH /api/company-websites/[id] */
 export async function PATCH(
@@ -19,31 +17,24 @@ export async function PATCH(
   const body = await request.json()
   const { url, title, description, is_primary, company_id } = body
 
-  const existing = await db.select().from(companyWebsites).where(eq(companyWebsites.id, id)).limit(1)
-  if (!existing.length) {
+  const existing = await get(companyWebsites, id)
+  if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const cid = company_id ?? existing[0].companyId
+  const cid = company_id ?? existing.companyId
   if (is_primary) {
-    await db
-      .update(companyWebsites)
-      .set({ isPrimary: false })
-      .where(eq(companyWebsites.companyId, cid))
+    await updateWhere(companyWebsites, [['companyId', '==', cid]], { isPrimary: false })
   }
 
-  const updateData: Record<string, unknown> = {}
+  const updateData: Patch<typeof companyWebsites.$inferSelect> = {}
   if (url !== undefined) updateData.url = url
   if (title !== undefined) updateData.title = title || null
   if (description !== undefined) updateData.description = description || null
   if (is_primary !== undefined) updateData.isPrimary = is_primary
   updateData.updatedAt = new Date()
 
-  const [row] = await db
-    .update(companyWebsites)
-    .set(updateData)
-    .where(eq(companyWebsites.id, id))
-    .returning()
+  const row = await update(companyWebsites, id, updateData)
 
   if (!row) {
     return NextResponse.json({ error: 'Failed to update' }, { status: 500 })
@@ -75,6 +66,6 @@ export async function DELETE(
   }
 
   const { id } = await params
-  await db.delete(companyWebsites).where(eq(companyWebsites.id, id))
+  await remove(companyWebsites, id)
   return NextResponse.json({ success: true })
 }

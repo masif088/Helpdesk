@@ -1,9 +1,8 @@
-import { asc, max } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
-import { db, jobTypes } from '@/lib/db'
+import { find, insert, jobTypes, UniqueViolationError } from '@/lib/fsdb'
 import {
   normalizeJobTypeSlug,
   normalizeJobTypeTitle,
@@ -38,18 +37,9 @@ export async function GET() {
   const forbid = assertAdmin(role)
   if (forbid) return forbid
 
-  const rows = await db
-    .select({
-      slug: jobTypes.slug,
-      title: jobTypes.title,
-      sortOrder: jobTypes.sortOrder,
-      isActive: jobTypes.isActive,
-      createdAt: jobTypes.createdAt,
-    })
-    .from(jobTypes)
-    .orderBy(asc(jobTypes.sortOrder), asc(jobTypes.slug))
+  const rows = await find(jobTypes, { orderBy: [['sortOrder', 'asc'], ['slug', 'asc']] })
 
-  return NextResponse.json(rows.map((r) => serializeRow(r as typeof jobTypes.$inferSelect)))
+  return NextResponse.json(rows.map(serializeRow))
 }
 
 /** POST — create job type */
@@ -78,23 +68,20 @@ export async function POST(request: Request) {
     )
   }
 
-  const [{ mxRaw }] = await db.select({ mxRaw: max(jobTypes.sortOrder) }).from(jobTypes)
-  const mx = mxRaw !== null && mxRaw !== undefined ? Number(mxRaw) : 0
+  const [top] = await find(jobTypes, { orderBy: [['sortOrder', 'desc']], limit: 1 })
+  const mx = top ? Number(top.sortOrder) : 0
   const sortFallback = Number.isFinite(mx) ? mx + 1 : 1
   const sortOrder = parseJobTypeSortOrder(body.sort_order, sortFallback)
   const isActive =
     body.is_active === undefined || body.is_active === null ? true : Boolean(body.is_active)
 
   try {
-    const [row] = await db
-      .insert(jobTypes)
-      .values({
-        slug,
-        title,
-        sortOrder,
-        isActive,
-      })
-      .returning()
+    const row = await insert(jobTypes, {
+      slug,
+      title,
+      sortOrder,
+      isActive,
+    })
 
     await logSettingsCreated({
       session,
@@ -107,7 +94,7 @@ export async function POST(request: Request) {
     return NextResponse.json(serializeRow(row))
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    if (msg.includes('unique') || msg.includes('duplicate')) {
+    if (e instanceof UniqueViolationError || msg.includes('unique') || msg.includes('duplicate')) {
       return NextResponse.json({ error: 'Slug already exists' }, { status: 409 })
     }
     console.error('[POST /api/settings/job-types]', e)

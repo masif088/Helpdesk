@@ -1,9 +1,8 @@
-import { and, desc, eq, isNull, lte, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdmin, isAdminOrManager } from '@/lib/auth-utils'
-import { db, ticketTimeTracker, users } from '@/lib/db'
+import { find, get, getManyMap, insert, remove, ticketTimeTracker, update, users } from '@/lib/fsdb'
 import { assertValidJobTypeSlugOrNull, loadActiveJobTypeTitleMap } from '@/lib/job-types-db'
 import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 
@@ -102,35 +101,31 @@ export async function GET(
   const startFilter = startP ? new Date(startP) : null
   const endFilter = endP ? new Date(endP) : null
 
-  const whereClause = activeOnly
-    ? and(
-        eq(ticketTimeTracker.ticketId, ticketId),
-        eq(ticketTimeTracker.userId, session.user.id),
-        isNull(ticketTimeTracker.stopTime),
-        eq(ticketTimeTracker.trackerType, 'timer')
-      )
-    : (() => {
-        const parts = [eq(ticketTimeTracker.ticketId, ticketId)]
-        // Overlap report window: start_time <= end AND coalesce(stop_time, now()) >= start
-        if (endFilter && !Number.isNaN(endFilter.getTime())) {
-          parts.push(lte(ticketTimeTracker.startTime, endFilter))
-        }
-        if (startFilter && !Number.isNaN(startFilter.getTime())) {
-          parts.push(sql`coalesce(${ticketTimeTracker.stopTime}, now()) >= ${startFilter.toISOString()}`)
-        }
-        return parts.length === 1 ? parts[0] : and(...parts)
-      })()
-
-  const rows = await db
-    .select({
-      tracker: ticketTimeTracker,
-      user: users,
-    })
-    .from(ticketTimeTracker)
-    .leftJoin(users, eq(ticketTimeTracker.userId, users.id))
-    .where(whereClause)
-    .orderBy(desc(ticketTimeTracker.createdAt))
-    .limit(activeOnly ? 1 : 100)
+  let trackers = activeOnly
+    ? await find(ticketTimeTracker, {
+        where: [
+          ['ticketId', '==', ticketId],
+          ['userId', '==', session.user.id],
+          ['stopTime', '==', null],
+          ['trackerType', '==', 'timer'],
+        ],
+        orderBy: [['createdAt', 'desc']],
+        limit: 1,
+      })
+    : await find(ticketTimeTracker, { where: [['ticketId', '==', ticketId]], orderBy: [['createdAt', 'desc']] })
+  if (!activeOnly) {
+    // Overlap report window: start_time <= end AND coalesce(stop_time, now()) >= start
+    const nowMs = Date.now()
+    if (endFilter && !Number.isNaN(endFilter.getTime())) {
+      trackers = trackers.filter((t) => t.startTime.getTime() <= endFilter.getTime())
+    }
+    if (startFilter && !Number.isNaN(startFilter.getTime())) {
+      trackers = trackers.filter((t) => (t.stopTime?.getTime() ?? nowMs) >= startFilter.getTime())
+    }
+    trackers = trackers.slice(0, 100)
+  }
+  const userById = await getManyMap(users, trackers.map((t) => t.userId))
+  const rows = trackers.map((tracker) => ({ tracker, user: userById.get(tracker.userId) ?? null }))
 
   const titleMap = await loadActiveJobTypeTitleMap()
   const result = rows.map((r) => mapTrackerRow(r.tracker, r.user, titleMap))
@@ -176,7 +171,7 @@ export async function POST(
     if (jobTypeVal !== undefined) {
       values.jobType = jobTypeVal
     }
-    const [row] = await db.insert(ticketTimeTracker).values(values).returning()
+    const row = await insert(ticketTimeTracker, values)
 
     const titleMap = await loadActiveJobTypeTitleMap()
     return NextResponse.json(mapTrackerRow(row, null, titleMap))
@@ -211,7 +206,7 @@ export async function POST(
     let targetUserId = session.user.id
     if (admin && body.user_id != null && String(body.user_id).trim() !== '') {
       const uid = String(body.user_id).trim()
-      const [target] = await db.select({ id: users.id }).from(users).where(eq(users.id, uid)).limit(1)
+      const target = await get(users, uid)
       if (!target) {
         return NextResponse.json({ error: 'Invalid user_id' }, { status: 400 })
       }
@@ -236,7 +231,7 @@ export async function POST(
     if (jobTypeVal !== undefined) {
       manualValues.jobType = jobTypeVal
     }
-    const [row] = await db.insert(ticketTimeTracker).values(manualValues).returning()
+    const row = await insert(ticketTimeTracker, manualValues)
 
     const titleMap = await loadActiveJobTypeTitleMap()
     return NextResponse.json(mapTrackerRow(row, null, titleMap))
@@ -250,10 +245,7 @@ export async function POST(
     const sessionId = sessionIdRaw.trim()
     const stopTime = new Date()
 
-    const [active] = await db
-      .select()
-      .from(ticketTimeTracker)
-      .where(eq(ticketTimeTracker.id, sessionId))
+    const active = await get(ticketTimeTracker, sessionId)
 
     if (!active || (active.userId !== session.user.id && !admin)) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
@@ -271,10 +263,7 @@ export async function POST(
     if (durationSeconds > MAX) durationSeconds = MAX
     if (durationSeconds < 0) durationSeconds = 0
 
-    await db
-      .update(ticketTimeTracker)
-      .set({ stopTime, durationSeconds, durationAdjustment: durationSeconds })
-      .where(eq(ticketTimeTracker.id, sessionId))
+    await update(ticketTimeTracker, sessionId, { stopTime, durationSeconds, durationAdjustment: durationSeconds })
 
     return NextResponse.json({ ok: true })
   }
@@ -335,11 +324,7 @@ export async function PATCH(
       return NextResponse.json({ error: (e as Error).message }, { status: 400 })
     }
 
-    const [row] = await db
-      .select()
-      .from(ticketTimeTracker)
-      .where(eq(ticketTimeTracker.id, sessionId))
-      .limit(1)
+    const row = await get(ticketTimeTracker, sessionId)
 
     if (!row || row.ticketId !== ticketId) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
@@ -355,11 +340,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'job_type or note is required' }, { status: 400 })
     }
 
-    const [updated] = await db
-      .update(ticketTimeTracker)
-      .set(metaSet)
-      .where(eq(ticketTimeTracker.id, sessionId))
-      .returning()
+    const updated = await update(ticketTimeTracker, sessionId, metaSet)
 
     if (!updated) {
       return NextResponse.json({ error: 'Update failed' }, { status: 500 })
@@ -389,11 +370,7 @@ export async function PATCH(
       }
     }
 
-    const [row] = await db
-      .select()
-      .from(ticketTimeTracker)
-      .where(eq(ticketTimeTracker.id, sessionId))
-      .limit(1)
+    const row = await get(ticketTimeTracker, sessionId)
 
     if (!row || row.ticketId !== ticketId) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
@@ -410,11 +387,7 @@ export async function PATCH(
       setPayload.jobType = jobTypeVal
     }
 
-    const [updated] = await db
-      .update(ticketTimeTracker)
-      .set(setPayload)
-      .where(eq(ticketTimeTracker.id, sessionId))
-      .returning()
+    const updated = await update(ticketTimeTracker, sessionId, setPayload)
 
     if (!updated) {
       return NextResponse.json({ error: 'Update failed' }, { status: 500 })
@@ -433,11 +406,7 @@ export async function PATCH(
     )
   }
 
-  const [row] = await db
-    .select()
-    .from(ticketTimeTracker)
-    .where(eq(ticketTimeTracker.id, sessionId))
-    .limit(1)
+  const row = await get(ticketTimeTracker, sessionId)
 
   if (!row || row.ticketId !== ticketId) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 })
@@ -504,11 +473,7 @@ export async function PATCH(
     editSet.note = noteVal
   }
 
-  const [updated] = await db
-    .update(ticketTimeTracker)
-    .set(editSet)
-    .where(eq(ticketTimeTracker.id, sessionId))
-    .returning()
+  const updated = await update(ticketTimeTracker, sessionId, editSet)
 
   if (!updated) {
     return NextResponse.json({ error: 'Update failed' }, { status: 500 })
@@ -541,11 +506,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'session_id query required' }, { status: 400 })
   }
 
-  const [row] = await db
-    .select()
-    .from(ticketTimeTracker)
-    .where(eq(ticketTimeTracker.id, sessionId))
-    .limit(1)
+  const row = await get(ticketTimeTracker, sessionId)
 
   if (!row || row.ticketId !== ticketId) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 })
@@ -554,7 +515,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  await db.delete(ticketTimeTracker).where(eq(ticketTimeTracker.id, sessionId))
+  await remove(ticketTimeTracker, sessionId)
 
   return NextResponse.json({ ok: true })
 }

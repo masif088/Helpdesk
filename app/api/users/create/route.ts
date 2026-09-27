@@ -1,9 +1,7 @@
-import bcrypt from 'bcryptjs'
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, users } from '@/lib/db'
+import { createAppUser, findUserByEmail } from '@/lib/app-users'
 import { logUserCreated, userRowToLogSnapshot } from '@/lib/system-activity-log'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 
@@ -21,23 +19,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
   }
 
-  const [existing] = await db.select().from(users).where(eq(users.email, email)).limit(1)
+  const existing = await findUserByEmail(email)
   if (existing) {
     return NextResponse.json({ error: 'Email already registered' }, { status: 400 })
   }
 
-  const passwordHash = await bcrypt.hash(password, 10)
-
-  const [row] = await db
-    .insert(users)
-    .values({
-      email,
-      passwordHash,
-      fullName: full_name || null,
-      role: role || 'user',
-      status: status || 'active',
-    })
-    .returning()
+  const row = await createAppUser({
+    email,
+    password,
+    fullName: full_name || null,
+    role: role || 'user',
+    status: status || 'active',
+  })
 
   if (!row) {
     return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })

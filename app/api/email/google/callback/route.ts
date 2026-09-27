@@ -1,8 +1,7 @@
-import { eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, emailIntegrations } from '@/lib/db'
+import { emailIntegrations, findOneBy, insert, update } from '@/lib/fsdb'
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
@@ -70,28 +69,21 @@ export async function GET(request: NextRequest) {
     const session = await auth()
     const userId = session?.user?.id ?? null
 
-    const [existing] = await db
-      .select()
-      .from(emailIntegrations)
-      .where(eq(emailIntegrations.provider, 'google'))
-      .limit(1)
+    const existing = await findOneBy(emailIntegrations, { provider: 'google' })
 
     try {
       if (existing) {
-        await db
-          .update(emailIntegrations)
-          .set({
-            emailAddress: emailAddress || null,
-            accessToken,
-            refreshToken: refreshToken || null,
-            expiresAt,
-            isActive: true,
-            createdBy: userId,
-            updatedAt: new Date(),
-          })
-          .where(eq(emailIntegrations.id, existing.id))
+        await update(emailIntegrations, existing.id, {
+          emailAddress: emailAddress || null,
+          accessToken,
+          refreshToken: refreshToken || null,
+          expiresAt,
+          isActive: true,
+          createdBy: userId,
+          updatedAt: new Date(),
+        })
       } else {
-        await db.insert(emailIntegrations).values({
+        await insert(emailIntegrations, {
           provider: 'google',
           emailAddress: emailAddress || null,
           accessToken,

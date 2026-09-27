@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { announcementVisibleForViewer } from '@/lib/dashboard-announcement'
-import { dashboardAnnouncements,db } from '@/lib/db'
+import { dashboardAnnouncements, get } from '@/lib/fsdb'
 
 /** GET — full announcement if visible to current user. */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -18,7 +17,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   try {
-    const [row] = await db.select().from(dashboardAnnouncements).where(eq(dashboardAnnouncements.id, id)).limit(1)
+    const row = await get(dashboardAnnouncements, id)
     if (!row || !announcementVisibleForViewer(row, viewerRole)) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }

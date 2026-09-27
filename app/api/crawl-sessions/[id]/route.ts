@@ -1,9 +1,7 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { companies,companyWebsites, crawlSessions } from '@/lib/db'
+import { companies, companyWebsites, crawlPages, crawlSessions, get, remove, removeWhere } from '@/lib/fsdb'
 
 /** GET /api/crawl-sessions/[id] - Get single crawl session with company_websites */
 export async function GET(
@@ -17,21 +15,20 @@ export async function GET(
 
   const { id } = await params
 
-  const [row] = await db
-    .select({
-      session: crawlSessions,
-      websiteId: companyWebsites.id,
-      websiteUrl: companyWebsites.url,
-      websiteTitle: companyWebsites.title,
-      websiteCompanyId: companyWebsites.companyId,
-      companyId: companies.id,
-      companyName: companies.name,
-    })
-    .from(crawlSessions)
-    .leftJoin(companyWebsites, eq(crawlSessions.companyWebsiteId, companyWebsites.id))
-    .leftJoin(companies, eq(companyWebsites.companyId, companies.id))
-    .where(eq(crawlSessions.id, id))
-    .limit(1)
+  const crawl = await get(crawlSessions, id)
+  const website = crawl ? await get(companyWebsites, crawl.companyWebsiteId) : null
+  const company = website ? await get(companies, website.companyId) : null
+  const row = crawl
+    ? {
+        session: crawl,
+        websiteId: website?.id ?? null,
+        websiteUrl: website?.url ?? null,
+        websiteTitle: website?.title ?? null,
+        websiteCompanyId: website?.companyId ?? null,
+        companyId: company?.id ?? null,
+        companyName: company?.name ?? null,
+      }
+    : null
 
   if (!row?.session) {
     return NextResponse.json({ error: 'Crawl session not found' }, { status: 404 })
@@ -79,6 +76,7 @@ export async function DELETE(
   }
 
   const { id } = await params
-  await db.delete(crawlSessions).where(eq(crawlSessions.id, id))
+  await removeWhere(crawlPages, [['crawlSessionId', '==', id]])
+  await remove(crawlSessions, id)
   return NextResponse.json({ success: true })
 }

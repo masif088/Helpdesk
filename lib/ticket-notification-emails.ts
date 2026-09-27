@@ -1,22 +1,32 @@
-import { and, eq } from 'drizzle-orm'
 import { google } from 'googleapis'
 
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
 import {
   companies,
-  db,
   emailIntegrations,
+  findBy,
+  findOneBy,
+  get,
+  getMany,
   messageTemplates,
   teamMembers,
   tickets,
+  update,
   users,
-} from '@/lib/db'
+  type UsersRow,
+} from '@/lib/fsdb'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
 
 async function fetchCompanyName(companyId: string | null | undefined): Promise<string | null> {
   if (!companyId) return null
-  const [row] = await db.select({ name: companies.name }).from(companies).where(eq(companies.id, companyId)).limit(1)
+  const row = await get(companies, companyId)
   return row?.name ?? null
+}
+
+/** Users that are members of a team. */
+async function teamMemberUsers(teamId: string): Promise<UsersRow[]> {
+  const members = await findBy(teamMembers, { teamId })
+  return getMany(users, members.map((m) => m.userId))
 }
 
 function mergeSubject(subject: string, ticketId: number, ticketTitle?: string): string {
@@ -42,17 +52,7 @@ async function getGmailSender(): Promise<GmailSender | null> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
   if (!clientId || !clientSecret) return null
 
-  const [integration] = await db
-    .select({
-      id: emailIntegrations.id,
-      emailAddress: emailIntegrations.emailAddress,
-      accessToken: emailIntegrations.accessToken,
-      refreshToken: emailIntegrations.refreshToken,
-      expiresAt: emailIntegrations.expiresAt,
-    })
-    .from(emailIntegrations)
-    .where(and(eq(emailIntegrations.provider, 'google'), eq(emailIntegrations.isActive, true)))
-    .limit(1)
+  const integration = await findOneBy(emailIntegrations, { provider: 'google', isActive: true })
 
   if (!integration?.accessToken) return null
 
@@ -66,10 +66,11 @@ async function getGmailSender(): Promise<GmailSender | null> {
     const { credentials } = await oauth2Client.refreshAccessToken()
     accessToken = credentials.access_token ?? integration.accessToken
     if (credentials.access_token && credentials.expiry_date) {
-      await db
-        .update(emailIntegrations)
-        .set({ accessToken: credentials.access_token, expiresAt: new Date(credentials.expiry_date), updatedAt: new Date() })
-        .where(eq(emailIntegrations.id, integration.id))
+      await update(emailIntegrations, integration.id, {
+        accessToken: credentials.access_token,
+        expiresAt: new Date(credentials.expiry_date),
+        updatedAt: new Date(),
+      })
     }
   } else {
     oauth2Client.setCredentials({ access_token: accessToken })
@@ -119,24 +120,16 @@ export async function sendAgentClosesTicketEmail(params: {
 }) {
   const { ticketId, ticketTitle, agentUserId } = params
 
-  const [tpl] = await db
-    .select({ content: messageTemplates.content, status: messageTemplates.status, emailSubject: messageTemplates.emailSubject })
-    .from(messageTemplates)
-    .where(eq(messageTemplates.key, 'requester_notification_agent_closes'))
-    .limit(1)
+  const tpl = await findOneBy(messageTemplates, { key: 'requester_notification_agent_closes' })
   if (!tpl || tpl.status !== 'active') return
 
-  const [ticketRow] = await db
-    .select({ createdBy: tickets.createdBy, companyId: tickets.companyId, gmailThreadId: tickets.gmailThreadId })
-    .from(tickets)
-    .where(eq(tickets.id, ticketId))
-    .limit(1)
+  const ticketRow = await get(tickets, ticketId)
   if (!ticketRow?.createdBy) return
 
-  const [recipient] = await db.select().from(users).where(eq(users.id, ticketRow.createdBy)).limit(1)
+  const recipient = await get(users, ticketRow.createdBy)
   if (!recipient?.email) return
 
-  const [agent] = await db.select().from(users).where(eq(users.id, agentUserId)).limit(1)
+  const agent = await get(users, agentUserId)
   const companyName = await fetchCompanyName(ticketRow.companyId)
 
   const [gmailSender, appSettings] = await Promise.all([getGmailSender(), getAppSettings()])
@@ -171,27 +164,16 @@ export async function sendNewTicketAgentNotificationEmail(params: {
 }) {
   const { ticketId, ticketTitle, teamId, creatorUserId } = params
 
-  const [tpl] = await db
-    .select({ content: messageTemplates.content, status: messageTemplates.status, emailSubject: messageTemplates.emailSubject })
-    .from(messageTemplates)
-    .where(eq(messageTemplates.key, 'agent_notification_new_ticket_created'))
-    .limit(1)
+  const tpl = await findOneBy(messageTemplates, { key: 'agent_notification_new_ticket_created' })
   if (!tpl || tpl.status !== 'active') return
 
-  const memberRows = await db
-    .select({ user: users })
-    .from(teamMembers)
-    .leftJoin(users, eq(teamMembers.userId, users.id))
-    .where(eq(teamMembers.teamId, teamId))
-
-  const recipients = memberRows
-    .map((r) => r.user)
-    .filter((u): u is NonNullable<typeof memberRows[number]['user']> => Boolean(u?.email))
+  const recipients = (await teamMemberUsers(teamId))
+    .filter((u) => Boolean(u.email))
     .filter((u) => u.id !== creatorUserId)
 
   if (recipients.length === 0) return
 
-  const [creator] = await db.select().from(users).where(eq(users.id, creatorUserId)).limit(1)
+  const creator = await get(users, creatorUserId)
   const creatorCompanyName = await fetchCompanyName(creator?.companyId)
   const [gmailSender, appSettings] = await Promise.all([getGmailSender(), getAppSettings()])
   if (!gmailSender) return
@@ -228,20 +210,12 @@ export async function sendTicketAssignedEmail(params: {
   const { ticketId, ticketTitle, assignedUserIds, actorUserId } = params
   if (assignedUserIds.length === 0) return
 
-  const [tpl] = await db
-    .select({ content: messageTemplates.content, status: messageTemplates.status, emailSubject: messageTemplates.emailSubject })
-    .from(messageTemplates)
-    .where(eq(messageTemplates.key, 'agent_notification_ticket_assigned_agent'))
-    .limit(1)
+  const tpl = await findOneBy(messageTemplates, { key: 'agent_notification_ticket_assigned_agent' })
   if (!tpl || tpl.status !== 'active') return
 
-  const [ticketRow] = await db
-    .select({ companyId: tickets.companyId })
-    .from(tickets)
-    .where(eq(tickets.id, ticketId))
-    .limit(1)
+  const ticketRow = await get(tickets, ticketId)
 
-  const [actor] = await db.select().from(users).where(eq(users.id, actorUserId)).limit(1)
+  const actor = await get(users, actorUserId)
   const [gmailSender, appSettings] = await Promise.all([getGmailSender(), getAppSettings()])
   if (!gmailSender) return
 
@@ -254,7 +228,7 @@ export async function sendTicketAssignedEmail(params: {
 
   for (const userId of assignedUserIds) {
     if (userId === actorUserId) continue
-    const [recipient] = await db.select().from(users).where(eq(users.id, userId)).limit(1)
+    const recipient = await get(users, userId)
     if (!recipient?.email) continue
     const recipientCompanyName = await fetchCompanyName(recipient.companyId ?? ticketRow?.companyId)
     const recipientMap = userRowToMergeMap(recipient, recipientCompanyName)
@@ -280,34 +254,19 @@ export async function sendNoteAddedNotificationEmail(params: {
 }) {
   const { ticketId, ticketTitle, notePreview, noteHtml, actorUserId } = params
 
-  const [tpl] = await db
-    .select({ content: messageTemplates.content, status: messageTemplates.status, emailSubject: messageTemplates.emailSubject })
-    .from(messageTemplates)
-    .where(eq(messageTemplates.key, 'agent_notification_note_added'))
-    .limit(1)
+  const tpl = await findOneBy(messageTemplates, { key: 'agent_notification_note_added' })
   if (!tpl || tpl.status !== 'active') return
 
-  const [ticketRow] = await db
-    .select({ teamId: tickets.teamId })
-    .from(tickets)
-    .where(eq(tickets.id, ticketId))
-    .limit(1)
+  const ticketRow = await get(tickets, ticketId)
   if (!ticketRow?.teamId) return
 
-  const memberRows = await db
-    .select({ user: users })
-    .from(teamMembers)
-    .leftJoin(users, eq(teamMembers.userId, users.id))
-    .where(eq(teamMembers.teamId, ticketRow.teamId))
-
-  const recipients = memberRows
-    .map((r) => r.user)
-    .filter((u): u is NonNullable<typeof memberRows[number]['user']> => Boolean(u?.email))
+  const recipients = (await teamMemberUsers(ticketRow.teamId))
+    .filter((u) => Boolean(u.email))
     .filter((u) => u.id !== actorUserId)
 
   if (recipients.length === 0) return
 
-  const [actor] = await db.select().from(users).where(eq(users.id, actorUserId)).limit(1)
+  const actor = await get(users, actorUserId)
   const actorCompanyName = await fetchCompanyName(actor?.companyId)
   const [gmailSender, appSettings] = await Promise.all([getGmailSender(), getAppSettings()])
   if (!gmailSender) return

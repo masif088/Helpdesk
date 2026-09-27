@@ -12,8 +12,8 @@ export type ClientFirebaseConfig = {
 }
 
 /**
- * Read Firebase client config. App auth remains NextAuth;
- * this SDK is only for Firestore / FCM web (no signInWithCredential).
+ * Read Firebase client config. Login happens on the server (session cookie);
+ * the browser SDK signs in with a custom token for realtime Firestore listeners / FCM web.
  */
 export function getClientFirebaseConfig(): Partial<ClientFirebaseConfig> {
   return {

@@ -1,7 +1,6 @@
-import { and,eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
-import { apiTokens,db } from '@/lib/db'
+import { apiTokens, findOneBy, update } from '@/lib/fsdb'
 
 export async function POST(request: Request) {
   try {
@@ -12,11 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Token is required' }, { status: 400 })
     }
 
-    const [tokenRow] = await db
-      .select({ id: apiTokens.id, userId: apiTokens.userId, expiresAt: apiTokens.expiresAt })
-      .from(apiTokens)
-      .where(and(eq(apiTokens.token, token), eq(apiTokens.isActive, true)))
-      .limit(1)
+    const tokenRow = await findOneBy(apiTokens, { token, isActive: true })
 
     if (!tokenRow) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
@@ -26,10 +21,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Token expired' }, { status: 401 })
     }
 
-    await db
-      .update(apiTokens)
-      .set({ lastUsedAt: new Date() })
-      .where(eq(apiTokens.id, tokenRow.id))
+    await update(apiTokens, tokenRow.id, { lastUsedAt: new Date() })
 
     return NextResponse.json({
       valid: true,

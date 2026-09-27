@@ -1,18 +1,17 @@
-import { and, eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import TicketDetailContentClient from '@/components/ticket/TicketDetailContentClient'
 import { isAdmin } from '@/lib/auth-utils'
 import { getCustomerCompanyId } from '@/lib/customer-company'
-import { db, teamMembers, teams, tickets } from '@/lib/db'
+import { get, getByKey, teamMembers, teams, tickets } from '@/lib/fsdb'
 import { getTicketDetail } from '@/lib/ticket-detail'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const ticketId = parseInt(id, 10)
   if (Number.isNaN(ticketId)) return {}
-  const [row] = await db.select({ title: tickets.title }).from(tickets).where(eq(tickets.id, ticketId)).limit(1)
+  const row = await get(tickets, ticketId)
   if (!row) return {}
   return { title: `#${ticketId} ${row.title}` }
 }
@@ -36,24 +35,16 @@ export default async function TicketDetailPage({
   const role = (session.user as { role?: string }).role?.toLowerCase()
   const userId = session.user.id!
 
-  const [ticketExists] = await db.select({ id: tickets.id, teamId: tickets.teamId }).from(tickets).where(eq(tickets.id, ticketId)).limit(1)
+  const ticketExists = await get(tickets, ticketId)
   if (!ticketExists) {
     redirect('/tickets?ticket_error=not_found')
   }
 
   // Team access control for non-admin staff
   if (!isAdmin(role) && role !== 'customer' && ticketExists.teamId) {
-    const [teamRow] = await db
-      .select({ type: teams.type })
-      .from(teams)
-      .where(eq(teams.id, ticketExists.teamId))
-      .limit(1)
+    const teamRow = await get(teams, ticketExists.teamId)
     if (teamRow?.type !== 'public') {
-      const [isMember] = await db
-        .select({ teamId: teamMembers.teamId })
-        .from(teamMembers)
-        .where(and(eq(teamMembers.userId, userId), eq(teamMembers.teamId, ticketExists.teamId)))
-        .limit(1)
+      const isMember = await getByKey(teamMembers, { teamId: ticketExists.teamId, userId })
       if (!isMember) {
         redirect('/tickets?ticket_error=no_access')
       }

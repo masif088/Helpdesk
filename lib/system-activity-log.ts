@@ -1,4 +1,4 @@
-import { db, systemActivityLog } from '@/lib/db'
+import { insert, systemActivityLog } from '@/lib/fsdb'
 
 export type SystemActivityCategory = 'user' | 'auth' | 'settings'
 
@@ -48,7 +48,7 @@ export async function logSystemActivity(params: {
   metadata?: Record<string, unknown> | null
 }): Promise<void> {
   try {
-    await db.insert(systemActivityLog).values({
+    await insert(systemActivityLog, {
       actorUserId: params.actorUserId,
       actorRole: (params.actorRole ?? 'agent').slice(0, 32),
       category: params.category,

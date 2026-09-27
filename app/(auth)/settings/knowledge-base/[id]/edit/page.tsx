@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import KnowledgeBaseArticleForm from '@/components/knowledge-base/KnowledgeBaseArticleForm'
-import { db, knowledgeBaseArticles } from '@/lib/db'
+import { get, knowledgeBaseArticles } from '@/lib/fsdb'
 
 export default async function KnowledgeBaseEditPage({
   params,
@@ -14,11 +13,7 @@ export default async function KnowledgeBaseEditPage({
   if (!session?.user) redirect('/login')
   const { id } = await params
 
-  const [row] = await db
-    .select()
-    .from(knowledgeBaseArticles)
-    .where(eq(knowledgeBaseArticles.id, id))
-    .limit(1)
+  const row = await get(knowledgeBaseArticles, id)
 
   if (!row) {
     redirect('/settings/knowledge-base')

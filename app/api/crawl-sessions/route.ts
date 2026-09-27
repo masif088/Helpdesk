@@ -1,9 +1,7 @@
-import { desc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { companies,companyWebsites, crawlSessions } from '@/lib/db'
+import { companies, companyWebsites, crawlSessions, find, getManyMap } from '@/lib/fsdb'
 
 /** GET /api/crawl-sessions - List all crawl sessions with company_websites.companies */
 export async function GET() {
@@ -12,19 +10,21 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const rows = await db
-    .select({
-      session: crawlSessions,
-      websiteId: companyWebsites.id,
-      websiteUrl: companyWebsites.url,
-      websiteTitle: companyWebsites.title,
-      companyId: companies.id,
-      companyName: companies.name,
-    })
-    .from(crawlSessions)
-    .leftJoin(companyWebsites, eq(crawlSessions.companyWebsiteId, companyWebsites.id))
-    .leftJoin(companies, eq(companyWebsites.companyId, companies.id))
-    .orderBy(desc(crawlSessions.createdAt))
+  const sessions = await find(crawlSessions, { orderBy: [['createdAt', 'desc']] })
+  const websiteById = await getManyMap(companyWebsites, sessions.map((s) => s.companyWebsiteId))
+  const companyById = await getManyMap(companies, [...websiteById.values()].map((w) => w.companyId))
+  const rows = sessions.map((s) => {
+    const w = websiteById.get(s.companyWebsiteId)
+    const c = w ? companyById.get(w.companyId) : undefined
+    return {
+      session: s,
+      websiteId: w?.id ?? null,
+      websiteUrl: w?.url ?? null,
+      websiteTitle: w?.title ?? null,
+      companyId: c?.id ?? null,
+      companyName: c?.name ?? null,
+    }
+  })
 
   const data = rows.map((r) => ({
     id: r.session.id,

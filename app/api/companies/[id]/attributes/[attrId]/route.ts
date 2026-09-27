@@ -1,8 +1,7 @@
-import { and, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { companyAttributes, db } from '@/lib/db'
+import { companyAttributes, get, remove, update } from '@/lib/fsdb'
 
 function canEdit(role?: string) {
   return ['admin', 'manager'].includes((role ?? '').toLowerCase())
@@ -21,11 +20,11 @@ export async function PATCH(
   const { id, attrId } = await params
   const body = await request.json()
 
-  const [row] = await db
-    .update(companyAttributes)
-    .set({ metaValue: body.meta_value ?? null, updatedAt: new Date() })
-    .where(and(eq(companyAttributes.id, attrId), eq(companyAttributes.companyId, id)))
-    .returning()
+  const existing = await get(companyAttributes, attrId)
+  const row =
+    existing && existing.companyId === id
+      ? await update(companyAttributes, attrId, { metaValue: body.meta_value ?? null, updatedAt: new Date() })
+      : null
 
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -49,9 +48,8 @@ export async function DELETE(
   if (!canEdit(role)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id, attrId } = await params
-  await db
-    .delete(companyAttributes)
-    .where(and(eq(companyAttributes.id, attrId), eq(companyAttributes.companyId, id)))
+  const existing = await get(companyAttributes, attrId)
+  if (existing && existing.companyId === id) await remove(companyAttributes, attrId)
 
   return NextResponse.json({ success: true })
 }

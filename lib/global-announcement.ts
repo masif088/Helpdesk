@@ -1,6 +1,4 @@
-import { eq } from 'drizzle-orm'
-
-import { db, globalAnnouncement } from '@/lib/db'
+import { get, globalAnnouncement } from '@/lib/fsdb'
 
 /** Primary key of the single configuration row (must match migration seed). */
 export const GLOBAL_ANNOUNCEMENT_ROW_ID = 'a0000001-0000-4000-8000-000000000001'
@@ -8,12 +6,7 @@ export const GLOBAL_ANNOUNCEMENT_ROW_ID = 'a0000001-0000-4000-8000-000000000001'
 export type GlobalAnnouncementRow = typeof globalAnnouncement.$inferSelect
 
 export async function getGlobalAnnouncementRow(): Promise<GlobalAnnouncementRow | null> {
-  const [row] = await db
-    .select()
-    .from(globalAnnouncement)
-    .where(eq(globalAnnouncement.id, GLOBAL_ANNOUNCEMENT_ROW_ID))
-    .limit(1)
-  return row ?? null
+  return get(globalAnnouncement, GLOBAL_ANNOUNCEMENT_ROW_ID)
 }
 
 /** Message shown in the banner when enabled, in window, and non-empty. */

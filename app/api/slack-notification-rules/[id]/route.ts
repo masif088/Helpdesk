@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
-import { db, slackTicketNotificationRules } from '@/lib/db'
+import { get, remove, slackTicketNotificationRules, update } from '@/lib/fsdb'
 import { normalizeSlackRuleFilter } from '@/lib/slack-notification-rule-filter'
 import { isSlackIncomingWebhookUrl, maskWebhookUrlForDisplay } from '@/lib/slack-ticket-notify'
 
@@ -32,11 +31,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { id } = await params
-  const [existing] = await db
-    .select()
-    .from(slackTicketNotificationRules)
-    .where(eq(slackTicketNotificationRules.id, id))
-    .limit(1)
+  const existing = await get(slackTicketNotificationRules, id)
   if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
@@ -75,11 +70,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   }
 
-  const [updated] = await db
-    .update(slackTicketNotificationRules)
-    .set(updates)
-    .where(eq(slackTicketNotificationRules.id, id))
-    .returning()
+  const updated = await update(slackTicketNotificationRules, id, updates)
 
   if (!updated) {
     return NextResponse.json({ error: 'Update failed' }, { status: 500 })
@@ -100,12 +91,9 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   }
 
   const { id } = await params
-  const deleted = await db
-    .delete(slackTicketNotificationRules)
-    .where(eq(slackTicketNotificationRules.id, id))
-    .returning({ id: slackTicketNotificationRules.id })
+  const deleted = await remove(slackTicketNotificationRules, id)
 
-  if (deleted.length === 0) {
+  if (!deleted) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 

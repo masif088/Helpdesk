@@ -1,8 +1,7 @@
-import { and, eq, inArray } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { companyUsers,db, users } from '@/lib/db'
+import { companyUsers, findBy, getMany, users } from '@/lib/fsdb'
 
 /** GET /api/companies/[id]/users - List users in company (for CC/BCC preselect) */
 export async function GET(
@@ -20,24 +19,12 @@ export async function GET(
   }
 
   const [directUsers, cuRows] = await Promise.all([
-    db
-      .select({ id: users.id, fullName: users.fullName, email: users.email })
-      .from(users)
-      .where(and(eq(users.companyId, companyId), eq(users.role, 'customer'))),
-    db
-      .select({ userId: companyUsers.userId })
-      .from(companyUsers)
-      .where(eq(companyUsers.companyId, companyId)),
+    findBy(users, { companyId, role: 'customer' }),
+    findBy(companyUsers, { companyId }),
   ])
 
   const userIdsFromCu = cuRows.map((r) => r.userId).filter(Boolean)
-  const linkedUsers =
-    userIdsFromCu.length > 0
-      ? await db
-          .select({ id: users.id, fullName: users.fullName, email: users.email })
-          .from(users)
-          .where(and(inArray(users.id, userIdsFromCu), eq(users.role, 'customer')))
-      : []
+  const linkedUsers = (await getMany(users, userIdsFromCu)).filter((u) => u.role === 'customer')
 
   const seen = new Set<string>()
   const merged: Array<{ id: string; full_name: string | null; email: string }> = []

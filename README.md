@@ -1,6 +1,6 @@
 # DeskTeam360
 
-Helpdesk & ticketing platform built with Next.js 16 App Router, Drizzle ORM, PostgreSQL, and NextAuth v5.
+Helpdesk & ticketing platform built with Next.js 16 App Router, Cloud Firestore and Firebase Authentication.
 
 ---
 
@@ -9,8 +9,8 @@ Helpdesk & ticketing platform built with Next.js 16 App Router, Drizzle ORM, Pos
 | Layer | Tech |
 |---|---|
 | Framework | Next.js 16 (App Router) |
-| Database | PostgreSQL via Drizzle ORM |
-| Auth | NextAuth v5 — JWT strategy |
+| Database | Cloud Firestore via Firebase Admin SDK (`lib/fsdb`) |
+| Auth | Firebase Authentication — email/password, session cookie |
 | Email | Gmail OAuth2 (`googleapis`) |
 | Storage | iDrive e2 (S3-compatible) / local |
 | Realtime | Firebase (presence + notifications) |
@@ -25,9 +25,8 @@ Copy `.env` and fill in the values.
 ### Required
 
 ```env
-DATABASE_URL="postgresql://user:password@host:5432/dbname"
-AUTH_SECRET="random-32-byte-base64-string"
 NEXT_PUBLIC_SITE_URL="https://yourdomain.com"
+# + the Firebase variables below (Admin SDK + Web API key are required for login and data)
 ```
 
 ### Email (Gmail OAuth2)
@@ -76,7 +75,7 @@ IDRIVE_E2_REGION="us-east-1"
 IDRIVE_E2_PUBLIC_URL="https://public-url/bucket"
 ```
 
-### Firebase (Realtime)
+### Firebase (Auth, Firestore, Realtime)
 
 ```env
 NEXT_PUBLIC_FIREBASE_API_KEY="..."
@@ -90,6 +89,24 @@ NEXT_PUBLIC_FIREBASE_VAPID_KEY="..."   # for Web Push (FCM)
 FIREBASE_PROJECT_ID="..."
 FIREBASE_CLIENT_EMAIL="..."
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+
+# Optional: send the session cookie without `Secure` (plain http, e.g. VPS by IP). Auto-detected by default.
+# AUTH_COOKIE_SECURE=false
+```
+
+In the Firebase console enable **Authentication → Sign-in method → Email/Password** and create a **Firestore** database (Native mode).
+
+Local development can run against the emulators instead of a real project:
+
+```bash
+npx firebase-tools emulators:start --only firestore,auth --project demo-deskteam
+```
+
+```env
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
+FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099
+FIREBASE_PROJECT_ID=demo-deskteam
+NEXT_PUBLIC_FIREBASE_API_KEY=fake-api-key
 ```
 
 ### Cron Secrets
@@ -97,7 +114,6 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 ```env
 SYNC_INBOX_CRON_SECRET="your-secret-here"
 COMPANY_DAILY_ACTIVE_CRON_SECRET="your-secret-here"   # falls back to SYNC_INBOX_CRON_SECRET
-# CUSTOMER_WEEKLY_RECAP_CRON_SECRET="..."              # falls back to COMPANY_DAILY_ACTIVE_CRON_SECRET
 ```
 
 ### App
@@ -106,26 +122,43 @@ COMPANY_DAILY_ACTIVE_CRON_SECRET="your-secret-here"   # falls back to SYNC_INBOX
 NEXT_PUBLIC_APP_NAME="DeskTeam360"         # fallback navbar title (overridden by Settings → App Branding)
 NEXT_PUBLIC_APP_DESCRIPTION="..."
 TICKETS_LOOKUP_CATALOG_REVALIDATE_SECONDS=3600
-DATABASE_POOL_MAX=1
 ```
 
 ---
 
-## Database Migrations
+## Database (Firestore)
 
-Migrations are numbered SQL files in `drizzle/migrations/`. Apply them in order on a new database.
+Every former Postgres table is a top-level Firestore collection with the same name (`tickets`, `users`,
+`ticket_comments`, …). Field names are camelCase exactly as the row objects in code. Collections, types and
+default values are defined in `lib/fsdb/schema.ts`; queries go through the helpers in `lib/fsdb/ops.ts`
+(`get`, `find`, `insert`, `update`, `upsert`, `remove`, …). There are no schema migrations — new fields are
+added in `schema.ts` and default to `null` on old documents.
 
-**Naming convention:** `NNN_description.sql` — e.g. `061_add_something.sql`.
+- **Ids:** uuid tables keep uuid ids; integer tables (tickets, statuses, types, priorities, automation rules,
+  project statuses) take the next value from `_counters/{collection}`.
+- **Relations:** Firestore has no foreign keys. Deletes that used to cascade go through `lib/fsdb/cascade.ts`.
+- **Search:** tickets, comments, users and companies store keyword arrays (`kwTitle`, `kwDescription`,
+  `kwComment`, `searchKeywords`) — search matches whole words and word prefixes.
+- **Indexes & rules:** `firestore.indexes.json` and `firestore.rules`. Deploy with
+  `npm run firebase:deploy-firestore`. A query whose composite index is missing still works (it falls back to
+  in-memory filtering) and logs a `[fsdb] … missing composite index` warning with the link to create it.
 
-> Never edit existing migration files. Always add a new numbered file for every schema change.
-
-Apply manually via `psql`:
+### First setup
 
 ```bash
-psql $DATABASE_URL -f drizzle/migrations/061_add_something.sql
+npm run db:seed          # statuses, types, priorities, job types + first admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD)
 ```
 
-Or run from the server using the Node migration runner when available.
+### Importing the old Postgres data
+
+```bash
+DATABASE_URL="postgresql://…" npm run migrate:firestore -- --dry-run   # counts only
+DATABASE_URL="postgresql://…" npm run migrate:firestore
+```
+
+Copies every table into Firestore with the same ids, rebuilds search fields, sets the id counters, and imports
+all users into Firebase Auth with their existing bcrypt hashes (everyone keeps their current password).
+Safe to re-run.
 
 ---
 
@@ -224,13 +257,7 @@ git push origin main
 
 GitHub push triggers CI/CD automatically — build + restart on the server.
 
-**Database migrations must be applied manually via SSH before pushing a schema change.**
-
-```bash
-ssh -i "~/LightsailDefaultKey-us-east-2.pem" ubuntu@3.23.67.169
-cd /var/www/dt-labs
-psql $DATABASE_URL -f drizzle/migrations/<new-migration>.sql
-```
+When `firestore.indexes.json` or `firestore.rules` change, deploy them with `npm run firebase:deploy-firestore`.
 
 ---
 
@@ -238,11 +265,14 @@ psql $DATABASE_URL -f drizzle/migrations/<new-migration>.sql
 
 ### Auth & Roles
 
-- NextAuth v5 **JWT strategy** — no database sessions.
-- `middleware.ts` uses `getToken()` (not `auth()`) to avoid Edge runtime issues.
-- JWT is refreshed periodically via `fetchUserJwtRefreshData` in `lib/auth-user-session.ts`.
+- **Firebase Authentication** verifies email + password (`POST /api/auth/session`), then the server sets a
+  Firebase **session cookie** (`__session`, 14 days). `auth()` in `auth.ts` verifies it and loads the `users`
+  document (uid = `users.id`). Client code uses `useSession` / `signIn` / `signOut` from `lib/auth-client.tsx`.
+- Users are created with `createAppUser()` (`lib/app-users.ts`), which writes the `users` document and the Auth
+  account together; passwords are set with `setUserPassword()` — no password hashes are stored in Firestore.
+- `middleware.ts` only checks that a session cookie exists (Edge); real verification happens in `auth()`.
 - Roles: `admin`, `staff`, `customer`. Most API routes gate on `session.user.role`.
-- `must_change_password` flag on the `users` table — middleware redirects to `/change-password` if set. Cleared automatically on successful password change.
+- `mustChangePassword` on the user — the `(auth)` layout redirects to `/change-password` if set. Cleared automatically on successful password change.
 
 ### Email Templates
 
@@ -268,4 +298,6 @@ ESLint enforces `simple-import-sort`. Imports within `@/lib/*` must be alphabeti
 
 ### Firebase
 
-Used for **realtime presence** and **push notifications** only. Auth is handled entirely by NextAuth — Firebase Auth is not used for login.
+Firebase is the whole backend: **Firestore** (all data, via Admin SDK on the server), **Authentication** (login),
+realtime presence / ticket sync (client listeners) and **push notifications** (FCM). Browsers never read app data
+from Firestore directly — the rules only allow the realtime helper paths.

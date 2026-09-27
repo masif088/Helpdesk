@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessChecklistTemplates } from '@/lib/auth-utils'
-import { checklistTemplateItems, db } from '@/lib/db'
+import { checklistTemplateItems, type Patch, remove, update } from '@/lib/fsdb'
 
 type Params = { params: Promise<{ id: string; iid: string }> }
 
@@ -15,7 +14,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
   const { iid } = await params
   const body = await request.json().catch(() => ({}))
-  const updates: Partial<typeof checklistTemplateItems.$inferInsert> = {}
+  const updates: Patch<typeof checklistTemplateItems.$inferSelect> = {}
   if (typeof body.title === 'string') updates.title = body.title.trim()
   if (typeof body.order_index === 'number') updates.orderIndex = body.order_index
   if ('group_id' in body)
@@ -23,11 +22,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   if ('note' in body)
     updates.note = typeof body.note === 'string' ? body.note.trim() || null : null
 
-  const [row] = await db
-    .update(checklistTemplateItems)
-    .set(updates)
-    .where(eq(checklistTemplateItems.id, iid))
-    .returning()
+  const row = await update(checklistTemplateItems, iid, updates)
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json(row)
 }
@@ -39,6 +34,6 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { iid } = await params
-  await db.delete(checklistTemplateItems).where(eq(checklistTemplateItems.id, iid))
+  await remove(checklistTemplateItems, iid)
   return NextResponse.json({ ok: true })
 }

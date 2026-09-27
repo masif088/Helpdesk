@@ -1,8 +1,7 @@
-import { and, asc, eq } from 'drizzle-orm'
 import { google } from 'googleapis'
 
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
-import { companies, companyUsers, db, emailIntegrations, messageTemplates, users } from '@/lib/db'
+import { companies, companyUsers, emailIntegrations, find, findOneBy, get, messageTemplates, update, users } from '@/lib/fsdb'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
 
 export const REQUESTER_NEW_TICKET_TEMPLATE_KEY = 'requester_notification_new_ticket_created' as const
@@ -38,7 +37,7 @@ export async function sendRequesterTicketCreatedEmail(
 ): Promise<{ sent: boolean; sentThreadId?: string | null; sentGmailMessageId?: string | null; sentRfcMessageId?: string | null; sentSubject?: string | null }> {
   const { creatorUserId, creatorRole, companyId, ticketId, ticketTitle, requesterEmailOverride, inReplyToMessageId, gmailThreadId, originalEmailBody } =
     params
-  const [creatorUser] = await db.select().from(users).where(eq(users.id, creatorUserId)).limit(1)
+  const creatorUser = await get(users, creatorUserId)
   const creatorRoleLower = (creatorRole || creatorUser?.role || '').toLowerCase()
 
   const recipientEntries: Array<{
@@ -56,14 +55,16 @@ export async function sendRequesterTicketCreatedEmail(
   if (creatorRoleLower === 'customer') {
     pushRecipient(requesterEmailOverride ?? creatorUser?.email, creatorUser ?? null)
   } else if (companyId) {
-    const [leaderRow] = await db
-      .select({ user: users })
-      .from(companyUsers)
-      .leftJoin(users, eq(companyUsers.userId, users.id))
-      .where(and(eq(companyUsers.companyId, companyId), eq(companyUsers.companyRole, 'company_admin')))
-      .orderBy(asc(companyUsers.createdAt))
-      .limit(1)
-    pushRecipient(leaderRow?.user?.email, leaderRow?.user ?? null)
+    const [leaderMembership] = await find(companyUsers, {
+      where: [
+        ['companyId', '==', companyId],
+        ['companyRole', '==', 'company_admin'],
+      ],
+      orderBy: [['createdAt', 'asc']],
+      limit: 1,
+    })
+    const leaderUser = leaderMembership ? await get(users, leaderMembership.userId) : null
+    pushRecipient(leaderUser?.email, leaderUser)
     if (recipientEntries.length === 0) {
       pushRecipient(requesterEmailOverride ?? creatorUser?.email, creatorUser ?? null)
     }
@@ -88,17 +89,7 @@ export async function sendRequesterTicketCreatedEmail(
     return { sent: false }
   }
 
-  const [integration] = await db
-    .select({
-      id: emailIntegrations.id,
-      emailAddress: emailIntegrations.emailAddress,
-      accessToken: emailIntegrations.accessToken,
-      refreshToken: emailIntegrations.refreshToken,
-      expiresAt: emailIntegrations.expiresAt,
-    })
-    .from(emailIntegrations)
-    .where(and(eq(emailIntegrations.provider, 'google'), eq(emailIntegrations.isActive, true)))
-    .limit(1)
+  const integration = await findOneBy(emailIntegrations, { provider: 'google', isActive: true })
 
   if (!integration?.accessToken) {
     console.warn(
@@ -121,14 +112,11 @@ export async function sendRequesterTicketCreatedEmail(
     const { credentials } = await oauth2Client.refreshAccessToken()
     accessToken = credentials.access_token ?? integration.accessToken
     if (credentials.access_token && credentials.expiry_date) {
-      await db
-        .update(emailIntegrations)
-        .set({
-          accessToken: credentials.access_token,
-          expiresAt: new Date(credentials.expiry_date),
-          updatedAt: new Date(),
-        })
-        .where(eq(emailIntegrations.id, integration.id))
+      await update(emailIntegrations, integration.id, {
+        accessToken: credentials.access_token,
+        expiresAt: new Date(credentials.expiry_date),
+        updatedAt: new Date(),
+      })
     }
   } else {
     oauth2Client.setCredentials({ access_token: accessToken })
@@ -141,16 +129,7 @@ export async function sendRequesterTicketCreatedEmail(
   const safeBase = baseUrl.replace(/\/$/, '')
   const ticketUrl = `${safeBase}/tickets/${ticketId}`
 
-  const [tpl] = await db
-    .select({ content: messageTemplates.content, emailSubject: messageTemplates.emailSubject })
-    .from(messageTemplates)
-    .where(
-      and(
-        eq(messageTemplates.key, REQUESTER_NEW_TICKET_TEMPLATE_KEY),
-        eq(messageTemplates.status, 'active')
-      )
-    )
-    .limit(1)
+  const tpl = await findOneBy(messageTemplates, { key: REQUESTER_NEW_TICKET_TEMPLATE_KEY, status: 'active' })
 
   if (!tpl) {
     console.warn(
@@ -161,7 +140,7 @@ export async function sendRequesterTicketCreatedEmail(
 
   let companyName: string | null = null
   if (companyId) {
-    const [companyRow] = await db.select({ name: companies.name }).from(companies).where(eq(companies.id, companyId)).limit(1)
+    const companyRow = await get(companies, companyId)
     companyName = companyRow?.name ?? null
   }
   const senderMap = userRowToMergeMap(creatorUser ?? null, companyName)

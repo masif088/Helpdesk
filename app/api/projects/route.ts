@@ -1,7 +1,6 @@
-import { desc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
-import { db, projects } from '@/lib/db'
+import { find, insert, projects } from '@/lib/fsdb'
 import { requireProjectApiSession } from '@/lib/project-api-auth'
 import { seedDefaultProjectStatuses } from '@/lib/project-seed-statuses'
 
@@ -20,7 +19,7 @@ export async function GET() {
   const gate = await requireProjectApiSession()
   if ('error' in gate) return gate.error
 
-  const rows = await db.select().from(projects).orderBy(desc(projects.updatedAt))
+  const rows = await find(projects, { orderBy: [['updatedAt', 'desc']] })
   return NextResponse.json(rows.map(serializeProject))
 }
 
@@ -40,13 +39,7 @@ export async function POST(request: Request) {
       ? String(body.description).trim()
       : null
 
-  const [row] = await db
-    .insert(projects)
-    .values({
-      title,
-      description,
-    })
-    .returning()
+  const row = await insert(projects, { title, description })
 
   if (!row) {
     return NextResponse.json({ error: 'Failed to create project' }, { status: 500 })

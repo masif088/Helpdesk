@@ -1,7 +1,5 @@
-import { eq } from 'drizzle-orm'
 
-import { db } from '@/lib/db'
-import { companyWebsites, crawlPages, crawlSessions } from '@/lib/db/schema'
+import { companyWebsites, crawlPages, crawlSessions, get, insert, update } from '@/lib/fsdb'
 
 // Normalize URL to avoid duplicate crawling (normalize trailing slash)
 // For root URLs (e.g., https://example.com/ and https://example.com), always use with trailing slash
@@ -39,7 +37,6 @@ export function isBrokenPage(httpStatus: number): boolean {
 
 // Crawl process function (this should be implemented based on your crawling logic)
 export async function startCrawlProcess(
-  database: typeof db,
   sessionId: string,
   companyWebsiteId: string,
   maxDepth: number,
@@ -48,11 +45,7 @@ export async function startCrawlProcess(
   console.log(`[Crawl] Starting process for session ${sessionId}, website ${companyWebsiteId}`)
 
   // Verify session exists before starting
-  const [sessionCheck] = await database
-    .select({ id: crawlSessions.id, status: crawlSessions.status })
-    .from(crawlSessions)
-    .where(eq(crawlSessions.id, sessionId))
-    .limit(1)
+  const sessionCheck = await get(crawlSessions, sessionId)
 
   if (!sessionCheck) {
     console.error('[Crawl] Session not found or invalid')
@@ -62,11 +55,7 @@ export async function startCrawlProcess(
   console.log(`[Crawl] Session verified: ${sessionId}, status: ${sessionCheck.status}`)
 
   // Get company website URL
-  const [website] = await database
-    .select({ url: companyWebsites.url })
-    .from(companyWebsites)
-    .where(eq(companyWebsites.id, companyWebsiteId))
-    .limit(1)
+  const website = await get(companyWebsites, companyWebsiteId)
 
   if (!website) {
     console.error('[Crawl] Failed to fetch company website')
@@ -171,7 +160,7 @@ export async function startCrawlProcess(
               errorCause: fetchError.cause,
             })
             
-            await database.insert(crawlPages).values({
+            await insert(crawlPages, {
               crawlSessionId: sessionId,
               url: currentUrl,
               depth,
@@ -180,10 +169,7 @@ export async function startCrawlProcess(
               crawledAt: new Date(),
             })
 
-            await database
-              .update(crawlSessions)
-              .set({ failedPages: failedCount })
-              .where(eq(crawlSessions.id, sessionId))
+            await update(crawlSessions, sessionId, { failedPages: failedCount })
 
             continue
           }
@@ -200,7 +186,7 @@ export async function startCrawlProcess(
           ? (lastError.message || lastError.toString() || 'Fetch failed after retries')
           : 'No response received after retries'
         
-        await database.insert(crawlPages).values({
+        await insert(crawlPages, {
           crawlSessionId: sessionId,
           url: currentUrl,
           depth,
@@ -209,10 +195,7 @@ export async function startCrawlProcess(
           crawledAt: new Date(),
         })
 
-        await database
-          .update(crawlSessions)
-          .set({ failedPages: failedCount })
-          .where(eq(crawlSessions.id, sessionId))
+        await update(crawlSessions, sessionId, { failedPages: failedCount })
 
         continue
       }
@@ -235,7 +218,7 @@ export async function startCrawlProcess(
           failedCount++
         }
         
-        await database.insert(crawlPages).values({
+        await insert(crawlPages, {
           crawlSessionId: sessionId,
           url: currentUrl,
           depth,
@@ -247,14 +230,11 @@ export async function startCrawlProcess(
         })
 
         // Update session
-        await database
-          .update(crawlSessions)
-          .set({
+        await update(crawlSessions, sessionId, {
             crawledPages: crawledCount,
             failedPages: failedCount,
             brokenPages: brokenCount,
           })
-          .where(eq(crawlSessions.id, sessionId))
 
         continue
       }
@@ -263,7 +243,7 @@ export async function startCrawlProcess(
       // Non-HTML is not a failure, but uncrawlable (e.g. images, PDFs, etc.)
       if (!contentType.includes('text/html') && !isRedirect) {
         uncrawledCount++
-        await database.insert(crawlPages).values({
+        await insert(crawlPages, {
           crawlSessionId: sessionId,
           url: currentUrl,
           depth,
@@ -275,16 +255,13 @@ export async function startCrawlProcess(
         })
 
         // Update session — uncrawl-page is neither failed nor successfully crawled HTML
-        await database
-          .update(crawlSessions)
-          .set({
+        await update(crawlSessions, sessionId, {
             crawledPages: crawledCount,
             failedPages: failedCount,
             uncrawledPages: uncrawledCount,
             brokenPages: brokenCount,
             totalPages: crawledCount + failedCount + uncrawledCount,
           })
-          .where(eq(crawlSessions.id, sessionId))
 
         continue
       }
@@ -295,7 +272,7 @@ export async function startCrawlProcess(
       } catch (textError: any) {
         // Handle text parsing errors
         failedCount++
-        await database.insert(crawlPages).values({
+        await insert(crawlPages, {
           crawlSessionId: sessionId,
           url: currentUrl,
           depth,
@@ -306,10 +283,7 @@ export async function startCrawlProcess(
           crawledAt: new Date(),
         })
 
-        await database
-          .update(crawlSessions)
-          .set({ failedPages: failedCount })
-          .where(eq(crawlSessions.id, sessionId))
+        await update(crawlSessions, sessionId, { failedPages: failedCount })
 
         continue
       }
@@ -463,7 +437,7 @@ export async function startCrawlProcess(
       // Save crawled page
       // Include redirect information if redirect was detected
       try {
-        await database.insert(crawlPages).values({
+        await insert(crawlPages, {
           crawlSessionId: sessionId,
           url: currentUrl,
           title,
@@ -489,25 +463,25 @@ export async function startCrawlProcess(
           if (errCode === '23503' && String(errDetail).includes('crawl_sessions')) {
             console.error(`[Crawl] CRITICAL: Session ${sessionId} no longer exists in database. Stopping crawl.`)
             try {
-              await database.update(crawlSessions).set({
+              await update(crawlSessions, sessionId, {
                 status: 'failed',
                 errorMessage: `Crawl stopped: Session was deleted during crawl process. Last URL: ${currentUrl}`,
                 completedAt: new Date(),
-              }).where(eq(crawlSessions.id, sessionId))
+              })
             } catch {
               // Session might not exist
             }
             break
           }
 
-          const [sessionVerify] = await database.select({ id: crawlSessions.id }).from(crawlSessions).where(eq(crawlSessions.id, sessionId)).limit(1)
+          const sessionVerify = await get(crawlSessions, sessionId)
           if (!sessionVerify) {
             console.error(`[Crawl] CRITICAL: Session ${sessionId} no longer exists. Stopping crawl.`)
             break
           }
 
           try {
-            await database.insert(crawlPages).values({
+            await insert(crawlPages, {
               crawlSessionId: sessionId,
               url: currentUrl,
               depth,
@@ -523,9 +497,9 @@ export async function startCrawlProcess(
               break
             }
             try {
-              await database.update(crawlSessions).set({
+              await update(crawlSessions, sessionId, {
                 errorMessage: `CRITICAL: Failed to save failed page. Original: ${insertError.message}`,
-              }).where(eq(crawlSessions.id, sessionId))
+              })
             } catch {
               // ignore
             }
@@ -535,7 +509,7 @@ export async function startCrawlProcess(
         }
 
         try {
-          await database.update(crawlSessions).set({ failedPages: failedCount }).where(eq(crawlSessions.id, sessionId))
+          await update(crawlSessions, sessionId, { failedPages: failedCount })
         } catch {
           // ignore
         }
@@ -547,13 +521,13 @@ export async function startCrawlProcess(
 
       // Update session progress
       try {
-        await database.update(crawlSessions).set({
+        await update(crawlSessions, sessionId, {
           crawledPages: crawledCount,
           failedPages: failedCount,
           uncrawledPages: uncrawledCount,
           brokenPages: brokenCount,
           totalPages: crawledCount + failedCount + uncrawledCount,
-        }).where(eq(crawlSessions.id, sessionId))
+        })
       } catch (updateError) {
         console.error(`[Crawl] Error updating session progress:`, updateError)
       }
@@ -566,7 +540,7 @@ export async function startCrawlProcess(
       const errorMessage = error.message || error.toString() || 'Unknown error'
       console.error(`[Crawl] Error crawling ${currentUrl}:`, errorMessage, error)
       
-      await database.insert(crawlPages).values({
+      await insert(crawlPages, {
         crawlSessionId: sessionId,
         url: currentUrl,
         depth,
@@ -575,9 +549,9 @@ export async function startCrawlProcess(
         crawledAt: new Date(),
       })
 
-      await database.update(crawlSessions).set({
+      await update(crawlSessions, sessionId, {
         failedPages: failedCount,
-      }).where(eq(crawlSessions.id, sessionId))
+      })
     }
   }
 
@@ -585,7 +559,7 @@ export async function startCrawlProcess(
   console.log(`[Crawl] Completed session ${sessionId}: ${crawledCount} crawled, ${failedCount} failed, ${uncrawledCount} uncrawled, ${brokenCount} broken`)
   
   try {
-    await database.update(crawlSessions).set({
+    await update(crawlSessions, sessionId, {
       status: 'completed',
       completedAt: new Date(),
       totalPages: crawledCount + failedCount + uncrawledCount,
@@ -593,7 +567,7 @@ export async function startCrawlProcess(
       failedPages: failedCount,
       uncrawledPages: uncrawledCount,
       brokenPages: brokenCount,
-    }).where(eq(crawlSessions.id, sessionId))
+    })
   } catch (finalUpdateError) {
     console.error(`[Crawl] Error marking session as completed:`, finalUpdateError)
     throw finalUpdateError

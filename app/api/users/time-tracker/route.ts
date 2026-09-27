@@ -1,8 +1,7 @@
-import { and, desc, eq, gte, inArray,isNotNull, isNull, lte, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, tickets, ticketTimeTracker } from '@/lib/db'
+import { type Cond, find, getManyMap, tickets, ticketTimeTracker, type TicketTimeTrackerRow } from '@/lib/fsdb'
 import { loadActiveJobTypeTitleMap } from '@/lib/job-types-db'
 import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 import type { UserTimeTrackerTicketSummary } from '@/lib/user-time-tracker-summary'
@@ -29,34 +28,33 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'user_id required' }, { status: 400 })
   }
 
-  const conditions = [eq(ticketTimeTracker.userId, userId)]
+  const conditions: Cond<TicketTimeTrackerRow>[] = [['userId', '==', userId]]
   if (filter === 'week' && start) {
-    conditions.push(gte(ticketTimeTracker.startTime, new Date(start)))
+    conditions.push(['startTime', '>=', new Date(start)])
   } else if (filter === 'month' && start) {
-    conditions.push(gte(ticketTimeTracker.startTime, new Date(start)))
+    conditions.push(['startTime', '>=', new Date(start)])
   } else if (filter === 'custom' && start && end) {
-    conditions.push(gte(ticketTimeTracker.startTime, new Date(start)))
-    conditions.push(lte(ticketTimeTracker.startTime, new Date(end)))
+    conditions.push(['startTime', '>=', new Date(start)])
+    conditions.push(['startTime', '<=', new Date(end)])
   }
   if (stoppedOnly) {
-    conditions.push(isNotNull(ticketTimeTracker.stopTime))
+    conditions.push(['stopTime', '!=', null])
   }
   if (activeOnly) {
-    conditions.push(isNull(ticketTimeTracker.stopTime))
-    conditions.push(eq(ticketTimeTracker.trackerType, 'timer'))
+    conditions.push(['stopTime', '==', null])
+    conditions.push(['trackerType', '==', 'timer'])
   }
 
-  const rows = await db
-    .select({
-      tracker: ticketTimeTracker,
-      joinedTicketId: tickets.id,
-      joinedTicketTitle: tickets.title,
-    })
-    .from(ticketTimeTracker)
-    .leftJoin(tickets, eq(ticketTimeTracker.ticketId, tickets.id))
-    .where(and(...conditions))
-    .orderBy(desc(ticketTimeTracker.startTime))
-    .limit(limit)
+  const trackers = await find(ticketTimeTracker, {
+    where: conditions,
+    orderBy: [['startTime', 'desc']],
+    limit,
+  })
+  const ticketById = await getManyMap(tickets, trackers.map((t) => t.ticketId))
+  const rows = trackers.map((tracker) => {
+    const t = ticketById.get(String(tracker.ticketId))
+    return { tracker, joinedTicketId: t?.id ?? null, joinedTicketTitle: t?.title ?? null }
+  })
 
   const titleMap = await loadActiveJobTypeTitleMap()
   const result = rows.map((r) => ({
@@ -89,21 +87,10 @@ export async function GET(request: Request) {
     return NextResponse.json(result)
   }
 
-  const whereClause = and(...conditions)
-  const aggRows = await db
-    .select({
-      ticketId: ticketTimeTracker.ticketId,
-      reported_seconds_total: sql<number>`sum(
-        CASE
-          WHEN ${ticketTimeTracker.durationAdjustment} IS NOT NULL
-          THEN GREATEST(0, ${ticketTimeTracker.durationAdjustment})
-          ELSE GREATEST(0, COALESCE(${ticketTimeTracker.durationSeconds}, 0))
-        END
-      )`.mapWith(Number),
-    })
-    .from(ticketTimeTracker)
-    .where(whereClause)
-    .groupBy(ticketTimeTracker.ticketId)
+  const allMatching = await find(ticketTimeTracker, { where: conditions })
+  const totals = new Map<number, number>()
+  for (const r of allMatching) totals.set(r.ticketId, (totals.get(r.ticketId) ?? 0) + reportedDurationSeconds(r))
+  const aggRows = [...totals].map(([ticketId, reported_seconds_total]) => ({ ticketId, reported_seconds_total }))
 
   let topTickets: UserTimeTrackerTicketSummary['top_tickets'] = []
   if (aggRows.length > 0) {
@@ -112,14 +99,8 @@ export async function GET(request: Request) {
     )
     const topFive = sorted.slice(0, 5)
     const ids = topFive.map((r) => r.ticketId)
-    const titleRows =
-      ids.length > 0
-        ? await db
-            .select({ id: tickets.id, title: tickets.title })
-            .from(tickets)
-            .where(inArray(tickets.id, ids))
-        : []
-    const idToTitle = new Map(titleRows.map((r) => [r.id, r.title]))
+    const titleRows = await getManyMap(tickets, ids)
+    const idToTitle = new Map([...titleRows.values()].map((r) => [r.id, r.title]))
     topTickets = topFive.map((row) => ({
       ticket_id: row.ticketId,
       title: idToTitle.get(row.ticketId) ?? null,

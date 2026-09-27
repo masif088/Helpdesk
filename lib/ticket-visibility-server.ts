@@ -1,6 +1,4 @@
-import { and, eq, or, type SQL, sql } from 'drizzle-orm'
-
-import { appSettings, db, tickets, users } from '@/lib/db'
+import { appSettings, findBy, get, teamMembers, ticketAssignees, type TicketsRow, upsert, users } from '@/lib/fsdb'
 import {
   DEFAULT_TICKET_VISIBILITY_RULES,
   parseTicketVisibilityRules,
@@ -13,7 +11,7 @@ import {
 const SETTINGS_KEY = 'ticket_visibility_rules'
 
 export async function getTicketVisibilityRules(): Promise<TicketVisibilityRulesMap> {
-  const [row] = await db.select().from(appSettings).where(eq(appSettings.key, SETTINGS_KEY)).limit(1)
+  const row = await get(appSettings, SETTINGS_KEY)
   if (!row?.value) return structuredClone(DEFAULT_TICKET_VISIBILITY_RULES)
   try {
     return parseTicketVisibilityRules(JSON.parse(row.value))
@@ -25,57 +23,50 @@ export async function getTicketVisibilityRules(): Promise<TicketVisibilityRulesM
 export async function setTicketVisibilityRules(rules: TicketVisibilityRulesMap): Promise<void> {
   const normalized = parseTicketVisibilityRules(rules)
   const value = JSON.stringify(normalized)
-  await db
-    .insert(appSettings)
-    .values({ key: SETTINGS_KEY, value, updatedAt: new Date() })
-    .onConflictDoUpdate({
-      target: appSettings.key,
-      set: { value, updatedAt: new Date() },
-    })
+  await upsert(appSettings, { key: SETTINGS_KEY, value, updatedAt: new Date() })
 }
 
 export async function loadVisibilityUserProfile(userId: string): Promise<VisibilityUserProfile | null> {
-  const [row] = await db
-    .select({
-      role: users.role,
-      department: users.department,
-      position: users.position,
-    })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1)
-  return row ?? null
+  const row = await get(users, userId)
+  return row ? { role: row.role, department: row.department, position: row.position } : null
 }
 
+export type TicketVisibilityRow = Pick<TicketsRow, 'id' | 'visibility' | 'createdBy' | 'teamId'>
+
 /**
- * SQL access for non-admin agents: legacy public/private/specific_users/team-membership
+ * Access check for non-admin agents: legacy public/private/specific_users/team-membership
  * plus configured visibility levels that match the current user profile.
  */
-export async function buildTicketVisibilityAccessSql(userId: string, role: string | undefined): Promise<SQL> {
+export async function buildTicketVisibilityPredicate(
+  userId: string,
+  role: string | undefined
+): Promise<(t: TicketVisibilityRow) => boolean> {
   const profile = (await loadVisibilityUserProfile(userId)) ?? {
     role,
     department: null,
     position: null,
   }
-  const rules = await getTicketVisibilityRules()
+  const [rules, assigned, memberships] = await Promise.all([
+    getTicketVisibilityRules(),
+    findBy(ticketAssignees, { userId }),
+    findBy(teamMembers, { userId }),
+  ])
+  const assignedTicketIds = new Set(assigned.map((a) => a.ticketId))
+  const teamIds = new Set(memberships.map((m) => m.teamId))
 
-  const parts: SQL[] = [
-    eq(tickets.visibility, 'public'),
-    and(eq(tickets.visibility, 'private'), eq(tickets.createdBy, userId))!,
-    sql`(${tickets.visibility} = 'specific_users' AND ${tickets.id} IN (SELECT ticket_id FROM ticket_assignees WHERE user_id = ${userId}))`,
-  ]
-
+  const allowedLevels = new Set<string>()
+  let teamViaMembership = false
   for (const level of TICKET_VISIBILITY_LEVELS) {
     const rule = rules[level]
-    if (level === 'team' && rule.includeTeamMembers) {
-      parts.push(
-        sql`(${tickets.visibility} = 'team' AND ${tickets.teamId} IN (SELECT team_id FROM team_members WHERE user_id = ${userId}))`
-      )
-    }
-    if (userMatchesVisibilityRule(profile, rule)) {
-      parts.push(eq(tickets.visibility, level))
-    }
+    if (level === 'team' && rule.includeTeamMembers) teamViaMembership = true
+    if (userMatchesVisibilityRule(profile, rule)) allowedLevels.add(level)
   }
 
-  return or(...parts)!
+  return (t) => {
+    if (t.visibility === 'public') return true
+    if (t.visibility === 'private' && t.createdBy === userId) return true
+    if (t.visibility === 'specific_users' && assignedTicketIds.has(t.id)) return true
+    if (t.visibility === 'team' && teamViaMembership && t.teamId && teamIds.has(t.teamId)) return true
+    return allowedLevels.has(t.visibility)
+  }
 }

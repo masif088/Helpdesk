@@ -1,8 +1,7 @@
-import { and,eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, screenshots } from '@/lib/db'
+import { get, remove, screenshots } from '@/lib/fsdb'
 import { deleteObject } from '@/lib/storage-idrive'
 
 /** POST /api/screenshots/delete - Delete screenshot (for web app with session) */
@@ -19,19 +18,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'id required' }, { status: 400 })
   }
 
-  const [row] = await db
-    .select({ filePath: screenshots.filePath })
-    .from(screenshots)
-    .where(and(eq(screenshots.id, id), eq(screenshots.userId, session.user.id!)))
-    .limit(1)
+  const row = await get(screenshots, id)
 
-  if (!row) {
+  if (!row || row.userId !== session.user.id) {
     return NextResponse.json({ error: 'Screenshot not found' }, { status: 404 })
   }
 
-  await db
-    .delete(screenshots)
-    .where(and(eq(screenshots.id, id), eq(screenshots.userId, session.user.id!)))
+  await remove(screenshots, id)
 
   if (row.filePath) {
     try {

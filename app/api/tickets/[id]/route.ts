@@ -1,22 +1,29 @@
-import { and, eq, inArray } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canDeleteTickets } from '@/lib/auth-utils'
 import { runAutomationRules } from '@/lib/automation-engine'
 import { assertCustomerMayAccessTicket } from '@/lib/customer-ticket-access'
-import { db } from '@/lib/db'
+import { diffNewAssignees,notifyTicketUsers } from '@/lib/firebase/ticket-notifications-server'
+import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
 import {
+  findBy,
+  get,
+  getMany,
+  insertMany,
+  type Patch,
   projectStatuses,
+  remove,
+  removeWhere,
   tags,
   ticketAssignees,
   ticketAttachments,
   tickets,
+  type TicketsRow,
   ticketTags,
   ticketTypes,
-} from '@/lib/db'
-import { diffNewAssignees,notifyTicketUsers } from '@/lib/firebase/ticket-notifications-server'
-import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
+  update,
+} from '@/lib/fsdb'
 import { notifySlackTicketEvent } from '@/lib/slack-ticket-notify'
 import type { TicketActorRole } from '@/lib/ticket-activity-log'
 import {
@@ -43,20 +50,10 @@ import { assertCustomerMayUseTicketType } from '@/lib/ticket-type-customer-acces
 
 async function triggerTicketUpdatedAutomation(ticketId: number) {
   try {
-    const [row] = await db
-      .select({
-        t: tickets,
-        typeSlug: ticketTypes.slug,
-      })
-      .from(tickets)
-      .leftJoin(ticketTypes, eq(tickets.typeId, ticketTypes.id))
-      .where(eq(tickets.id, ticketId))
-      .limit(1)
-    if (!row) return
-    const assigneeRows = await db
-      .select({ userId: ticketAssignees.userId })
-      .from(ticketAssignees)
-      .where(eq(ticketAssignees.ticketId, ticketId))
+    const t = await get(tickets, ticketId)
+    if (!t) return
+    const [type, assigneeRows] = await Promise.all([get(ticketTypes, t.typeId), findBy(ticketAssignees, { ticketId })])
+    const row = { t, typeSlug: type?.slug ?? null }
     await runAutomationRules('ticket_updated', {
       id: row.t.id,
       title: row.t.title,
@@ -119,16 +116,7 @@ export async function PATCH(
   if (Object.keys(body).length === 1 && body.status !== undefined) {
     const nextStatus = String(body.status)
 
-    const [cur] = await db
-      .select({
-        status: tickets.status,
-        companyId: tickets.companyId,
-        ticketType: tickets.ticketType,
-        priority: tickets.priority,
-      })
-      .from(tickets)
-      .where(eq(tickets.id, ticketId))
-      .limit(1)
+    const cur = await get(tickets, ticketId)
 
     const isSupport = coerceTicketType(cur?.ticketType) === DEFAULT_TICKET_TYPE
     const companyId = cur?.companyId ?? null
@@ -138,8 +126,8 @@ export async function PATCH(
         isSupport &&
           companyId &&
           isClosedLikeTicketStatus(nextStatus) &&
-          cur.status !== nextStatus &&
-          !isClosedLikeTicketStatus(cur.status)
+          cur!.status !== nextStatus &&
+          !isClosedLikeTicketStatus(cur!.status)
       )
 
     const reopenSupportQueue = Boolean(
@@ -162,24 +150,16 @@ export async function PATCH(
     }
 
     if (reopenSupportQueue) {
-      await db.transaction(async (tx) => {
-        await tx.update(tickets).set(setPayload).where(eq(tickets.id, ticketId))
-        await assignSupportTicketPriorityRank(tx, ticketId, 'append')
-      })
+      await update(tickets, ticketId, setPayload)
+      await assignSupportTicketPriorityRank(ticketId, 'append')
     } else if (closingSupportQueue && companyId) {
-      await db.transaction(async (tx) => {
-        await tx.update(tickets).set(setPayload).where(eq(tickets.id, ticketId))
-        await compactCompanySupportPriorities(tx, companyId)
-      })
+      await update(tickets, ticketId, setPayload)
+      await compactCompanySupportPriorities(companyId)
     } else {
-      await db.update(tickets).set(setPayload).where(eq(tickets.id, ticketId))
+      await update(tickets, ticketId, setPayload)
     }
 
-    const [finalRow] = await db
-      .select({ priority: tickets.priority })
-      .from(tickets)
-      .where(eq(tickets.id, ticketId))
-      .limit(1)
+    const finalRow = await get(tickets, ticketId)
 
     const priorFromSnap = ticketPriSnapshot(cur?.priority)
     const priToSnap = ticketPriSnapshot(finalRow?.priority)
@@ -207,15 +187,8 @@ export async function PATCH(
         },
       })
       try {
-        const [meta] = await db
-          .select({ title: tickets.title, createdBy: tickets.createdBy })
-          .from(tickets)
-          .where(eq(tickets.id, ticketId))
-          .limit(1)
-        const arows = await db
-          .select({ userId: ticketAssignees.userId })
-          .from(ticketAssignees)
-          .where(eq(ticketAssignees.ticketId, ticketId))
+        const meta = await get(tickets, ticketId)
+        const arows = await findBy(ticketAssignees, { ticketId })
         const recipients = [...arows.map((r) => r.userId), meta?.createdBy].filter(Boolean) as string[]
         const actorName =
           (session.user as { name?: string | null }).name ||
@@ -237,19 +210,7 @@ export async function PATCH(
         console.error('[PATCH ticket status] notify:', e)
       }
       try {
-        const [slackRow] = await db
-          .select({
-            id: tickets.id,
-            title: tickets.title,
-            status: tickets.status,
-            teamId: tickets.teamId,
-            priority: tickets.priority,
-            companyId: tickets.companyId,
-            typeId: tickets.typeId,
-          })
-          .from(tickets)
-          .where(eq(tickets.id, ticketId))
-          .limit(1)
+        const slackRow = await get(tickets, ticketId)
         if (slackRow) {
           void notifySlackTicketEvent('status_changed', {
             id: slackRow.id,
@@ -267,7 +228,7 @@ export async function PATCH(
       }
       if (nextStatus === 'closed' && cur.status !== 'closed' && actorRole !== 'customer') {
         try {
-          const [closedMeta] = await db.select({ title: tickets.title }).from(tickets).where(eq(tickets.id, ticketId)).limit(1)
+          const closedMeta = await get(tickets, ticketId)
           await sendAgentClosesTicketEmail({ ticketId, ticketTitle: closedMeta?.title || 'Ticket', agentUserId: actorUserId })
         } catch (e) {
           console.error('[PATCH ticket status] close email:', e)
@@ -283,14 +244,9 @@ export async function PATCH(
   // Customer open must not clear staff unread, and vice versa.
   if (Object.keys(body).length === 1 && body.mark_read === true) {
     const now = new Date()
-    await db
-      .update(tickets)
-      .set(
-        role === 'customer'
+    await update(tickets, ticketId, role === 'customer'
           ? { customerLastReadAt: now, lastReadAt: now }
-          : { staffLastReadAt: now, lastReadAt: now }
-      )
-      .where(eq(tickets.id, ticketId))
+          : { staffLastReadAt: now, lastReadAt: now })
     return NextResponse.json({ ok: true })
   }
 
@@ -299,11 +255,7 @@ export async function PATCH(
     if (role === 'customer') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-    const [trow] = await db
-      .select({ projectId: tickets.projectId, ticketType: tickets.ticketType })
-      .from(tickets)
-      .where(eq(tickets.id, ticketId))
-      .limit(1)
+    const trow = await get(tickets, ticketId)
     if (!trow?.projectId || coerceTicketType(trow.ticketType) !== 'project') {
       return NextResponse.json({ error: 'Not a project ticket' }, { status: 400 })
     }
@@ -318,24 +270,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid project_status_id' }, { status: 400 })
     }
     if (nextPs !== null) {
-      const [psRow] = await db
-        .select({ id: projectStatuses.id })
-        .from(projectStatuses)
-        .where(and(eq(projectStatuses.id, nextPs), eq(projectStatuses.projectId, trow.projectId)))
-        .limit(1)
+      const psFound = await get(projectStatuses, nextPs)
+      const psRow = psFound && psFound.projectId === trow.projectId ? psFound : null
       if (!psRow) {
         return NextResponse.json({ error: 'Invalid project status' }, { status: 400 })
       }
     }
-    const [cur] = await db
-      .select({ projectStatusId: tickets.projectStatusId })
-      .from(tickets)
-      .where(eq(tickets.id, ticketId))
-      .limit(1)
-    await db
-      .update(tickets)
-      .set({ projectStatusId: nextPs, updatedAt: new Date() })
-      .where(eq(tickets.id, ticketId))
+    const cur = trow
+    await update(tickets, ticketId, { projectStatusId: nextPs, updatedAt: new Date() })
     if (cur && (cur.projectStatusId ?? null) !== nextPs) {
       const psChanges = { project_status_id: { from: cur.projectStatusId, to: nextPs } }
       const psEntityLabels = await enrichActivityEntityLabels(psChanges)
@@ -368,21 +310,14 @@ export async function PATCH(
     if (!cls) {
       return NextResponse.json({ error: 'Invalid ticket_type' }, { status: 400 })
     }
-    const [cur] = await db
-      .select({ ticketType: tickets.ticketType, companyId: tickets.companyId })
-      .from(tickets)
-      .where(eq(tickets.id, ticketId))
-      .limit(1)
-    await db
-      .update(tickets)
-      .set({ ticketType: cls, updatedAt: new Date(), ...(cls === 'trash' && { priority: null }) })
-      .where(eq(tickets.id, ticketId))
+    const cur = await get(tickets, ticketId)
+    await update(tickets, ticketId, { ticketType: cls, updatedAt: new Date(), ...(cls === 'trash' && { priority: null }) })
     if (
       cur?.companyId &&
       coerceTicketType(cur.ticketType) === DEFAULT_TICKET_TYPE &&
       cls !== DEFAULT_TICKET_TYPE
     ) {
-      await compactCompanySupportPriorities(db, cur.companyId)
+      await compactCompanySupportPriorities(cur.companyId)
     }
     if (cur && coerceTicketType(cur.ticketType) !== cls) {
       await logTicketActivity({
@@ -403,22 +338,15 @@ export async function PATCH(
 
   // Quick path: description only (from detail page)
   if (body.description !== undefined && !body.title && !body.assignees && !body.tag_ids) {
-    const [cur] = await db
-      .select({ description: tickets.description, originalDescription: tickets.originalDescription })
-      .from(tickets)
-      .where(eq(tickets.id, ticketId))
-      .limit(1)
+    const cur = await get(tickets, ticketId)
     const descChanged = cur && String(cur.description ?? '') !== String(body.description ?? '')
     // Preserve original on first edit only (when originalDescription is still NULL)
-    const preserveOriginal = descChanged && cur.originalDescription == null && cur.description != null
-    await db
-      .update(tickets)
-      .set({
+    const preserveOriginal = descChanged && cur!.originalDescription == null && cur!.description != null
+    await update(tickets, ticketId, {
         description: body.description ?? null,
-        ...(preserveOriginal ? { originalDescription: cur.description } : {}),
+        ...(preserveOriginal ? { originalDescription: cur!.description } : {}),
         updatedAt: new Date(),
       })
-      .where(eq(tickets.id, ticketId))
     if (descChanged) {
       await logTicketActivity({
         ticketId,
@@ -427,7 +355,7 @@ export async function PATCH(
         action: 'ticket_updated',
         metadata: {
           changed_keys: ['description'],
-          changes: { description: { from: cur.description, to: body.description ?? null } },
+          changes: { description: { from: cur!.description, to: body.description ?? null } },
         },
       })
     }
@@ -464,11 +392,7 @@ export async function PATCH(
 
   const beforeSnapshot = await loadTicketActivitySnapshot(ticketId)
 
-  const [prioCtxRow] = await db
-    .select({ companyId: tickets.companyId, ticketType: tickets.ticketType })
-    .from(tickets)
-    .where(eq(tickets.id, ticketId))
-    .limit(1)
+  const prioCtxRow = await get(tickets, ticketId)
   if (!prioCtxRow) {
     return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
   }
@@ -486,11 +410,7 @@ export async function PATCH(
   let ticketCrossCompanyWarning: string | undefined
 
   if (contact_user_id !== undefined) {
-    const [curRow] = await db
-      .select({ companyId: tickets.companyId })
-      .from(tickets)
-      .where(eq(tickets.id, ticketId))
-      .limit(1)
+    const curRow = prioCtxRow
     const mergedCompanyId =
       company_id !== undefined ? (company_id || null) : (curRow?.companyId ?? null)
     const nextContact =
@@ -581,7 +501,7 @@ export async function PATCH(
     openingFromClosedSupport ||
     compactCompanyQueueAfterClosingSupport
 
-  const ticketUpdates: Record<string, unknown> = {
+  const ticketUpdates: Patch<TicketsRow> = {
     ...(title !== undefined && { title }),
     ...(description !== undefined && { description }),
     ...(short_note !== undefined && { shortNote: short_note ?? null }),
@@ -614,97 +534,80 @@ export async function PATCH(
   }
 
   if (needsReorderTxn) {
-    await db.transaction(async (tx) => {
+    {
       if (companyChanging && oldTicketType === DEFAULT_TICKET_TYPE && oldCompanyId != null) {
-        await compactCompanySupportPriorities(tx, oldCompanyId, ticketId)
+        await compactCompanySupportPriorities(oldCompanyId, ticketId)
       }
 
       if (Object.keys(ticketUpdates).length > 0) {
-        await tx
-          .update(tickets)
-          .set({ ...ticketUpdates, updatedAt: new Date() })
-          .where(eq(tickets.id, ticketId))
+        await update(tickets, ticketId, { ...ticketUpdates, updatedAt: new Date() })
       }
 
       if (compactAfterLeavingSupport && oldCompanyId != null) {
-        await compactCompanySupportPriorities(tx, oldCompanyId)
+        await compactCompanySupportPriorities(oldCompanyId)
       }
 
       if (priorityRankReorder) {
         if (priority === null || priority === '') {
-          const scope = await resolveSupportQueueScope(tx, ticketId)
-          await tx
-            .update(tickets)
-            .set({ priority: null })
-            .where(eq(tickets.id, ticketId))
-          if (scope) await compactSupportQueueAfterRemoval(tx, scope, ticketId)
+          const scope = await resolveSupportQueueScope(ticketId)
+          await update(tickets, ticketId, { priority: null })
+          if (scope) await compactSupportQueueAfterRemoval(scope, ticketId)
         } else {
-          await assignSupportTicketPriorityRank(
-            tx,
-            ticketId,
+          await assignSupportTicketPriorityRank(ticketId,
             parseCompanyTicketDesiredRank(priority)
           )
         }
       } else if (openingFromClosedSupport && !priorityRankReorder) {
-        await assignSupportTicketPriorityRank(tx, ticketId, 'append')
+        await assignSupportTicketPriorityRank(ticketId, 'append')
       } else if (
         companyChanging &&
         !openingFromClosedSupport &&
         priority === undefined &&
         nextTicketTypeResolved === DEFAULT_TICKET_TYPE
       ) {
-        await assignSupportTicketPriorityRank(tx, ticketId, 'append')
+        await assignSupportTicketPriorityRank(ticketId, 'append')
       }
 
       if (compactCompanyQueueAfterClosingSupport && oldCompanyId) {
-        await compactCompanySupportPriorities(tx, oldCompanyId)
+        await compactCompanySupportPriorities(oldCompanyId)
       }
-    })
+    }
   } else if (Object.keys(ticketUpdates).length > 0) {
-    await db
-      .update(tickets)
-      .set({ ...ticketUpdates, updatedAt: new Date() })
-      .where(eq(tickets.id, ticketId))
+    await update(tickets, ticketId, { ...ticketUpdates, updatedAt: new Date() })
   }
 
   if (assignees !== undefined) {
-    await db.delete(ticketAssignees).where(eq(ticketAssignees.ticketId, ticketId))
+    await removeWhere(ticketAssignees, [['ticketId', '==', ticketId]])
     if (assignees.length > 0) {
-      await db.insert(ticketAssignees).values(
-        assignees.map((userId: string) => ({
-          ticketId,
-          userId,
-        }))
+      await insertMany(
+        ticketAssignees,
+        (assignees as string[]).map((userId) => ({ ticketId, userId }))
       )
     }
   }
 
   if (tag_ids !== undefined) {
-    await db.delete(ticketTags).where(eq(ticketTags.ticketId, ticketId))
+    await removeWhere(ticketTags, [['ticketId', '==', ticketId]])
     if (tag_ids.length > 0) {
-      await db.insert(ticketTags).values(
-        tag_ids.map((tagId: string) => ({
-          ticketId,
-          tagId,
-        }))
+      await insertMany(
+        ticketTags,
+        (tag_ids as string[]).map((tagId) => ({ ticketId, tagId }))
       )
     }
   }
 
   let attachmentsRemovedMeta: { id: string; file_name: string }[] = []
   if (attachments_delete?.length > 0) {
-    const removedRows = await db
-      .select({ id: ticketAttachments.id, fileName: ticketAttachments.fileName })
-      .from(ticketAttachments)
-      .where(
-        and(eq(ticketAttachments.ticketId, ticketId), inArray(ticketAttachments.id, attachments_delete))
-      )
+    const removedRows = (await getMany(ticketAttachments, attachments_delete as string[])).filter(
+      (r) => r.ticketId === ticketId
+    )
     attachmentsRemovedMeta = removedRows.map((r) => ({ id: r.id, file_name: r.fileName }))
-    await db.delete(ticketAttachments).where(inArray(ticketAttachments.id, attachments_delete))
+    for (const attId of attachments_delete as string[]) await remove(ticketAttachments, attId)
   }
 
   if (attachments_add?.length > 0) {
-    await db.insert(ticketAttachments).values(
+    await insertMany(
+      ticketAttachments,
       attachments_add.map((a: { file_url: string; file_name: string; file_path: string }) => ({
         ticketId,
         fileUrl: a.file_url,
@@ -762,15 +665,8 @@ export async function PATCH(
           previousStatus: String(statusChange.from),
         })
         try {
-          const [meta] = await db
-            .select({ createdBy: tickets.createdBy })
-            .from(tickets)
-            .where(eq(tickets.id, ticketId))
-            .limit(1)
-          const arows = await db
-            .select({ userId: ticketAssignees.userId })
-            .from(ticketAssignees)
-            .where(eq(ticketAssignees.ticketId, ticketId))
+          const meta = await get(tickets, ticketId)
+          const arows = await findBy(ticketAssignees, { ticketId })
           const recipients = [...arows.map((r) => r.userId), meta?.createdBy].filter(Boolean) as string[]
           const actorName =
             (session.user as { name?: string | null }).name ||
@@ -841,7 +737,7 @@ export async function PATCH(
         const addedIds = nextIds.filter((id) => !prevIds.includes(id))
         if (addedIds.length > 0) {
           try {
-            const tagRows = await db.select({ id: tags.id, name: tags.name }).from(tags).where(inArray(tags.id, addedIds))
+            const tagRows = await getMany(tags, addedIds)
             const addedTagNames = tagRows.map((r) => r.name ?? r.id)
             void notifySlackTicketEvent('tag_added', {
               id: ticketId,
@@ -904,11 +800,7 @@ export async function DELETE(
   const delActorRole: TicketActorRole = delRole === 'customer' ? 'customer' : 'agent'
   const actorUserId = session.user.id!
 
-  const [cur] = await db
-    .select({ ticketType: tickets.ticketType, companyId: tickets.companyId })
-    .from(tickets)
-    .where(eq(tickets.id, ticketId))
-    .limit(1)
+  const cur = await get(tickets, ticketId)
   if (!cur) {
     return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
   }
@@ -920,13 +812,10 @@ export async function DELETE(
     return NextResponse.json({ ok: true, ticket_type: 'trash' })
   }
 
-  await db
-    .update(tickets)
-    .set({ ticketType: 'trash', updatedAt: new Date() })
-    .where(eq(tickets.id, ticketId))
+  await update(tickets, ticketId, { ticketType: 'trash', updatedAt: new Date() })
 
   if (cur.companyId && beforeType === DEFAULT_TICKET_TYPE) {
-    await compactCompanySupportPriorities(db, cur.companyId)
+    await compactCompanySupportPriorities(cur.companyId)
   }
 
   await logTicketActivity({

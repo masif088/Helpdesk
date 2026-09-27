@@ -1,9 +1,7 @@
-import { asc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { knowledgeBaseArticles } from '@/lib/db'
+import { find, insert, knowledgeBaseArticles } from '@/lib/fsdb'
 import { articleVisibleForRole, normalizeTargetRolesInput } from '@/lib/knowledge-base-article-roles'
 
 /** GET /api/knowledge-base-articles - List articles. ?published=true for customer (only published) */
@@ -17,16 +15,10 @@ export async function GET(request: Request) {
   const publishedOnly = searchParams.get('published') === 'true'
   const viewerRole = (session.user as { role?: string }).role
 
-  const rows = publishedOnly
-    ? await db
-        .select()
-        .from(knowledgeBaseArticles)
-        .where(eq(knowledgeBaseArticles.status, 'published'))
-        .orderBy(asc(knowledgeBaseArticles.sortOrder), asc(knowledgeBaseArticles.createdAt))
-    : await db
-        .select()
-        .from(knowledgeBaseArticles)
-        .orderBy(asc(knowledgeBaseArticles.sortOrder), asc(knowledgeBaseArticles.createdAt))
+  const rows = await find(knowledgeBaseArticles, {
+    where: [publishedOnly && ['status', '==', 'published']],
+    orderBy: [['sortOrder', 'asc'], ['createdAt', 'asc']],
+  })
 
   const filtered = publishedOnly
     ? rows.filter((r) => articleVisibleForRole(r.targetRoles ?? undefined, viewerRole))
@@ -63,9 +55,7 @@ export async function POST(request: Request) {
 
   const targetRoles = normalizeTargetRolesInput(target_roles)
 
-  const [inserted] = await db
-    .insert(knowledgeBaseArticles)
-    .values({
+  const inserted = await insert(knowledgeBaseArticles, {
       title: String(title).trim(),
       status: status === 'published' ? 'published' : 'draft',
       description: description?.trim() || null,
@@ -73,7 +63,6 @@ export async function POST(request: Request) {
       sortOrder: Number(sort_order) ?? 0,
       targetRoles,
     })
-    .returning()
 
   if (!inserted) {
     return NextResponse.json({ error: 'Insert failed' }, { status: 500 })

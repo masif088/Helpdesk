@@ -1,28 +1,37 @@
-import bcrypt from 'bcryptjs'
-import { and, desc, eq, gte, ilike, isNull, not, or, sql } from 'drizzle-orm'
 import { google } from 'googleapis'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
+import { createAppUser, findUserByEmail, randomPassword } from '@/lib/app-users'
 import { loadAutomationTicketContext, runAutomationRules, runTicketCommentAutomation } from '@/lib/automation-engine'
 import { sendAutomationLog } from '@/lib/automation-log-webhook'
+import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
 import {
   commentAttachments,
   companies,
   companyUsers,
-  db,
   emailIntegrations,
   emailMessages,
   emailSkipList,
+  find,
+  findBy,
+  findOne,
+  findOneBy,
+  get,
+  insert,
+  insertIgnore,
+  insertMany,
   messageTemplates,
+  sortRows,
   ticketAttachments,
   ticketCcRecipients,
   ticketComments,
   tickets,
+  update,
+  updateByKey,
   users,
-} from '@/lib/db'
-import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
+} from '@/lib/fsdb'
 import { isInboxAutoUserActivationEmailEnabled } from '@/lib/inbox-user-activation'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
 import { sendRequesterTicketCreatedEmail } from '@/lib/requester-new-ticket-email'
@@ -91,25 +100,11 @@ function companyNameFromEmail(email: string): string {
   return base.charAt(0).toUpperCase() + base.slice(1).toLowerCase()
 }
 
-function randomPassword(length = 24): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
-  let result = ''
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return result
-}
-
-/** Truncate string to fit PostgreSQL VARCHAR limit (avoid "value too long" error) */
+/** Truncate string to the old column length limits (keeps stored values bounded) */
 function truncateVarchar(s: string | null | undefined, maxLen: number): string {
   if (s == null || s === '') return ''
   const str = String(s).trim()
   return str.length <= maxLen ? str : str.slice(0, maxLen)
-}
-
-/** Escape special chars for ILIKE pattern (%, _, \) to avoid wildcard match */
-function escapeIlike(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
 }
 
 /** Normalize subject for dedup: strip Re:/Fw:, trim, lowercase */
@@ -150,11 +145,7 @@ async function sendUserActivationEmail(params: {
   const loginUrl = `${safeBase}/login`
   const changePasswordUrl = `${safeBase}/change-password`
 
-  const [tpl] = await db
-    .select({ content: messageTemplates.content, status: messageTemplates.status })
-    .from(messageTemplates)
-    .where(eq(messageTemplates.key, USER_ACTIVATION_TEMPLATE_KEY))
-    .limit(1)
+  const tpl = await findOneBy(messageTemplates, { key: USER_ACTIVATION_TEMPLATE_KEY })
 
   if (!tpl || tpl.status !== 'active') return
 
@@ -216,11 +207,7 @@ async function sendUserTemporaryPasswordEmail(params: {
   const loginUrl = `${safeBase}/login`
   const changePasswordUrl = `${safeBase}/change-password`
 
-  const [tpl] = await db
-    .select({ content: messageTemplates.content, status: messageTemplates.status })
-    .from(messageTemplates)
-    .where(eq(messageTemplates.key, USER_PASSWORD_TEMPLATE_KEY))
-    .limit(1)
+  const tpl = await findOneBy(messageTemplates, { key: USER_PASSWORD_TEMPLATE_KEY })
 
   if (!tpl || tpl.status !== 'active') return
 
@@ -299,8 +286,8 @@ async function sendNewInboxUserOnboardingEmails(params: {
     integrationActorUserId,
     temporaryPassword,
   } = params
-  const [recipientRow] = await db.select().from(users).where(eq(users.id, recipientUserId)).limit(1)
-  const [senderRow] = await db.select().from(users).where(eq(users.id, integrationActorUserId)).limit(1)
+  const recipientRow = await get(users, recipientUserId)
+  const senderRow = await get(users, integrationActorUserId)
   const recipientMap = userRowToMergeMap(recipientRow ?? null)
   const senderMap = userRowToMergeMap(senderRow ?? null)
   await sendUserActivationEmail({
@@ -548,16 +535,7 @@ export async function POST(request: NextRequest) {
       userId = session.user.id
     }
 
-    const [integration] = await db
-      .select()
-      .from(emailIntegrations)
-      .where(
-        and(
-          eq(emailIntegrations.provider, 'google'),
-          eq(emailIntegrations.isActive, true)
-        )
-      )
-      .limit(1)
+    const integration = await findOneBy(emailIntegrations, { provider: 'google', isActive: true })
 
     if (!integration) {
       return NextResponse.json({ error: 'Email integration not connected' }, { status: 503 })
@@ -585,14 +563,11 @@ export async function POST(request: NextRequest) {
       const { credentials } = await oauth2Client.refreshAccessToken()
       accessToken = credentials.access_token ?? integration.accessToken
       if (credentials.access_token && credentials.expiry_date) {
-        await db
-          .update(emailIntegrations)
-          .set({
-            accessToken: credentials.access_token,
-            expiresAt: new Date(credentials.expiry_date),
-            updatedAt: new Date(),
-          })
-          .where(eq(emailIntegrations.id, integration.id))
+        await update(emailIntegrations, integration.id, {
+          accessToken: credentials.access_token,
+          expiresAt: new Date(credentials.expiry_date),
+          updatedAt: new Date(),
+        })
       }
     } else {
       oauth2Client.setCredentials({ access_token: accessToken })
@@ -634,7 +609,7 @@ export async function POST(request: NextRequest) {
       String(trustedSendersRaw).split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
     )
 
-    const existingMessagesRows = await db.select({ gmailMessageId: emailMessages.gmailMessageId }).from(emailMessages)
+    const existingMessagesRows = await find(emailMessages, { select: ['gmailMessageId'] })
     existingMessagesRows.forEach((m) => alreadyProcessed.add(m.gmailMessageId))
 
     let addedCount = 0
@@ -723,7 +698,7 @@ export async function POST(request: NextRequest) {
       const rfcMessageId = getHeader('Message-ID')?.trim() || null
 
       try {
-        await db.insert(emailMessages).values({
+        await insert(emailMessages, {
           gmailMessageId: truncateVarchar(gmailMessageId, 255),
           threadId: msgThreadId ? truncateVarchar(msgThreadId, 255) : null,
           fromEmail: truncateVarchar(senderEmail, 255),
@@ -736,7 +711,7 @@ export async function POST(request: NextRequest) {
         })
       } catch (claimErr: any) {
         try {
-          await db.insert(emailMessages).values({
+          await insert(emailMessages, {
             gmailMessageId: truncateVarchar(gmailMessageId, 255),
             threadId: msgThreadId ? truncateVarchar(msgThreadId, 255) : null,
             fromEmail: truncateVarchar(senderEmail, 255),
@@ -757,11 +732,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const [skipRow] = await db
-        .select({ id: emailSkipList.id })
-        .from(emailSkipList)
-        .where(ilike(emailSkipList.email, escapeIlike(senderEmail)))
-        .limit(1)
+      const skipRow = await findOne(emailSkipList, { where: [['emailLower', '==', senderEmail.toLowerCase()]] })
 
       if (skipRow) {
         alreadyProcessed.add(gmailMessageId)
@@ -776,25 +747,14 @@ export async function POST(request: NextRequest) {
       if (msgThreadId) {
         ticketId = threadToTicketThisRun.get(msgThreadId) ?? null
         if (!ticketId) {
-          const [byThread] = await db
-            .select({ id: tickets.id })
-            .from(tickets)
-            .where(eq(tickets.gmailThreadId, msgThreadId))
-            .limit(1)
+          const byThread = await findOne(tickets, { where: [['gmailThreadId', '==', msgThreadId]] })
           if (byThread) ticketId = byThread.id
         }
         if (!ticketId) {
-          const [byMsg] = await db
-            .select({ ticketId: emailMessages.ticketId })
-            .from(emailMessages)
-            .where(
-              and(
-                eq(emailMessages.threadId, msgThreadId),
-                not(isNull(emailMessages.ticketId))
-              )
-            )
-            .orderBy(desc(emailMessages.syncedAt))
-            .limit(1)
+          const byMsg = sortRows(
+            (await findBy(emailMessages, { threadId: msgThreadId })).filter((m) => m.ticketId != null),
+            [['syncedAt', 'desc']]
+          )[0]
           if (byMsg?.ticketId) ticketId = byMsg.ticketId
         }
       }
@@ -804,21 +764,13 @@ export async function POST(request: NextRequest) {
       }
 
       if (ticketId) {
-        const [ticketRow] = await db
-          .select({ id: tickets.id, companyId: tickets.companyId })
-          .from(tickets)
-          .where(eq(tickets.id, ticketId))
-          .limit(1)
+        const ticketRow = await get(tickets, ticketId)
 
         if (!ticketRow) continue
 
         let companyEmail: string | null = null
         if (ticketRow.companyId) {
-          const [companyRow] = await db
-            .select({ email: companies.email })
-            .from(companies)
-            .where(eq(companies.id, ticketRow.companyId))
-            .limit(1)
+          const companyRow = await get(companies, ticketRow.companyId)
           companyEmail = companyRow?.email?.trim().toLowerCase() ?? null
         }
 
@@ -826,10 +778,7 @@ export async function POST(request: NextRequest) {
 
         let isFromCc = false
         if (!senderMatchesCompany) {
-          const ccRows = await db
-            .select({ ccEmails: ticketComments.ccEmails })
-            .from(ticketComments)
-            .where(eq(ticketComments.ticketId, ticketId))
+          const ccRows = await findBy(ticketComments, { ticketId })
           const allCc = ccRows.flatMap((r) => (Array.isArray(r.ccEmails) ? r.ccEmails : []))
           const senderNorm = normalizeForMatch(senderEmail)
           isFromCc = allCc.some((e) => e?.trim() && normalizeForMatch(e.trim()) === senderNorm)
@@ -838,23 +787,14 @@ export async function POST(request: NextRequest) {
         // Also allow reply if sender is a registered user belonging to the ticket's company
         let isCompanyMember = false
         if (!senderMatchesCompany && !isFromCc && ticketRow.companyId) {
-          const [memberRow] = await db
-            .select({ id: users.id })
-            .from(users)
-            .where(and(ilike(users.email, escapeIlike(senderEmail)), eq(users.companyId, ticketRow.companyId)))
-            .limit(1)
-          if (memberRow) isCompanyMember = true
+          const memberRow = await findUserByEmail(senderEmail)
+          if (memberRow && memberRow.companyId === ticketRow.companyId) isCompanyMember = true
         }
         // Also allow if sender is the contact user on the ticket
         let isTicketContact = false
         if (!senderMatchesCompany && !isFromCc && !isCompanyMember) {
-          const [contactRow] = await db
-            .select({ id: tickets.id })
-            .from(tickets)
-            .innerJoin(users, eq(tickets.contactUserId, users.id))
-            .where(and(eq(tickets.id, ticketId), ilike(users.email, escapeIlike(senderEmail))))
-            .limit(1)
-          if (contactRow) isTicketContact = true
+          const contactUser = ticketRow.contactUserId ? await get(users, ticketRow.contactUserId) : null
+          if (contactUser && contactUser.email.trim().toLowerCase() === senderEmail) isTicketContact = true
         }
 
         if (!senderMatchesCompany && !isFromCc && !isCompanyMember && !isTicketContact) {
@@ -868,47 +808,30 @@ export async function POST(request: NextRequest) {
 
         let commentUserId = userId
         if (senderMatchesCompany || isCompanyMember || isTicketContact) {
-          const [companyUser] = await db
-            .select({ id: users.id })
-            .from(users)
-            .where(ilike(users.email, escapeIlike(senderEmail)))
-            .limit(1)
+          const companyUser = await findUserByEmail(senderEmail)
           if (companyUser) commentUserId = companyUser.id
         } else if (isFromCc && ticketRow.companyId) {
-          const [existingCcUser] = await db
-            .select({ id: users.id })
-            .from(users)
-            .where(ilike(users.email, escapeIlike(senderEmail)))
-            .limit(1)
+          const existingCcUser = await findUserByEmail(senderEmail)
           if (existingCcUser) {
             commentUserId = existingCcUser.id
-            await db.update(users).set({ companyId: ticketRow.companyId, updatedAt: new Date() }).where(eq(users.id, existingCcUser.id))
+            await update(users, existingCcUser.id, { companyId: ticketRow.companyId, updatedAt: new Date() })
             try {
-              await db
-                .insert(companyUsers)
-                .values({ companyId: ticketRow.companyId, userId: existingCcUser.id })
-                .onConflictDoNothing({ target: [companyUsers.companyId, companyUsers.userId] })
+              await insertIgnore(companyUsers, { companyId: ticketRow.companyId, userId: existingCcUser.id })
             } catch {}
           } else {
             const displayName = parseNameFromHeader(from) || senderEmail.split('@')[0] || 'User'
             const ccNewUserPassword = randomPassword()
-            const [newUser] = await db
-              .insert(users)
-              .values({
+            const newUser = await createAppUser({
                 email: truncateVarchar(senderEmail, 255),
                 fullName: truncateVarchar(displayName, 255),
                 companyId: ticketRow.companyId,
                 role: 'customer',
-                passwordHash: await bcrypt.hash(ccNewUserPassword, 10),
+                password: ccNewUserPassword,
               })
-              .returning({ id: users.id })
             if (newUser) {
               commentUserId = newUser.id
               try {
-                await db
-                  .insert(companyUsers)
-                  .values({ companyId: ticketRow.companyId, userId: newUser.id })
-                  .onConflictDoNothing({ target: [companyUsers.companyId, companyUsers.userId] })
+                await insertIgnore(companyUsers, { companyId: ticketRow.companyId, userId: newUser.id })
               } catch {}
               try {
                 await sendNewInboxUserOnboardingEmails({
@@ -935,11 +858,7 @@ export async function POST(request: NextRequest) {
         const emailDateIso = getEmailDateIso(msg)
         let companyFolderReply = 'non-company'
         if (ticketRow.companyId) {
-          const [cnReply] = await db
-            .select({ name: companies.name })
-            .from(companies)
-            .where(eq(companies.id, ticketRow.companyId))
-            .limit(1)
+          const cnReply = await get(companies, ticketRow.companyId)
           companyFolderReply = cnReply?.name || 'non-company'
         }
         const snippetFallbackReply = (msg.snippet || '').trim() || '(No content)'
@@ -959,33 +878,27 @@ export async function POST(request: NextRequest) {
         for (const ccEmail of incomingCcEmails) {
           if (!ccEmail?.trim() || !ticketRow.companyId) continue
           try {
-            await db
-              .insert(ticketCcRecipients)
-              .values({ ticketId, email: truncateVarchar(ccEmail.trim(), 255) })
-              .onConflictDoNothing({ target: [ticketCcRecipients.ticketId, ticketCcRecipients.email] })
+            await insertIgnore(ticketCcRecipients, { ticketId, email: truncateVarchar(ccEmail.trim(), 255) })
           } catch (e) {
             if (isDebug) console.log('[Sync] ticketCcRecipients insert:', (e as Error)?.message)
           }
-          const [ccUser] = await db.select({ id: users.id }).from(users).where(ilike(users.email, escapeIlike(ccEmail))).limit(1)
+          const ccUser = await findUserByEmail(ccEmail)
           if (ccUser) {
-            await db.update(users).set({ companyId: ticketRow.companyId, updatedAt: new Date() }).where(eq(users.id, ccUser.id))
+            await update(users, ccUser.id, { companyId: ticketRow.companyId, updatedAt: new Date() })
             try {
-              await db.insert(companyUsers).values({ companyId: ticketRow.companyId, userId: ccUser.id }).onConflictDoNothing({ target: [companyUsers.companyId, companyUsers.userId] })
+              await insertIgnore(companyUsers, { companyId: ticketRow.companyId, userId: ccUser.id })
             } catch {}
           } else {
             try {
-              const [newCcUser] = await db
-                .insert(users)
-                .values({
+              const newCcUser = await createAppUser({
                   email: truncateVarchar(ccEmail, 255),
                   fullName: truncateVarchar(ccEmail.split('@')[0] || 'User', 255),
                   companyId: ticketRow.companyId,
                   role: 'customer',
-                  passwordHash: await bcrypt.hash(randomPassword(), 10),
+                  password: randomPassword(),
                 })
-                .returning({ id: users.id })
               if (newCcUser) {
-                await db.insert(companyUsers).values({ companyId: ticketRow.companyId, userId: newCcUser.id }).onConflictDoNothing({ target: [companyUsers.companyId, companyUsers.userId] })
+                await insertIgnore(companyUsers, { companyId: ticketRow.companyId, userId: newCcUser.id })
               }
             } catch (e) {
               console.error('[Sync] CC user create failed:', ccEmail, (e as Error)?.message)
@@ -994,9 +907,7 @@ export async function POST(request: NextRequest) {
         }
 
         try {
-          const [insertedReplyComment] = await db
-            .insert(ticketComments)
-            .values({
+          const insertedReplyComment = await insert(ticketComments, {
               ticketId,
               userId: commentUserId,
               comment: commentBody,
@@ -1005,10 +916,9 @@ export async function POST(request: NextRequest) {
               ccEmails: incomingCcEmails.length > 0 ? incomingCcEmails.map((e) => truncateVarchar(e.trim(), 255)) : null,
               ...(emailDateIso && { createdAt: new Date(emailDateIso) }),
             })
-            .returning({ id: ticketComments.id })
 
           if (insertedReplyComment && processedReply.files.length > 0) {
-            await db.insert(commentAttachments).values(
+            await insertMany(commentAttachments, 
               processedReply.files.map((f) => ({
                 commentId: insertedReplyComment.id,
                 fileUrl: f.fileUrl,
@@ -1056,28 +966,23 @@ export async function POST(request: NextRequest) {
         }
 
         if (msgThreadId) {
-          const [curTicket] = await db.select({ gmailThreadId: tickets.gmailThreadId }).from(tickets).where(eq(tickets.id, ticketId)).limit(1)
+          const curTicket = await get(tickets, ticketId)
           if (curTicket && !curTicket.gmailThreadId) {
-            await db.update(tickets).set({ gmailThreadId: truncateVarchar(msgThreadId, 255), updatedAt: new Date() }).where(eq(tickets.id, ticketId))
+            await update(tickets, ticketId, { gmailThreadId: truncateVarchar(msgThreadId, 255), updatedAt: new Date() })
           }
         }
-        await db.update(emailMessages).set({ ticketId }).where(eq(emailMessages.gmailMessageId, gmailMessageId))
+        await updateByKey(emailMessages, { gmailMessageId: truncateVarchar(gmailMessageId, 255) }, { ticketId })
       } else {
         // Match company: 1) email exact match, 2) domain in domain_list (user@acme.com → acme.com)
         // Rule: user email = company email → user is part of company; domain in list → user is part of company
         const senderDomain = senderEmail.includes('@') ? senderEmail.split('@')[1]!.toLowerCase() : ''
-        const companyRows = await db
-          .select({ id: companies.id, name: companies.name, email: companies.email, domainList: companies.domainList })
-          .from(companies)
-          .where(
-            senderDomain
-              ? or(
-                  ilike(companies.email, escapeIlike(senderEmail)),
-                  sql`${senderDomain} = ANY(COALESCE(${companies.domainList}, ARRAY[]::text[]))`
-                )
-              : ilike(companies.email, escapeIlike(senderEmail))
-          )
-          .limit(2)
+        const [byEmailCompanies, byDomainCompanies] = await Promise.all([
+          find(companies, { where: [['emailLower', '==', senderEmail.toLowerCase()]], limit: 2 }),
+          senderDomain
+            ? find(companies, { where: [['domainList', 'array-contains', senderDomain]], limit: 2 })
+            : Promise.resolve([]),
+        ])
+        const companyRows = [...byEmailCompanies, ...byDomainCompanies].slice(0, 2)
         // Prefer email match over domain match
         const company = companyRows.find((r) => r.email?.toLowerCase() === senderEmail) ?? companyRows[0] ?? null
 
@@ -1086,59 +991,44 @@ export async function POST(request: NextRequest) {
         let createdUserTempPassword: string | null = null
         let shouldSendActivationForNewUser = false
 
-        const [existingUser] = await db
-          .select({ id: users.id, companyId: users.companyId })
-          .from(users)
-          .where(ilike(users.email, escapeIlike(senderEmail)))
-          .limit(1)
+        const existingUser = await findUserByEmail(senderEmail)
 
         if (existingUser) {
           creatorUserId = existingUser.id
           ticketCompanyId = existingUser.companyId ?? company?.id ?? null
           // Update user's companyId if they belong to company (email match or domain match) but weren't linked
           if (company?.id && !existingUser.companyId) {
-            await db.update(users).set({ companyId: company.id, updatedAt: new Date() }).where(eq(users.id, existingUser.id))
+            await update(users, existingUser.id, { companyId: company.id, updatedAt: new Date() })
             ticketCompanyId = company.id
           }
         } else {
           const displayName = parseNameFromHeader(from) || senderEmail.split('@')[0] || 'User'
           const password = randomPassword()
-          const passwordHash = await bcrypt.hash(password, 10)
           // Use select-then-insert/update to avoid ON CONFLICT (works when users.email UNIQUE constraint is missing)
-          const [byEmail] = await db
-            .select({ id: users.id })
-            .from(users)
-            .where(eq(users.email, truncateVarchar(senderEmail, 255)))
-            .limit(1)
+          const byEmail = await findUserByEmail(truncateVarchar(senderEmail, 255))
           if (byEmail) {
             const updateData: { fullName: string; updatedAt: Date; companyId?: string } = {
               fullName: truncateVarchar(displayName, 255),
               updatedAt: new Date(),
             }
             if (company?.id) updateData.companyId = company.id
-            await db.update(users).set(updateData).where(eq(users.id, byEmail.id))
+            await update(users, byEmail.id, updateData)
             creatorUserId = byEmail.id
           } else {
-            const [inserted] = await db
-              .insert(users)
-              .values({
+            const inserted = await createAppUser({
                 email: truncateVarchar(senderEmail, 255),
                 fullName: truncateVarchar(displayName, 255),
                 companyId: company?.id ?? null,
                 role: 'customer',
-                passwordHash,
+                password,
               })
-              .returning({ id: users.id })
             if (inserted) {
               creatorUserId = inserted.id
               createdUserTempPassword = password
               shouldSendActivationForNewUser = true
               if (company?.id) {
                 try {
-                  await db
-                    .insert(companyUsers)
-                    .values({ companyId: company.id, userId: inserted.id })
-                    .onConflictDoNothing({ target: [companyUsers.companyId, companyUsers.userId] })
+                  await insertIgnore(companyUsers, { companyId: company.id, userId: inserted.id })
                 } catch {}
               }
             }
@@ -1150,25 +1040,14 @@ export async function POST(request: NextRequest) {
         if (msgThreadId) {
           existingTicketId = threadToTicketThisRun.get(msgThreadId) ?? null
           if (!existingTicketId) {
-            const [dupByThread] = await db
-              .select({ id: tickets.id })
-              .from(tickets)
-              .where(eq(tickets.gmailThreadId, msgThreadId))
-              .limit(1)
+            const dupByThread = await findOne(tickets, { where: [['gmailThreadId', '==', msgThreadId]] })
             if (dupByThread) existingTicketId = dupByThread.id
           }
           if (!existingTicketId) {
-            const [dupByMsg] = await db
-              .select({ ticketId: emailMessages.ticketId })
-              .from(emailMessages)
-              .where(
-                and(
-                  eq(emailMessages.threadId, msgThreadId),
-                  not(isNull(emailMessages.ticketId))
-                )
-              )
-              .orderBy(desc(emailMessages.syncedAt))
-              .limit(1)
+            const dupByMsg = sortRows(
+            (await findBy(emailMessages, { threadId: msgThreadId })).filter((m) => m.ticketId != null),
+            [['syncedAt', 'desc']]
+          )[0]
             if (dupByMsg?.ticketId) existingTicketId = dupByMsg.ticketId
           }
         }
@@ -1176,18 +1055,15 @@ export async function POST(request: NextRequest) {
         if (!existingTicketId && ticketCompanyId) {
           const normSubj = normalizeSubject(subject)
           const since = new Date(Date.now() - 48 * 60 * 60 * 1000)
-          const dupBySubject = await db
-            .select({ id: tickets.id, title: tickets.title })
-            .from(tickets)
-            .where(
-              and(
-                eq(tickets.companyId, ticketCompanyId),
-                eq(tickets.createdVia, 'email'),
-                gte(tickets.createdAt, since)
-              )
-            )
-            .orderBy(desc(tickets.createdAt))
-            .limit(20)
+          const dupBySubject = await find(tickets, {
+            where: [
+              ['companyId', '==', ticketCompanyId],
+              ['createdVia', '==', 'email'],
+              ['createdAt', '>=', since],
+            ],
+            orderBy: [['createdAt', 'desc']],
+            limit: 20,
+          })
           const match = dupBySubject.find((t) => normalizeSubject(t.title || '') === normSubj)
           if (match) existingTicketId = match.id
         }
@@ -1196,15 +1072,11 @@ export async function POST(request: NextRequest) {
           ticketId = existingTicketId
           if (msgThreadId) threadToTicketThisRun.set(msgThreadId, ticketId)
 
-          const [extTicket] = await db
-            .select({ id: tickets.id, companyId: tickets.companyId })
-            .from(tickets)
-            .where(eq(tickets.id, ticketId))
-            .limit(1)
+          const extTicket = await get(tickets, ticketId)
 
           let extCompanyEmail: string | null = null
           if (extTicket?.companyId) {
-            const [extCompany] = await db.select({ email: companies.email }).from(companies).where(eq(companies.id, extTicket.companyId!)).limit(1)
+            const extCompany = await get(companies, extTicket.companyId!)
             extCompanyEmail = extCompany?.email?.trim().toLowerCase() ?? null
           }
 
@@ -1213,10 +1085,7 @@ export async function POST(request: NextRequest) {
 
           let isFromCcRecipient = false
           if (extTicket?.companyId && !senderMatches && !isFromCompanyUser) {
-            const ccRows = await db
-              .select({ ccEmails: ticketComments.ccEmails })
-              .from(ticketComments)
-              .where(eq(ticketComments.ticketId, ticketId))
+            const ccRows = await findBy(ticketComments, { ticketId })
             const allCc = ccRows.flatMap((r) => (Array.isArray(r.ccEmails) ? r.ccEmails : []))
             const senderNorm = normalizeForMatch(senderEmail)
             isFromCcRecipient = allCc.some((e) => e?.trim() && normalizeForMatch(e.trim()) === senderNorm)
@@ -1226,11 +1095,7 @@ export async function POST(request: NextRequest) {
             const emailDateIso = getEmailDateIso(msg)
             let companyFolderExt = 'non-company'
             if (extTicket?.companyId) {
-              const [cnExt] = await db
-                .select({ name: companies.name })
-                .from(companies)
-                .where(eq(companies.id, extTicket.companyId))
-                .limit(1)
+              const cnExt = await get(companies, extTicket.companyId)
               companyFolderExt = cnExt?.name || 'non-company'
             }
             const snippetFallbackExt = (msg.snippet || '').trim() || '(No content)'
@@ -1248,39 +1113,26 @@ export async function POST(request: NextRequest) {
             const commentBody = processedExtReply.body || snippetFallbackExt
             let commentUserId = creatorUserId ?? userId
             if (isFromCcRecipient && extTicket?.companyId) {
-              const [ccUser] = await db
-                .select({ id: users.id })
-                .from(users)
-                .where(ilike(users.email, escapeIlike(senderEmail)))
-                .limit(1)
+              const ccUser = await findUserByEmail(senderEmail)
               if (ccUser) {
                 commentUserId = ccUser.id
-                await db.update(users).set({ companyId: extTicket.companyId, updatedAt: new Date() }).where(eq(users.id, ccUser.id))
+                await update(users, ccUser.id, { companyId: extTicket.companyId, updatedAt: new Date() })
                 try {
-                  await db
-                    .insert(companyUsers)
-                    .values({ companyId: extTicket.companyId, userId: ccUser.id })
-                    .onConflictDoNothing({ target: [companyUsers.companyId, companyUsers.userId] })
+                  await insertIgnore(companyUsers, { companyId: extTicket.companyId, userId: ccUser.id })
                 } catch {}
               } else {
                 const displayName = parseNameFromHeader(from) || senderEmail.split('@')[0] || 'User'
-                const [newCcUser] = await db
-                  .insert(users)
-                  .values({
+                const newCcUser = await createAppUser({
                     email: truncateVarchar(senderEmail, 255),
                     fullName: truncateVarchar(displayName, 255),
                     companyId: extTicket.companyId,
                     role: 'customer',
-                    passwordHash: await bcrypt.hash(randomPassword(), 10),
+                    password: randomPassword(),
                   })
-                  .returning({ id: users.id })
                 if (newCcUser) {
                   commentUserId = newCcUser.id
                   try {
-                    await db
-                      .insert(companyUsers)
-                      .values({ companyId: extTicket.companyId, userId: newCcUser.id })
-                      .onConflictDoNothing({ target: [companyUsers.companyId, companyUsers.userId] })
+                    await insertIgnore(companyUsers, { companyId: extTicket.companyId, userId: newCcUser.id })
                   } catch {}
                 }
               }
@@ -1288,42 +1140,34 @@ export async function POST(request: NextRequest) {
             for (const ccEmail of incomingCcEmails) {
               if (!ccEmail?.trim() || !extTicket?.companyId) continue
               try {
-                await db
-                  .insert(ticketCcRecipients)
-                  .values({ ticketId, email: truncateVarchar(ccEmail.trim(), 255) })
-                  .onConflictDoNothing({ target: [ticketCcRecipients.ticketId, ticketCcRecipients.email] })
+                await insertIgnore(ticketCcRecipients, { ticketId, email: truncateVarchar(ccEmail.trim(), 255) })
               } catch (e) {
                 if (isDebug) console.log('[Sync] ticketCcRecipients insert:', (e as Error)?.message)
               }
-              const [ccUser] = await db.select({ id: users.id }).from(users).where(ilike(users.email, escapeIlike(ccEmail))).limit(1)
+              const ccUser = await findUserByEmail(ccEmail)
               if (ccUser) {
-                await db.update(users).set({ companyId: extTicket.companyId, updatedAt: new Date() }).where(eq(users.id, ccUser.id))
+                await update(users, ccUser.id, { companyId: extTicket.companyId, updatedAt: new Date() })
                 try {
-                  await db.insert(companyUsers).values({ companyId: extTicket.companyId, userId: ccUser.id }).onConflictDoNothing({ target: [companyUsers.companyId, companyUsers.userId] })
+                  await insertIgnore(companyUsers, { companyId: extTicket.companyId, userId: ccUser.id })
                 } catch {}
               } else {
                 try {
-                  const [newCcUser] = await db
-                    .insert(users)
-                    .values({
+                  const newCcUser = await createAppUser({
                       email: truncateVarchar(ccEmail, 255),
                       fullName: truncateVarchar(ccEmail.split('@')[0] || 'User', 255),
                       companyId: extTicket.companyId,
                       role: 'customer',
-                      passwordHash: await bcrypt.hash(randomPassword(), 10),
+                      password: randomPassword(),
                     })
-                    .returning({ id: users.id })
                   if (newCcUser) {
-                    await db.insert(companyUsers).values({ companyId: extTicket.companyId, userId: newCcUser.id }).onConflictDoNothing({ target: [companyUsers.companyId, companyUsers.userId] })
+                    await insertIgnore(companyUsers, { companyId: extTicket.companyId, userId: newCcUser.id })
                   }
                 } catch (e) {
                   console.error('[Sync] CC user create failed:', ccEmail, (e as Error)?.message)
                 }
               }
             }
-            const [insertedExtComment] = await db
-              .insert(ticketComments)
-              .values({
+            const insertedExtComment = await insert(ticketComments, {
                 ticketId,
                 userId: commentUserId,
                 comment: commentBody,
@@ -1332,10 +1176,9 @@ export async function POST(request: NextRequest) {
                 ccEmails: incomingCcEmails.length > 0 ? incomingCcEmails.map((e) => truncateVarchar(e.trim(), 255)) : null,
                 ...(emailDateIso && { createdAt: new Date(emailDateIso) }),
               })
-              .returning({ id: ticketComments.id })
 
             if (insertedExtComment && processedExtReply.files.length > 0) {
-              await db.insert(commentAttachments).values(
+              await insertMany(commentAttachments, 
                 processedExtReply.files.map((f) => ({
                   commentId: insertedExtComment.id,
                   fileUrl: f.fileUrl,
@@ -1381,7 +1224,7 @@ export async function POST(request: NextRequest) {
           } else if (isDebug) {
             debugLog.push({ email: senderEmail, subject: subject || '', reason: `SKIP: reply sender mismatch (ticket #${ticketId})` })
           }
-          await db.update(emailMessages).set({ ticketId }).where(eq(emailMessages.gmailMessageId, gmailMessageId))
+          await updateByKey(emailMessages, { gmailMessageId: truncateVarchar(gmailMessageId, 255) }, { ticketId })
         } else {
           let internalDateMs = msg.internalDate ? parseInt(String(msg.internalDate), 10) : 0
           if (internalDateMs > 0 && internalDateMs < 1e12) internalDateMs *= 1000
@@ -1398,31 +1241,24 @@ export async function POST(request: NextRequest) {
           const title = truncateVarchar(subject.replace(/^(Re:\s*)+/i, '').trim() || 'New support request', 255)
           const emailDateIso = getEmailDateIso(msg)
 
-          let newTicket: { id: number } | undefined
+          let newTicket: Awaited<ReturnType<typeof insert<typeof tickets>>> | undefined
           try {
-            newTicket = await db.transaction(async (tx) => {
-              const [row] = await tx
-                .insert(tickets)
-                .values({
-                  title,
-                  description: body || null,
-                  createdBy: creatorUserId ?? null,
-                  status: 'open',
-                  visibility: 'public',
-                  companyId: ticketCompanyId,
-                  createdVia: 'email',
-                  ticketType: isSpam ? 'spam' : DEFAULT_TICKET_TYPE,
-                  /** NULL first; then append to end of company queue (avoids unique company_id+priority clash). */
-                  priority: ticketCompanyId ? null : 0,
-                  ...(emailDateIso && { createdAt: new Date(emailDateIso) }),
-                })
-                .returning({ id: tickets.id })
-              if (!row) return undefined
-              if (ticketCompanyId) {
-                await assignCompanySupportTicketRank(tx, ticketCompanyId, row.id, 'append')
-              }
-              return row
+            newTicket = await insert(tickets, {
+              title,
+              description: body || null,
+              createdBy: creatorUserId ?? null,
+              status: 'open',
+              visibility: 'public',
+              companyId: ticketCompanyId,
+              createdVia: 'email',
+              ticketType: isSpam ? 'spam' : DEFAULT_TICKET_TYPE,
+              /** NULL first; then append to end of company queue. */
+              priority: ticketCompanyId ? null : 0,
+              ...(emailDateIso && { createdAt: new Date(emailDateIso) }),
             })
+            if (ticketCompanyId) {
+              await assignCompanySupportTicketRank(ticketCompanyId, newTicket.id, 'append')
+            }
           } catch (e) {
             console.error('Failed to create ticket from email:', e)
             continue
@@ -1436,7 +1272,7 @@ export async function POST(request: NextRequest) {
           ticketId = newTicket.id
           if (msgThreadId && ticketId != null) {
             threadToTicketThisRun.set(msgThreadId, ticketId)
-            await db.update(tickets).set({ gmailThreadId: truncateVarchar(msgThreadId, 255), updatedAt: new Date() }).where(eq(tickets.id, ticketId))
+            await update(tickets, ticketId, { gmailThreadId: truncateVarchar(msgThreadId, 255), updatedAt: new Date() })
           }
 
           // Add CC recipients to ticket and create users as customers in company
@@ -1444,37 +1280,28 @@ export async function POST(request: NextRequest) {
             for (const ccEmail of incomingCcEmails) {
               if (!ccEmail?.trim()) continue
               try {
-                await db
-                  .insert(ticketCcRecipients)
-                  .values({ ticketId, email: truncateVarchar(ccEmail.trim(), 255) })
-                  .onConflictDoNothing({ target: [ticketCcRecipients.ticketId, ticketCcRecipients.email] })
+                await insertIgnore(ticketCcRecipients, { ticketId, email: truncateVarchar(ccEmail.trim(), 255) })
               } catch (e) {
                 if (isDebug) console.log('[Sync] ticketCcRecipients insert (new ticket):', (e as Error)?.message)
               }
-              const [ccUser] = await db.select({ id: users.id }).from(users).where(ilike(users.email, escapeIlike(ccEmail))).limit(1)
+              const ccUser = await findUserByEmail(ccEmail)
               if (ccUser) {
-                await db.update(users).set({ companyId: ticketCompanyId, updatedAt: new Date() }).where(eq(users.id, ccUser.id))
+                await update(users, ccUser.id, { companyId: ticketCompanyId, updatedAt: new Date() })
                 try {
-                  await db.insert(companyUsers).values({ companyId: ticketCompanyId, userId: ccUser.id }).onConflictDoNothing({ target: [companyUsers.companyId, companyUsers.userId] })
+                  await insertIgnore(companyUsers, { companyId: ticketCompanyId, userId: ccUser.id })
                 } catch {}
               } else {
                 try {
                   const ccNewPassword = randomPassword()
-                  const [newCcUser] = await db
-                    .insert(users)
-                    .values({
+                  const newCcUser = await createAppUser({
                       email: truncateVarchar(ccEmail, 255),
                       fullName: truncateVarchar(ccEmail.split('@')[0] || 'User', 255),
                       companyId: ticketCompanyId,
                       role: 'customer',
-                      passwordHash: await bcrypt.hash(ccNewPassword, 10),
+                      password: ccNewPassword,
                     })
-                    .returning({ id: users.id })
                   if (newCcUser) {
-                    await db
-                      .insert(companyUsers)
-                      .values({ companyId: ticketCompanyId, userId: newCcUser.id })
-                      .onConflictDoNothing({ target: [companyUsers.companyId, companyUsers.userId] })
+                    await insertIgnore(companyUsers, { companyId: ticketCompanyId, userId: newCcUser.id })
                     try {
                       await sendNewInboxUserOnboardingEmails({
                         gmail,
@@ -1503,11 +1330,7 @@ export async function POST(request: NextRequest) {
 
           let companyFolderNew = company?.name || 'non-company'
           if (ticketCompanyId && (!companyFolderNew || companyFolderNew === 'non-company')) {
-            const [rCo] = await db
-              .select({ name: companies.name })
-              .from(companies)
-              .where(eq(companies.id, ticketCompanyId))
-              .limit(1)
+            const rCo = await get(companies, ticketCompanyId)
             if (rCo?.name) companyFolderNew = rCo.name
           }
           const snippetNew = (msg.snippet || '').trim() || ''
@@ -1523,10 +1346,10 @@ export async function POST(request: NextRequest) {
           )
           const finalDescription = processedNew.body || null
           if (processedNew.body !== body) {
-            await db.update(tickets).set({ description: finalDescription, updatedAt: new Date() }).where(eq(tickets.id, newTicket.id))
+            await update(tickets, newTicket.id, { description: finalDescription, updatedAt: new Date() })
           }
           if (processedNew.files.length > 0) {
-            await db.insert(ticketAttachments).values(
+            await insertMany(ticketAttachments, 
               processedNew.files.map((f) => ({
                 ticketId: newTicket.id,
                 fileUrl: f.fileUrl,
@@ -1575,7 +1398,7 @@ export async function POST(request: NextRequest) {
                 // RFC Message-ID as In-Reply-To (threading all agent replies to this notification).
                 if (notifResult.sent && notifResult.sentGmailMessageId) {
                   try {
-                    await db.insert(emailMessages).values({
+                    await insert(emailMessages, {
                       gmailMessageId: notifResult.sentGmailMessageId,
                       threadId: notifResult.sentThreadId ?? null,
                       fromEmail: senderEmail,
@@ -1669,7 +1492,7 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          await db.update(emailMessages).set({ ticketId }).where(eq(emailMessages.gmailMessageId, gmailMessageId))
+          await updateByKey(emailMessages, { gmailMessageId: truncateVarchar(gmailMessageId, 255) }, { ticketId })
         }
       }
 
@@ -1677,10 +1500,7 @@ export async function POST(request: NextRequest) {
       addedCount++
     }
 
-    await db
-      .update(emailIntegrations)
-      .set({ lastSyncAt: new Date(), updatedAt: new Date() })
-      .where(eq(emailIntegrations.id, integration.id))
+    await update(emailIntegrations, integration.id, { lastSyncAt: new Date(), updatedAt: new Date() })
 
     if (isDebug) {
       console.log('[Sync] DONE | added:', addedCount, 'created:', createdCount, 'skipped:', skippedClaimFailed + skippedCompanyMismatch, 'debugLog:', debugLog.length)

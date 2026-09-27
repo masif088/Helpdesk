@@ -1,9 +1,8 @@
-import { and, asc, desc, eq, isNull, lte } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdminOrManager } from '@/lib/auth-utils'
-import { db, recurringTicketRuns, recurringTickets } from '@/lib/db'
+import { find, insert, recurringTickets } from '@/lib/fsdb'
 import { computeNextRunAt, type Frequency, normalizeSpecificDates } from '@/lib/recurring-ticket-schedule'
 import {
   DEFAULT_RECURRING_VISIBILITY,
@@ -24,10 +23,7 @@ export async function GET(_req: NextRequest) {
   const role = (session.user as { role?: string }).role
   if (!isAdminOrManager(role)) return forbiddenError()
 
-  const rows = await db
-    .select()
-    .from(recurringTickets)
-    .orderBy(asc(recurringTickets.createdAt))
+  const rows = await find(recurringTickets, { orderBy: [['createdAt', 'asc']] })
 
   return NextResponse.json({ data: rows })
 }
@@ -98,9 +94,7 @@ export async function POST(req: NextRequest) {
 
   const nextRunAt = computeNextRunAt(schedule, new Date())
 
-  const [row] = await db
-    .insert(recurringTickets)
-    .values({
+  const row = await insert(recurringTickets, {
       title: title.trim(),
       description: description ?? null,
       frequency,
@@ -124,7 +118,6 @@ export async function POST(req: NextRequest) {
       visibility,
       createdBy: session.user.id,
     })
-    .returning()
 
   return NextResponse.json({ data: row }, { status: 201 })
 }

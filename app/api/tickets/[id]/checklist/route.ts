@@ -1,9 +1,8 @@
-import { asc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, ticketChecklist, users } from '@/lib/db'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
+import { find, getManyMap, insert, ticketChecklist, users } from '@/lib/fsdb'
 import { mapChecklistItemToDto } from '@/lib/ticket-checklist-map'
 
 /** GET /api/tickets/[id]/checklist - List checklist items */
@@ -18,19 +17,15 @@ export async function GET(
   const ticketId = parseInt(id, 10)
   if (isNaN(ticketId)) return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 })
 
-  const rows = await db
-    .select({
-      item: ticketChecklist,
-      completer: {
-        id: users.id,
-        fullName: users.fullName,
-        email: users.email,
-      },
-    })
-    .from(ticketChecklist)
-    .leftJoin(users, eq(ticketChecklist.completedByUserId, users.id))
-    .where(eq(ticketChecklist.ticketId, ticketId))
-    .orderBy(asc(ticketChecklist.orderIndex))
+  const items = await find(ticketChecklist, {
+    where: [['ticketId', '==', ticketId]],
+    orderBy: [['orderIndex', 'asc']],
+  })
+  const completerById = await getManyMap(users, items.map((i) => i.completedByUserId))
+  const rows = items.map((item) => ({
+    item,
+    completer: item.completedByUserId ? completerById.get(item.completedByUserId) ?? null : null,
+  }))
 
   return NextResponse.json(rows.map((r) => mapChecklistItemToDto(r.item, r.completer ?? undefined)))
 }
@@ -54,16 +49,13 @@ export async function POST(
   const body = await request.json()
   const { title, order_index, group_name } = body
 
-  const [row] = await db
-    .insert(ticketChecklist)
-    .values({
-      ticketId: ticketId,
-      title: title || 'Item',
-      isCompleted: false,
-      orderIndex: order_index ?? 0,
-      groupName: typeof group_name === 'string' ? group_name.trim() || null : null,
-    })
-    .returning()
+  const row = await insert(ticketChecklist, {
+    ticketId: ticketId,
+    title: title || 'Item',
+    isCompleted: false,
+    orderIndex: order_index ?? 0,
+    groupName: typeof group_name === 'string' ? group_name.trim() || null : null,
+  })
 
   if (!row) {
     return NextResponse.json({ error: 'Failed to create' }, { status: 500 })

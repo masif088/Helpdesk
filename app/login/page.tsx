@@ -3,10 +3,10 @@
 import { LockOutlined,UserOutlined } from '@ant-design/icons'
 import { Alert,Button, Card, Form, Input, message, Typography } from 'antd'
 import Link from 'next/link'
-import { signIn } from 'next-auth/react'
 import { useEffect,useState } from 'react'
 
 import ThemeToggle from '@/components/common/ThemeToggle'
+import { signIn } from '@/lib/auth-client'
 
 const { Title, Text } = Typography
 
@@ -40,13 +40,9 @@ export default function LoginPage() {
     setLoading(true)
     setDbError(null)
     try {
-      const result = await signIn('credentials', {
-        email: values.email,
-        password: values.password,
-        redirect: false,
-      })
+      const result = await signIn(values.email, values.password)
 
-      if (result?.error) {
+      if (!result.ok) {
         try {
           const res = await fetch('/api/auth/check-db')
           const data = (await res.json()) as DbCheck
@@ -55,14 +51,16 @@ export default function LoginPage() {
           setDbError(null)
         }
 
-        const msg = result.error === 'CredentialsSignin' || result.error === 'Configuration'
+        const msg = result.error === 'CredentialsSignin'
           ? 'Invalid email or password'
-          : result.error
+          : result.error === 'Configuration'
+            ? 'Sign-in is not available right now (authentication is not configured).'
+            : result.error
         message.error(msg)
         return
       }
 
-      if (result?.ok) {
+      if (result.ok) {
         message.success('Login successful!')
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
         window.location.href = isMobile ? '/m/tickets' : '/dashboard'

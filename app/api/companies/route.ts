@@ -1,8 +1,7 @@
-import { and, desc, eq, inArray, isNotNull, max } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { companies, companyUsers, db, teams, tickets, users } from '@/lib/db'
+import { companies, companyUsers, find, get, insert, teams, tickets, update, users } from '@/lib/fsdb'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 import { upsertCompanyUserMembership } from '@/lib/upsert-company-user-membership'
 
@@ -27,29 +26,21 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const isActiveParam = url.searchParams.get('is_active')
 
-  const [rows, ticketActivity] = await Promise.all([
-    db.select().from(companies).orderBy(desc(companies.createdAt)),
-    db
-      .select({
-        companyId: tickets.companyId,
-        lastTicketUpdate: max(tickets.updatedAt),
+  const rows = await find(companies, { orderBy: [['createdAt', 'desc']] })
+  // Latest ticket update per company: one ordered lookup per company (index: tickets companyId ASC, updatedAt DESC)
+  const ticketActivity = await Promise.all(
+    rows.map(async (c) => {
+      const [latest] = await find(tickets, {
+        where: [['companyId', '==', c.id]],
+        orderBy: [['updatedAt', 'desc']],
+        limit: 1,
       })
-      .from(tickets)
-      .where(isNotNull(tickets.companyId))
-      .groupBy(tickets.companyId),
-  ])
-  const companyIds = rows.map((r) => r.id)
+      return { companyId: c.id, lastTicketUpdate: latest?.updatedAt ?? null }
+    })
+  )
   const leaderByCompany = new Map<string, string>()
-  if (companyIds.length > 0) {
-    const leaders = await db
-      .select({ companyId: companyUsers.companyId, userId: companyUsers.userId })
-      .from(companyUsers)
-      .where(
-        and(
-          inArray(companyUsers.companyId, companyIds),
-          eq(companyUsers.companyRole, 'company_admin')
-        )
-      )
+  if (rows.length > 0) {
+    const leaders = await find(companyUsers, { where: [['companyRole', '==', 'company_admin']] })
     for (const row of leaders) {
       if (!leaderByCompany.has(row.companyId)) {
         leaderByCompany.set(row.companyId, row.userId)
@@ -114,11 +105,7 @@ export async function POST(request: Request) {
     if (typeof leader_user_id !== 'string') {
       return NextResponse.json({ error: 'Invalid leader_user_id' }, { status: 400 })
     }
-    const [leader] = await db
-      .select({ id: users.id, role: users.role })
-      .from(users)
-      .where(eq(users.id, leader_user_id))
-      .limit(1)
+    const leader = await get(users, leader_user_id)
     if (!leader) {
       return NextResponse.json({ error: 'Company leader not found' }, { status: 404 })
     }
@@ -128,18 +115,14 @@ export async function POST(request: Request) {
   }
 
   if (activeTeamId) {
-    const [teamRow] = await db.select({ id: teams.id }).from(teams).where(eq(teams.id, activeTeamId)).limit(1)
+    const teamRow = await get(teams, activeTeamId)
     if (!teamRow) {
       return NextResponse.json({ error: 'Active team not found' }, { status: 400 })
     }
   }
 
   if (activeManagerId) {
-    const [mgr] = await db
-      .select({ id: users.id, role: users.role })
-      .from(users)
-      .where(eq(users.id, activeManagerId))
-      .limit(1)
+    const mgr = await get(users, activeManagerId)
     if (!mgr) {
       return NextResponse.json({ error: 'Active manager not found' }, { status: 404 })
     }
@@ -148,29 +131,23 @@ export async function POST(request: Request) {
     }
   }
 
-  const [row] = await db
-    .insert(companies)
-    .values({
-      name,
-      email: email?.trim() || null,
-      color: color || '#000000',
-      isActive: is_active !== undefined ? is_active : true,
-      activeTeamId,
-      activeManagerId,
-      activeTime,
-      isCustomer: isCustomerCompany,
-    })
-    .returning()
+  const row = await insert(companies, {
+    name,
+    email: email?.trim() || null,
+    color: color || '#000000',
+    isActive: is_active !== undefined ? is_active : true,
+    activeTeamId,
+    activeManagerId,
+    activeTime,
+    isCustomer: isCustomerCompany,
+  })
 
   if (!row) {
     return NextResponse.json({ error: 'Failed to create company' }, { status: 500 })
   }
 
   if (leader_user_id) {
-    await db
-      .update(users)
-      .set({ companyId: row.id, updatedAt: new Date() })
-      .where(eq(users.id, leader_user_id))
+    await update(users, leader_user_id, { companyId: row.id, updatedAt: new Date() })
     await upsertCompanyUserMembership({
       companyId: row.id,
       userId: leader_user_id,

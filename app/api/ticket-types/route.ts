@@ -1,9 +1,7 @@
-import { asc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { ticketTypes } from '@/lib/db'
+import { find, findOneBy, insert, ticketTypes } from '@/lib/fsdb'
 import { logSettingsCreated } from '@/lib/settings-activity-log'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 
@@ -15,14 +13,10 @@ export async function GET() {
   }
 
   const role = (session.user as { role?: string }).role?.toLowerCase()
-  const rows =
-    role === 'customer'
-      ? await db
-          .select()
-          .from(ticketTypes)
-          .where(eq(ticketTypes.isAgentOnly, false))
-          .orderBy(asc(ticketTypes.sortOrder))
-      : await db.select().from(ticketTypes).orderBy(asc(ticketTypes.sortOrder))
+  const rows = await find(ticketTypes, {
+    where: [role === 'customer' && ['isAgentOnly', '==', false]],
+    orderBy: [['sortOrder', 'asc']],
+  })
 
   const data = rows.map((r) => ({
     id: r.id,
@@ -53,17 +47,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'title and slug required' }, { status: 400 })
   }
 
-  const [inserted] = await db
-    .insert(ticketTypes)
-    .values({
-      title: String(title).trim(),
-      slug: String(slug).trim().toLowerCase().replace(/\s+/g, '_'),
-      description: typeof description === 'string' ? description : '',
-      color: color || '#000000',
-      isAgentOnly: Boolean(is_agent_only),
-      ...(sort_order !== undefined && { sortOrder: Number(sort_order) ?? 0 }),
-    })
-    .returning()
+  const normalizedSlug = String(slug).trim().toLowerCase().replace(/\s+/g, '_')
+  if (await findOneBy(ticketTypes, { slug: normalizedSlug })) {
+    return NextResponse.json({ error: 'A ticket type with this slug already exists' }, { status: 409 })
+  }
+  const inserted = await insert(ticketTypes, {
+    title: String(title).trim(),
+    slug: normalizedSlug,
+    description: typeof description === 'string' ? description : '',
+    color: color || '#000000',
+    isAgentOnly: Boolean(is_agent_only),
+    ...(sort_order !== undefined && { sortOrder: Number(sort_order) ?? 0 }),
+  })
 
   if (!inserted) {
     return NextResponse.json({ error: 'Insert failed' }, { status: 500 })

@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, ticketChecklist, users } from '@/lib/db'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
+import { get, type Patch, remove, ticketChecklist, update, users } from '@/lib/fsdb'
 import { mapChecklistItemToDto } from '@/lib/ticket-checklist-map'
 
 /** PATCH /api/tickets/[id]/checklist/[itemId] - Toggle or update checklist item */
@@ -20,7 +19,7 @@ export async function PATCH(
   const ticketId = parseInt(id, 10)
   const body = await request.json().catch(() => ({}))
 
-  const updates: Partial<typeof ticketChecklist.$inferInsert> = {}
+  const updates: Patch<typeof ticketChecklist.$inferSelect> = {}
 
   if (body.is_completed !== undefined) {
     const completing = Boolean(body.is_completed)
@@ -56,11 +55,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'No updates' }, { status: 400 })
   }
 
-  const [row] = await db
-    .update(ticketChecklist)
-    .set(updates)
-    .where(eq(ticketChecklist.id, itemId))
-    .returning()
+  const row = await update(ticketChecklist, itemId, updates)
 
   if (!row) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -68,12 +63,7 @@ export async function PATCH(
 
   let completer: { id: string; fullName: string | null; email: string } | undefined
   if (row.completedByUserId) {
-    const [u] = await db
-      .select({ id: users.id, fullName: users.fullName, email: users.email })
-      .from(users)
-      .where(eq(users.id, row.completedByUserId))
-      .limit(1)
-    completer = u
+    completer = (await get(users, row.completedByUserId)) ?? undefined
   }
 
   if (!isNaN(ticketId)) bumpTicketDataVersion(ticketId)
@@ -92,7 +82,7 @@ export async function DELETE(
 
   const { id, itemId } = await params
   const ticketId = parseInt(id, 10)
-  await db.delete(ticketChecklist).where(eq(ticketChecklist.id, itemId))
+  await remove(ticketChecklist, itemId)
   if (!isNaN(ticketId)) bumpTicketDataVersion(ticketId)
   return NextResponse.json({ ok: true })
 }

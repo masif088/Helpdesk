@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import type { Session } from 'next-auth'
 
+import type { Session } from '@/auth'
 import { auth } from '@/auth'
 import { canAccessProjects } from '@/lib/auth-utils'
 

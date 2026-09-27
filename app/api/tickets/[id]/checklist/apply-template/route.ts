@@ -1,15 +1,17 @@
-import { eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
 import {
   checklistTemplateGroups,
   checklistTemplateItems,
   checklistTemplates,
-  db,
+  find,
+  findBy,
+  get,
+  insertMany,
   ticketChecklist,
-} from '@/lib/db'
-import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
+} from '@/lib/fsdb'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -30,33 +32,20 @@ export async function POST(request: NextRequest, { params }: Params) {
   const templateId = typeof body.template_id === 'string' ? body.template_id : null
   if (!templateId) return NextResponse.json({ error: 'template_id is required' }, { status: 400 })
 
-  const [template] = await db
-    .select()
-    .from(checklistTemplates)
-    .where(eq(checklistTemplates.id, templateId))
+  const template = await get(checklistTemplates, templateId)
   if (!template) return NextResponse.json({ error: 'Template not found' }, { status: 404 })
 
-  const groups = await db
-    .select()
-    .from(checklistTemplateGroups)
-    .where(eq(checklistTemplateGroups.templateId, templateId))
-    .orderBy(checklistTemplateGroups.orderIndex)
-
-  const items = await db
-    .select()
-    .from(checklistTemplateItems)
-    .where(eq(checklistTemplateItems.templateId, templateId))
-    .orderBy(checklistTemplateItems.orderIndex)
+  const [groups, items] = await Promise.all([
+    find(checklistTemplateGroups, { where: [['templateId', '==', templateId]], orderBy: [['orderIndex', 'asc']] }),
+    find(checklistTemplateItems, { where: [['templateId', '==', templateId]], orderBy: [['orderIndex', 'asc']] }),
+  ])
 
   const groupMap = new Map(groups.map((g) => [g.id, g.title]))
 
   if (items.length === 0) return NextResponse.json({ added: 0 })
 
   // Find current max order_index for this ticket
-  const existing = await db
-    .select({ orderIndex: ticketChecklist.orderIndex })
-    .from(ticketChecklist)
-    .where(eq(ticketChecklist.ticketId, ticketId))
+  const existing = await findBy(ticketChecklist, { ticketId })
 
   const maxOrder = existing.reduce((m, r) => Math.max(m, r.orderIndex ?? 0), 0)
 
@@ -69,7 +58,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     completionNote: item.note ?? null,
   }))
 
-  await db.insert(ticketChecklist).values(rows)
+  await insertMany(ticketChecklist, rows)
   await bumpTicketDataVersion(ticketId)
 
   return NextResponse.json({ added: rows.length })

@@ -1,17 +1,23 @@
-import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, or, type SQL,sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
 import { loadAutomationTicketContext, runAutomationRules } from '@/lib/automation-engine'
 import { getCustomerCompanyId } from '@/lib/customer-company'
-import { customerTicketsAccessCondition } from '@/lib/customer-ticket-access'
-import { db } from '@/lib/db'
+import { loadCustomerAccessibleTickets } from '@/lib/customer-ticket-access'
+import { notifyTicketUsers } from '@/lib/firebase/ticket-notifications-server'
 import {
   companies,
-  companyUsers,
+  find,
+  findBy,
+  get,
+  getMany,
+  getManyMap,
+  insert,
+  insertMany,
   projects,
   projectStatuses,
+  sortRows,
   tags,
   teamMembers,
   teams,
@@ -20,11 +26,12 @@ import {
   ticketChecklist,
   ticketComments,
   tickets,
+  type TicketsRow,
   ticketTags,
   ticketTypes,
+  update,
   users,
-} from '@/lib/db'
-import { notifyTicketUsers } from '@/lib/firebase/ticket-notifications-server'
+} from '@/lib/fsdb'
 import { sendRequesterTicketCreatedEmail } from '@/lib/requester-new-ticket-email'
 import { notifySlackTicketEvent } from '@/lib/slack-ticket-notify'
 import { getPublicUrl } from '@/lib/storage-idrive'
@@ -39,6 +46,7 @@ import {
   assertTicketContactUserAllowed,
   getEffectiveCompanyIdForUser,
 } from '@/lib/ticket-contact-user'
+import { loadTicketCandidates, searchTickets, sortTicketList } from '@/lib/ticket-list-query'
 import { sendNewTicketAgentNotificationEmail } from '@/lib/ticket-notification-emails'
 import { assertCustomerMayUseTicketType } from '@/lib/ticket-type-customer-access'
 
@@ -114,212 +122,162 @@ export async function GET(request: Request) {
       : []
   const ticketTypeFilter = url.searchParams.get('ticket_type')?.trim().toLowerCase()
 
-  /**
-   * Visibility access (non-admin agents): legacy public/private/specific_users plus
-   * configured levels (team, account_manager, team_leader, admin, project_manager).
-   */
-
   const isCustomerList = role === 'customer'
   const isAdminList = isAdmin(role as string | undefined)
 
-  // Fetch the teams this user belongs to (for team-based ticket access control)
-  let userTeamIds: string[] = []
-  if (!isAdminList && !isCustomerList) {
-    const teamRows = await db
-      .select({ teamId: teamMembers.teamId })
-      .from(teamMembers)
-      .where(eq(teamMembers.userId, userId))
-    userTeamIds = teamRows.map((r) => r.teamId)
-  }
-
-  const conditions: SQL[] = []
-  if (isCustomerList) {
-    conditions.push(await customerTicketsAccessCondition(userId, customerCompanyId))
-  } else if (isAdminList) {
-    if (companyIds.length > 0) conditions.push(inArray(tickets.companyId, companyIds))
-  } else {
-    if (companyIds.length > 0) conditions.push(inArray(tickets.companyId, companyIds))
-    // Team access: unassigned OR public team OR user is a member of the ticket's team
-    const publicTeamSubq = sql`(SELECT id FROM teams WHERE type = 'public')`
-    const teamAccessCond = userTeamIds.length > 0
-      ? or(isNull(tickets.teamId), sql`${tickets.teamId} IN ${publicTeamSubq}`, inArray(tickets.teamId, userTeamIds))!
-      : or(isNull(tickets.teamId), sql`${tickets.teamId} IN ${publicTeamSubq}`)!
-    conditions.push(teamAccessCond)
-  }
-  if (statusSlugs.length > 0) conditions.push(inArray(tickets.status, statusSlugs))
-  if (typeIds.length > 0) conditions.push(inArray(tickets.typeId, typeIds))
   /**
    * Customers never see spam/trash lists (ignore `ticket_type` query).
    * Staff: junk folders via explicit `?ticket_type=spam|trash`; else main list = `support` only.
    * Tickets with classification `project` are excluded from the main list (they live on the project board).
    */
-  if (
-    role !== 'customer' &&
-    (ticketTypeFilter === 'spam' || ticketTypeFilter === 'trash')
-  ) {
-    conditions.push(eq(tickets.ticketType, ticketTypeFilter))
-  } else {
-    conditions.push(eq(tickets.ticketType, DEFAULT_TICKET_TYPE))
-  }
-  if (!isCustomerList) {
-    if (teamIds.length > 0) conditions.push(inArray(tickets.teamId, teamIds))
-  }
-  if (dateFrom) {
-    const d = new Date(dateFrom)
-    if (!isNaN(d.getTime())) conditions.push(gte(tickets.createdAt, d))
-  }
-  if (dateTo) {
-    const d = new Date(dateTo)
-    if (!isNaN(d.getTime())) {
-      d.setHours(23, 59, 59, 999)
-      conditions.push(lte(tickets.createdAt, d))
-    }
-  }
-  if (dueDateFrom || dueDateTo) {
-    conditions.push(isNotNull(tickets.dueDate))
-    if (dueDateFrom) {
-      const d = new Date(dueDateFrom)
-      if (!isNaN(d.getTime())) conditions.push(gte(tickets.dueDate, d))
-    }
-    if (dueDateTo) {
-      const d = new Date(dueDateTo)
-      if (!isNaN(d.getTime())) {
-        d.setHours(23, 59, 59, 999)
-        conditions.push(lte(tickets.dueDate, d))
-      }
-    }
-  }
+  const listTicketType =
+    role !== 'customer' && (ticketTypeFilter === 'spam' || ticketTypeFilter === 'trash')
+      ? ticketTypeFilter
+      : DEFAULT_TICKET_TYPE
+
+  // ── 1. Candidate set ────────────────────────────────────────────────────────
+  let candidates: TicketsRow[]
+  const searchAsId = search && /^\d+$/.test(search) ? parseInt(search, 10) : null
   if (search) {
-    const pattern = `%${search.replace(/[%_\\]/g, '\\$&')}%`
-    const searchAsId = /^\d+$/.test(search) ? parseInt(search, 10) : null
     if (searchBy === 'id') {
-      if (searchAsId !== null) conditions.push(eq(tickets.id, searchAsId)!)
-      else conditions.push(sql`false`)
+      candidates = searchAsId !== null ? await getMany(tickets, [searchAsId]) : []
     } else if (searchBy === 'title') {
-      conditions.push(ilike(tickets.title, pattern)!)
+      candidates = await searchTickets(search, { title: true, description: false, comments: false }, null)
     } else if (searchFields) {
       // granular field selection from preferences
-      const parts: ReturnType<typeof ilike>[] = []
-      if (searchAsId !== null) parts.push(eq(tickets.id, searchAsId) as ReturnType<typeof ilike>)
-      if (searchFields.has('title')) parts.push(ilike(tickets.title, pattern)!)
-      if (searchFields.has('description')) parts.push(ilike(tickets.description, pattern)!)
-      if (searchFields.has('comments')) parts.push(sql`${tickets.id} IN (SELECT ticket_id FROM ticket_comments WHERE comment ILIKE ${pattern})`)
-      if (parts.length > 0) conditions.push(or(...parts)!)
-      else conditions.push(sql`false`)
+      candidates = await searchTickets(
+        search,
+        {
+          title: searchFields.has('title'),
+          description: searchFields.has('description'),
+          comments: searchFields.has('comments'),
+        },
+        searchAsId
+      )
     } else {
       // 'all' default — title + description only (comments excluded for performance)
-      if (searchAsId !== null) {
-        conditions.push(or(eq(tickets.id, searchAsId), ilike(tickets.title, pattern), ilike(tickets.description, pattern))!)
-      } else {
-        conditions.push(or(ilike(tickets.title, pattern), ilike(tickets.description, pattern))!)
-      }
+      candidates = await searchTickets(search, { title: true, description: true, comments: false }, searchAsId)
     }
-  }
-  if (tagIds.length > 0) {
-    conditions.push(
-      sql`${tickets.id} IN (SELECT ticket_id FROM ticket_tags WHERE tag_id IN (${sql.join(tagIds.map((id) => sql`${id}`), sql`, `)}))`
-    )
-  }
-  if (noCompany) conditions.push(isNull(tickets.companyId))
-  if (noTags) conditions.push(sql`${tickets.id} NOT IN (SELECT ticket_id FROM ticket_tags)`)
-  if (noTeam) conditions.push(isNull(tickets.teamId))
-
-  const whereClause = conditions.length > 0 ? and(...conditions) : undefined
-
-  const baseQuery = db
-    .select({
-      ticket: tickets,
-      creator: users,
-      team: teams,
-      type: ticketTypes,
-      company: companies,
+  } else if (isCustomerList) {
+    candidates = await loadCustomerAccessibleTickets(userId, customerCompanyId)
+  } else {
+    candidates = await loadTicketCandidates({
+      ticketType: listTicketType,
+      companyIds,
+      statusSlugs,
+      teamIds,
+      typeIds,
     })
-    .from(tickets)
-    .leftJoin(users, eq(tickets.createdBy, users.id))
-    .leftJoin(teams, eq(tickets.teamId, teams.id))
-    .leftJoin(ticketTypes, eq(tickets.typeId, ticketTypes.id))
-    .leftJoin(companies, eq(tickets.companyId, companies.id))
+  }
 
-  const ticketsRows = whereClause
-    ? await baseQuery
-        .where(whereClause)
-        .orderBy(...(sortById
-          ? [sortOrder === 'asc' ? asc(tickets.id) : desc(tickets.id)]
-          : [asc(tickets.companyId), asc(tickets.priority), sortOrder === 'asc' ? asc(tickets.id) : desc(tickets.id)]))
-        .limit(limit)
-        .offset(offset)
-    : await baseQuery
-        .orderBy(...(sortById
-          ? [sortOrder === 'asc' ? asc(tickets.id) : desc(tickets.id)]
-          : [asc(tickets.companyId), asc(tickets.priority), sortOrder === 'asc' ? asc(tickets.id) : desc(tickets.id)]))
-        .limit(limit)
-        .offset(offset)
+  // ── 2. Access rules ─────────────────────────────────────────────────────────
+  let allowed: (t: TicketsRow) => boolean = () => true
+  if (isCustomerList) {
+    if (search) {
+      // Search results were not scoped by the customer loader — scope them now.
+      const accessible = new Set((await loadCustomerAccessibleTickets(userId, customerCompanyId)).map((t) => t.id))
+      allowed = (t) => accessible.has(t.id)
+    }
+  } else if (!isAdminList) {
+    // Team access: unassigned OR public team OR user is a member of the ticket's team
+    const [memberships, publicTeams] = await Promise.all([
+      findBy(teamMembers, { userId }),
+      find(teams, { where: [['type', '==', 'public']] }),
+    ])
+    const visibleTeamIds = new Set([...memberships.map((m) => m.teamId), ...publicTeams.map((t) => t.id)])
+    allowed = (t) => !t.teamId || visibleTeamIds.has(t.teamId)
+  }
 
-  const ticketIds = ticketsRows.map((r) => r.ticket.id)
+  // ── 3. Remaining filters (in memory) ────────────────────────────────────────
+  const companySet = new Set(companyIds)
+  const statusSet = new Set(statusSlugs)
+  const typeSet = new Set(typeIds)
+  const teamSet = new Set(teamIds)
+  const createdFrom = dateFrom ? new Date(dateFrom) : null
+  const createdTo = dateTo ? new Date(dateTo) : null
+  if (createdTo && !isNaN(createdTo.getTime())) createdTo.setHours(23, 59, 59, 999)
+  const dueFrom = dueDateFrom ? new Date(dueDateFrom) : null
+  const dueTo = dueDateTo ? new Date(dueDateTo) : null
+  if (dueTo && !isNaN(dueTo.getTime())) dueTo.setHours(23, 59, 59, 999)
 
-  const [assigneesRows, checklistRows, tagsRows, repliesRows, attachmentsRows] =
-    ticketIds.length > 0
-      ? await Promise.all([
-          db
-            .select({
-              ticketId: ticketAssignees.ticketId,
-              id: ticketAssignees.id,
-              userId: ticketAssignees.userId,
-              user: users,
-            })
-            .from(ticketAssignees)
-            .leftJoin(users, eq(ticketAssignees.userId, users.id))
-            .where(inArray(ticketAssignees.ticketId, ticketIds)),
-          db
-            .select()
-            .from(ticketChecklist)
-            .where(inArray(ticketChecklist.ticketId, ticketIds)),
-          db
-            .select({
-              ticketId: ticketTags.ticketId,
-              tagId: ticketTags.tagId,
-              tag: tags,
-            })
-            .from(ticketTags)
-            .leftJoin(tags, eq(ticketTags.tagId, tags.id))
-            .where(inArray(ticketTags.ticketId, ticketIds)),
-          db
-            .select({ ticketId: ticketComments.ticketId, createdAt: ticketComments.receivedAt })
-            .from(ticketComments)
-            .where(
-              and(
-                inArray(ticketComments.ticketId, ticketIds),
-                // Customer: agent/automation replies. Staff: notes or customer replies.
-                isCustomerViewer
-                  ? and(
-                      eq(ticketComments.visibility, 'reply'),
-                      or(
-                        isNull(ticketComments.authorType),
-                        ne(ticketComments.authorType, 'customer')
-                      )
-                    )
-                  : or(
-                      eq(ticketComments.visibility, 'note'),
-                      and(
-                        eq(ticketComments.visibility, 'reply'),
-                        eq(ticketComments.authorType, 'customer')
-                      )
-                    )
-              )
-            ),
-          db
-            .select({
-              ticketId: ticketAttachments.ticketId,
-              id: ticketAttachments.id,
-              fileUrl: ticketAttachments.fileUrl,
-              fileName: ticketAttachments.fileName,
-              filePath: ticketAttachments.filePath,
-            })
-            .from(ticketAttachments)
-            .where(inArray(ticketAttachments.ticketId, ticketIds))
-            .orderBy(asc(ticketAttachments.createdAt)),
-        ])
-      : [[], [], [], [], []]
+  let tagTicketIds: Set<number> | null = null
+  if (tagIds.length > 0) {
+    tagTicketIds = new Set((await find(ticketTags, { where: [['tagId', 'in', tagIds]] })).map((l) => l.ticketId))
+  }
+  let taggedTicketIds: Set<number> | null = null
+  if (noTags) {
+    taggedTicketIds = new Set((await find(ticketTags, { select: ['ticketId'] })).map((l) => l.ticketId))
+  }
+
+  const filtered = candidates.filter((t) => {
+    if (!allowed(t)) return false
+    if (t.ticketType !== listTicketType) return false
+    if (!isCustomerList && companySet.size > 0 && (!t.companyId || !companySet.has(t.companyId))) return false
+    if (statusSet.size > 0 && !statusSet.has(t.status)) return false
+    if (typeSet.size > 0 && (t.typeId == null || !typeSet.has(t.typeId))) return false
+    if (!isCustomerList && teamSet.size > 0 && (!t.teamId || !teamSet.has(t.teamId))) return false
+    if (createdFrom && !isNaN(createdFrom.getTime()) && t.createdAt < createdFrom) return false
+    if (createdTo && !isNaN(createdTo.getTime()) && t.createdAt > createdTo) return false
+    if (dueDateFrom || dueDateTo) {
+      if (!t.dueDate) return false
+      if (dueFrom && !isNaN(dueFrom.getTime()) && t.dueDate < dueFrom) return false
+      if (dueTo && !isNaN(dueTo.getTime()) && t.dueDate > dueTo) return false
+    }
+    if (tagTicketIds && !tagTicketIds.has(t.id)) return false
+    if (noCompany && t.companyId) return false
+    if (taggedTicketIds && taggedTicketIds.has(t.id)) return false
+    if (noTeam && t.teamId) return false
+    return true
+  })
+
+  // ── 4. Sort + page, then load full rows and relations for the page only ────
+  const pageIds = sortTicketList(filtered, sortById, sortOrder)
+    .slice(offset, offset + limit)
+    .map((t) => t.id)
+  const pageTicketMap = await getManyMap(tickets, pageIds)
+  const pageTickets = pageIds.map((id) => pageTicketMap.get(String(id))).filter((t): t is TicketsRow => !!t)
+
+  const [creatorById, teamById, typeById, companyById] = await Promise.all([
+    getManyMap(users, pageTickets.map((t) => t.createdBy)),
+    getManyMap(teams, pageTickets.map((t) => t.teamId)),
+    getManyMap(ticketTypes, pageTickets.map((t) => t.typeId)),
+    getManyMap(companies, pageTickets.map((t) => t.companyId)),
+  ])
+  const ticketsRows = pageTickets.map((ticket) => ({
+    ticket,
+    creator: ticket.createdBy ? creatorById.get(ticket.createdBy) ?? null : null,
+    team: ticket.teamId ? teamById.get(ticket.teamId) ?? null : null,
+    type: ticket.typeId != null ? typeById.get(String(ticket.typeId)) ?? null : null,
+    company: ticket.companyId ? companyById.get(ticket.companyId) ?? null : null,
+  }))
+
+  const ticketIds = pageTickets.map((t) => t.id)
+
+  const [assigneeLinks, checklistRows, tagLinks, commentRows, attachmentsRows] = await Promise.all([
+    find(ticketAssignees, { where: [['ticketId', 'in', ticketIds]] }),
+    find(ticketChecklist, { where: [['ticketId', 'in', ticketIds]] }),
+    find(ticketTags, { where: [['ticketId', 'in', ticketIds]] }),
+    find(ticketComments, {
+      where: [['ticketId', 'in', ticketIds]],
+      select: ['ticketId', 'visibility', 'authorType', 'receivedAt'],
+    }),
+    find(ticketAttachments, { where: [['ticketId', 'in', ticketIds]] }).then((rows) =>
+      sortRows(rows, [['createdAt', 'asc']])
+    ),
+  ])
+  const [assigneeUsers, tagById] = await Promise.all([
+    getManyMap(users, assigneeLinks.map((a) => a.userId)),
+    getManyMap(tags, tagLinks.map((l) => l.tagId)),
+  ])
+
+  // Customer: agent/automation replies. Staff: notes or customer replies.
+  const repliesRows = commentRows
+    .filter((c) =>
+      isCustomerViewer
+        ? c.visibility === 'reply' && c.authorType !== 'customer'
+        : c.visibility === 'note' || (c.visibility === 'reply' && c.authorType === 'customer')
+    )
+    .map((c) => ({ ticketId: c.ticketId, createdAt: c.receivedAt }))
 
   const latestReplies: Record<number, string> = {}
   repliesRows.forEach((r) => {
@@ -329,8 +287,8 @@ export async function GET(request: Request) {
   })
 
   const tagsByTicket: Record<number, Array<{ id: string; name: string; slug: string; color?: string }>> = {}
-  tagsRows.forEach((row) => {
-    const tag = row.tag
+  tagLinks.forEach((row) => {
+    const tag = tagById.get(row.tagId)
     if (!tag) return
     if (!tagsByTicket[row.ticketId]) tagsByTicket[row.ticketId] = []
     tagsByTicket[row.ticketId].push({
@@ -345,8 +303,9 @@ export async function GET(request: Request) {
     number,
     Array<{ id: string; user_id: string; user_name: string }>
   > = {}
-  assigneesRows.forEach((row) => {
-    const name = row.user?.fullName || row.user?.email || 'Unknown'
+  assigneeLinks.forEach((row) => {
+    const u = assigneeUsers.get(row.userId)
+    const name = u?.fullName || u?.email || 'Unknown'
     if (!assigneesByTicket[row.ticketId]) assigneesByTicket[row.ticketId] = []
     assigneesByTicket[row.ticketId].push({
       id: row.id,
@@ -390,7 +349,8 @@ export async function GET(request: Request) {
     // For agents: a ticket created by a customer counts as unread until first opened.
     // Use dbInsertedAt as fallback when there are no comments yet.
     const creatorIsCustomer = !isCustomerViewer && r.creator?.role?.toLowerCase() === 'customer'
-    const ticketInsertedAt = t.dbInsertedAt ? new Date(t.dbInsertedAt).toISOString() : null
+    const dbInsertedAt = (t as { dbInsertedAt?: Date | null }).dbInsertedAt
+    const ticketInsertedAt = dbInsertedAt ? new Date(dbInsertedAt).toISOString() : null
     const latestActivityAt = latestReplyAt ?? (creatorIsCustomer ? ticketInsertedAt : null)
     const hasUnread = !!latestActivityAt && (!lastReadAt || latestActivityAt > lastReadAt)
     const creatorName = r.creator?.fullName || r.creator?.email || 'Unknown'
@@ -435,12 +395,7 @@ export async function GET(request: Request) {
   })
 
   if (paginated) {
-    const countResult = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(tickets)
-      .where(whereClause)
-    const total = countResult[0]?.count ?? 0
-    return NextResponse.json({ data: result, total })
+    return NextResponse.json({ data: result, total: filtered.length })
   }
 
   return NextResponse.json(result)
@@ -492,13 +447,7 @@ export async function POST(request: Request) {
       : 0
   let resolvedCompanyId = company_id || null
   if (role === 'customer' && !resolvedCompanyId) {
-    const [userRow] = await db.select({ companyId: users.companyId }).from(users).where(eq(users.id, userId)).limit(1)
-    let cid = userRow?.companyId ?? null
-    if (!cid) {
-      const [cu] = await db.select({ companyId: companyUsers.companyId }).from(companyUsers).where(eq(companyUsers.userId, userId)).limit(1)
-      cid = cu?.companyId ?? null
-    }
-    resolvedCompanyId = cid
+    resolvedCompanyId = await getCustomerCompanyId(userId)
   }
 
   let contactUserId: string | null = null
@@ -536,11 +485,7 @@ export async function POST(request: Request) {
     if (role === 'customer') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-    const [projRow] = await db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(eq(projects.id, rawProjectId))
-      .limit(1)
+    const projRow = await get(projects, rawProjectId)
     if (!projRow) {
       return NextResponse.json({ error: 'Project not found' }, { status: 400 })
     }
@@ -552,22 +497,17 @@ export async function POST(request: Request) {
         ? parseInt(String(bodyProjectStatusId), 10)
         : NaN
     if (Number.isFinite(psParsed)) {
-      const [psRow] = await db
-        .select({ id: projectStatuses.id })
-        .from(projectStatuses)
-        .where(and(eq(projectStatuses.id, psParsed), eq(projectStatuses.projectId, insertProjectId)))
-        .limit(1)
-      if (!psRow) {
+      const psRow = await get(projectStatuses, psParsed)
+      if (!psRow || psRow.projectId !== insertProjectId) {
         return NextResponse.json({ error: 'Invalid project_status_id' }, { status: 400 })
       }
       insertProjectStatusId = psRow.id
     } else {
-      const [firstPs] = await db
-        .select({ id: projectStatuses.id })
-        .from(projectStatuses)
-        .where(eq(projectStatuses.projectId, insertProjectId))
-        .orderBy(asc(projectStatuses.sortOrder), asc(projectStatuses.id))
-        .limit(1)
+      const [firstPs] = await find(projectStatuses, {
+        where: [['projectId', '==', insertProjectId]],
+        orderBy: [['sortOrder', 'asc'], ['id', 'asc']],
+        limit: 1,
+      })
       insertProjectStatusId = firstPs?.id ?? null
     }
   }
@@ -584,38 +524,31 @@ export async function POST(request: Request) {
   const useCreatorPriorityPool =
     insertTicketType === DEFAULT_TICKET_TYPE && !resolvedCompanyId && Boolean(authUser.id)
 
-  let newTicket: typeof tickets.$inferSelect | undefined
+  const baseValues = {
+    title: title || 'Untitled',
+    description: description || null,
+    shortNote: short_note ?? null,
+    status: status || 'open',
+    visibility: resolvedInsertVisibility,
+    teamId: team_id || null,
+    typeId: type_id ?? null,
+    dueDate: due_date ? new Date(due_date) : null,
+    createdBy: authUser.id,
+    contactUserId,
+    createdVia,
+    ticketType: insertTicketType,
+    projectId: insertProjectId,
+    projectStatusId: insertProjectStatusId,
+  }
+
+  let newTicket: TicketsRow | undefined
 
   if (useCompanyPriorityPool) {
     const desiredRank = parseCompanyTicketDesiredRank(priority)
     try {
-      await db.transaction(async (tx) => {
-        const [row] = await tx
-          .insert(tickets)
-          .values({
-            title: title || 'Untitled',
-            description: description || null,
-            shortNote: short_note ?? null,
-            status: status || 'open',
-            visibility: resolvedInsertVisibility,
-            teamId: team_id || null,
-            typeId: type_id ?? null,
-            /** NULL first: UNIQUE (company_id, priority) for open support tickets would collide if we reused e.g. 1 before reorder. */
-            priority: null,
-            companyId: resolvedCompanyId,
-            dueDate: due_date ? new Date(due_date) : null,
-            createdBy: authUser.id,
-            contactUserId,
-            createdVia,
-            ticketType: insertTicketType,
-            projectId: insertProjectId,
-            projectStatusId: insertProjectStatusId,
-          })
-          .returning()
-        if (!row) throw new Error('Failed to create ticket')
-        newTicket = row
-        await assignCompanySupportTicketRank(tx, resolvedCompanyId!, row.id, desiredRank)
-      })
+      // Priority NULL first, then placed into the company queue (shifting the others).
+      newTicket = await insert(tickets, { ...baseValues, priority: null, companyId: resolvedCompanyId })
+      await assignCompanySupportTicketRank(resolvedCompanyId!, newTicket.id, desiredRank)
     } catch (e) {
       console.error('[POST /api/tickets] company queue create failed:', e)
       return NextResponse.json({ error: 'Failed to create ticket' }, { status: 500 })
@@ -623,59 +556,14 @@ export async function POST(request: Request) {
   } else if (useCreatorPriorityPool) {
     const desiredRank = parseCompanyTicketDesiredRank(priority)
     try {
-      await db.transaction(async (tx) => {
-        const [row] = await tx
-          .insert(tickets)
-          .values({
-            title: title || 'Untitled',
-            description: description || null,
-            shortNote: short_note ?? null,
-            status: status || 'open',
-            visibility: resolvedInsertVisibility,
-            teamId: team_id || null,
-            typeId: type_id ?? null,
-            priority: null,
-            companyId: null,
-            dueDate: due_date ? new Date(due_date) : null,
-            createdBy: authUser.id,
-            contactUserId,
-            createdVia,
-            ticketType: insertTicketType,
-            projectId: insertProjectId,
-            projectStatusId: insertProjectStatusId,
-          })
-          .returning()
-        if (!row) throw new Error('Failed to create ticket')
-        newTicket = row
-        await assignCreatorSupportTicketRank(tx, authUser.id, row.id, desiredRank)
-      })
+      newTicket = await insert(tickets, { ...baseValues, priority: null, companyId: null })
+      await assignCreatorSupportTicketRank(authUser.id, newTicket.id, desiredRank)
     } catch (e) {
       console.error('[POST /api/tickets] creator queue create failed:', e)
       return NextResponse.json({ error: 'Failed to create ticket' }, { status: 500 })
     }
   } else {
-    const [row] = await db
-      .insert(tickets)
-      .values({
-        title: title || 'Untitled',
-        description: description || null,
-        shortNote: short_note ?? null,
-        status: status || 'open',
-        visibility: resolvedInsertVisibility,
-        teamId: team_id || null,
-        typeId: type_id ?? null,
-        priority: resolvedPriority,
-        companyId: resolvedCompanyId,
-        dueDate: due_date ? new Date(due_date) : null,
-        createdBy: authUser.id,
-        contactUserId,
-        createdVia,
-        ticketType: insertTicketType,
-        projectId: insertProjectId,
-        projectStatusId: insertProjectStatusId,
-      })
-      .returning()
-    newTicket = row
+    newTicket = await insert(tickets, { ...baseValues, priority: resolvedPriority, companyId: resolvedCompanyId })
   }
 
   if (!newTicket) {
@@ -684,20 +572,16 @@ export async function POST(request: Request) {
   const ticket = newTicket
 
   if (assignees.length > 0) {
-    await db.insert(ticketAssignees).values(
-      assignees.map((userId: string) => ({
-        ticketId: ticket.id,
-        userId,
-      }))
+    await insertMany(
+      ticketAssignees,
+      (assignees as string[]).map((uid) => ({ ticketId: ticket.id, userId: uid }))
     )
   }
 
   if (tag_ids.length > 0) {
-    await db.insert(ticketTags).values(
-      tag_ids.map((tagId: string) => ({
-        ticketId: ticket.id,
-        tagId,
-      }))
+    await insertMany(
+      ticketTags,
+      (tag_ids as string[]).map((tagId) => ({ ticketId: ticket.id, tagId }))
     )
   }
 
@@ -709,7 +593,8 @@ export async function POST(request: Request) {
   }
 
   if (attachments.length > 0) {
-    await db.insert(ticketAttachments).values(
+    await insertMany(
+      ticketAttachments,
       attachments.map((a: { file_url: string; file_name: string; file_path: string }) => ({
         ticketId: ticket.id,
         fileUrl: a.file_url,
@@ -777,10 +662,7 @@ export async function POST(request: Request) {
       })
       // Persist the Gmail thread ID so customer email replies can be matched to this ticket.
       if (notifResult.sent && notifResult.sentThreadId && !ticket.gmailThreadId) {
-        await db
-          .update(tickets)
-          .set({ gmailThreadId: notifResult.sentThreadId, updatedAt: new Date() })
-          .where(eq(tickets.id, ticket.id))
+        await update(tickets, ticket.id, { gmailThreadId: notifResult.sentThreadId, updatedAt: new Date() })
       }
     } catch (mailErr) {
       console.error('[POST ticket] requester notification email failed:', mailErr)

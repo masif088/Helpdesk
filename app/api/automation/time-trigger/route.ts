@@ -1,8 +1,7 @@
-import { and, eq, inArray, lt, not } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { loadAutomationTicketContext, runAutomationRules } from '@/lib/automation-engine'
-import { automationRules, db, tickets } from '@/lib/db'
+import { automationRules, find, tickets } from '@/lib/fsdb'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -17,10 +16,12 @@ export async function POST(req: NextRequest) {
   }
 
   // Load all active time_trigger rules
-  const rules = await db
-    .select({ id: automationRules.id })
-    .from(automationRules)
-    .where(and(eq(automationRules.eventType, 'time_trigger'), eq(automationRules.status, 'active')))
+  const rules = await find(automationRules, {
+    where: [
+      ['eventType', '==', 'time_trigger'],
+      ['status', '==', true],
+    ],
+  })
 
   if (rules.length === 0) {
     return NextResponse.json({ ok: true, processed: 0, message: 'No active time_trigger rules' })
@@ -28,13 +29,9 @@ export async function POST(req: NextRequest) {
 
   // Load all non-closed tickets updated more than 1 day ago (minimum window to avoid over-processing)
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-  const candidates = await db
-    .select({ id: tickets.id, updatedAt: tickets.updatedAt })
-    .from(tickets)
-    .where(and(
-      not(inArray(tickets.status, ['closed'])),
-      lt(tickets.updatedAt, oneDayAgo),
-    ))
+  const candidates = (await find(tickets, { where: [['updatedAt', '<', oneDayAgo]] })).filter(
+    (t) => t.status !== 'closed'
+  )
 
   let processed = 0
   let triggered = 0

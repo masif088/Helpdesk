@@ -1,10 +1,9 @@
-import { desc } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { maskApiKey } from '@/lib/ai-settings-utils'
 import { canAccessAiSettings } from '@/lib/auth-utils'
-import { aiSettings, db } from '@/lib/db'
+import { aiSettings, find, insert } from '@/lib/fsdb'
 
 function rowToDto(row: typeof aiSettings.$inferSelect) {
   return {
@@ -31,7 +30,7 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const rows = await db.select().from(aiSettings).orderBy(desc(aiSettings.createdAt))
+  const rows = await find(aiSettings, { orderBy: [['createdAt', 'desc']] })
   return NextResponse.json({ data: rows.map(rowToDto) })
 }
 
@@ -60,9 +59,7 @@ export async function POST(req: NextRequest) {
     return val.trim() || null
   }
 
-  const [created] = await db
-    .insert(aiSettings)
-    .values({
+  const created = await insert(aiSettings, {
       name: body.name.trim(),
       isActive: false,
       provider: body.provider ?? 'openai',
@@ -75,7 +72,6 @@ export async function POST(req: NextRequest) {
       updatedAt: new Date(),
       updatedBy: session.user.id,
     })
-    .returning()
 
   return NextResponse.json({ data: rowToDto(created) }, { status: 201 })
 }

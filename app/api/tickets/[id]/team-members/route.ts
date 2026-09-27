@@ -1,8 +1,7 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, teamMembers, users } from '@/lib/db'
+import { findBy, getManyMap, teamMembers, users } from '@/lib/fsdb'
 
 /** GET /api/tickets/[id]/team-members?team_id=xxx - Get team members for a team */
 export async function GET(
@@ -20,16 +19,14 @@ export async function GET(
     return NextResponse.json({ error: 'team_id required' }, { status: 400 })
   }
 
-  const rows = await db
-    .select({
-      id: teamMembers.id,
-      teamId: teamMembers.teamId,
-      userId: teamMembers.userId,
-      user: users,
-    })
-    .from(teamMembers)
-    .leftJoin(users, eq(teamMembers.userId, users.id))
-    .where(eq(teamMembers.teamId, teamId))
+  const members = await findBy(teamMembers, { teamId })
+  const userById = await getManyMap(users, members.map((m) => m.userId))
+  const rows = members.map((m) => ({
+    id: m.id,
+    teamId: m.teamId,
+    userId: m.userId,
+    user: userById.get(m.userId) ?? null,
+  }))
 
   return NextResponse.json(
     rows.map((r) => ({

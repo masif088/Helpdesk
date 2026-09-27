@@ -1,9 +1,8 @@
-import { asc } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessMessageTemplates } from '@/lib/auth-utils'
-import { db, messageTemplates } from '@/lib/db'
+import { find, messageTemplates } from '@/lib/fsdb'
 
 function rowToJson(r: (typeof messageTemplates.$inferSelect)[]) {
   return r.map((row) => ({
@@ -30,10 +29,9 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const rows = await db
-    .select()
-    .from(messageTemplates)
-    .orderBy(asc(messageTemplates.templateGroup), asc(messageTemplates.type), asc(messageTemplates.title))
+  const rows = await find(messageTemplates, {
+    orderBy: [['templateGroup', 'asc'], ['type', 'asc'], ['title', 'asc']],
+  })
 
   return NextResponse.json(rowToJson(rows))
 }

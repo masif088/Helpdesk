@@ -2,23 +2,30 @@
  * Automation rules engine: evaluate conditions and apply actions when tickets are
  * created, updated, or when a new comment/reply/note is added.
  */
-import { and, desc, eq, or } from 'drizzle-orm'
-
 import { sendAutomationLog } from '@/lib/automation-log-webhook'
-import { db } from '@/lib/db'
 import {
   automationRules,
   companies,
+  find,
+  findBy,
+  findOneBy,
+  get,
+  insert,
+  insertIgnore,
+  insertMany,
+  type Patch,
   teams,
   ticketAssignees,
   ticketChecklist,
   ticketComments,
   ticketPriorities,
   tickets,
+  type TicketsRow,
   ticketStatuses,
   ticketTags,
   ticketTypes,
-} from '@/lib/db'
+  update,
+} from '@/lib/fsdb'
 
 import type { AutomationActions } from './automation-actions-types'
 import { AUTOMATION_NOTE_USER_ID } from './automation-constants'
@@ -239,32 +246,17 @@ function evalConditions(cond: OurConditionGroup, ctx: TicketContext): boolean {
 
 /** Load ticket + assignees for automation context (shared across triggers). */
 export async function loadAutomationTicketContext(ticketId: number): Promise<TicketContext | null> {
-  const [row] = await db
-    .select({
-      t: tickets,
-      typeSlug: ticketTypes.slug,
-    })
-    .from(tickets)
-    .leftJoin(ticketTypes, eq(tickets.typeId, ticketTypes.id))
-    .where(eq(tickets.id, ticketId))
-    .limit(1)
-  if (!row?.t) return null
-  const assigneeRows = await db
-    .select({ userId: ticketAssignees.userId })
-    .from(ticketAssignees)
-    .where(eq(ticketAssignees.ticketId, ticketId))
+  const t = await get(tickets, ticketId)
+  if (!t) return null
+  const [type, assigneeRows] = await Promise.all([get(ticketTypes, t.typeId), findBy(ticketAssignees, { ticketId })])
+  const row = { typeSlug: type?.slug ?? null }
 
   let prioritySlug: string | null = null
-  if (row.t.priority != null) {
-    const [pr] = await db
-      .select({ slug: ticketPriorities.slug })
-      .from(ticketPriorities)
-      .where(or(eq(ticketPriorities.sortOrder, row.t.priority), eq(ticketPriorities.id, row.t.priority)))
-      .limit(1)
+  if (t.priority != null) {
+    const pr = (await findOneBy(ticketPriorities, { sortOrder: t.priority })) ?? (await get(ticketPriorities, t.priority))
     prioritySlug = pr?.slug ?? null
   }
 
-  const t = row.t
   return {
     id: t.id,
     title: t.title,
@@ -306,17 +298,14 @@ export async function runAutomationRules(
   eventType: AutomationEventType,
   ctx: TicketContext
 ): Promise<void> {
-  const rows = await db
-    .select()
-    .from(automationRules)
-    .where(
-      and(
-        eq(automationRules.eventType, eventType),
-        eq(automationRules.status, true)
-      )
-    )
-    /** Higher `priority` value runs first; every matching rule runs (not only the first). */
-    .orderBy(desc(automationRules.priority))
+  /** Higher `priority` value runs first; every matching rule runs (not only the first). */
+  const rows = await find(automationRules, {
+    where: [
+      ['eventType', '==', eventType],
+      ['status', '==', true],
+    ],
+    orderBy: [['priority', 'desc']],
+  })
 
   let didBumpTicketData = false
   const requestBump = () => {
@@ -341,7 +330,7 @@ export async function runAutomationRules(
     }).catch(() => {})
 
     const actions = (rule.actions || {}) as AutomationActions
-    const updates: Record<string, unknown> = {}
+    const updates: Patch<TicketsRow> = {}
 
     let queuePriorityRaw: unknown | undefined
     if (
@@ -351,36 +340,24 @@ export async function runAutomationRules(
     ) {
       queuePriorityRaw = actions.priority
     } else if (actions.priority_slug) {
-      const [p] = await db
-        .select({ sortOrder: ticketPriorities.sortOrder, id: ticketPriorities.id })
-        .from(ticketPriorities)
-        .where(eq(ticketPriorities.slug, String(actions.priority_slug)))
-        .limit(1)
+      const p = await findOneBy(ticketPriorities, { slug: String(actions.priority_slug) })
       if (p) queuePriorityRaw = p.sortOrder ?? p.id
     }
 
     if (actions.type_slug) {
-      const [t] = await db
-        .select({ id: ticketTypes.id })
-        .from(ticketTypes)
-        .where(eq(ticketTypes.slug, String(actions.type_slug)))
-        .limit(1)
+      const t = await findOneBy(ticketTypes, { slug: String(actions.type_slug) })
       if (t) updates.typeId = t.id
     }
     if (actions.status_slug) {
-      const [st] = await db
-        .select({ slug: ticketStatuses.slug })
-        .from(ticketStatuses)
-        .where(eq(ticketStatuses.slug, String(actions.status_slug)))
-        .limit(1)
+      const st = await findOneBy(ticketStatuses, { slug: String(actions.status_slug) })
       if (st) updates.status = st.slug
     }
     if (actions.team_id) {
-      const [tm] = await db.select({ id: teams.id }).from(teams).where(eq(teams.id, actions.team_id)).limit(1)
+      const tm = await get(teams, actions.team_id)
       if (tm) updates.teamId = tm.id
     }
     if (actions.company_id) {
-      const [co] = await db.select({ id: companies.id }).from(companies).where(eq(companies.id, actions.company_id)).limit(1)
+      const co = await get(companies, actions.company_id)
       if (co) updates.companyId = co.id
     }
     if (actions.visibility) {
@@ -416,49 +393,31 @@ export async function runAutomationRules(
     const beforeAuto = willMutateTicket ? await loadTicketActivitySnapshot(ctx.id) : null
 
     if (Object.keys(updates).length > 0 || useSupportQueueReorder) {
-      await db.transaction(async (tx) => {
-        if (Object.keys(updates).length > 0) {
-          await tx
-            .update(tickets)
-            .set({ ...updates, updatedAt: new Date() } as typeof tickets.$inferInsert)
-            .where(eq(tickets.id, ctx.id))
-        }
-        if (useSupportQueueReorder && queuePriorityRaw !== undefined) {
-          await applyCompanySupportPriorityRank(tx, ctx.id, queuePriorityRaw)
-        }
-      })
+      if (Object.keys(updates).length > 0) {
+        await update(tickets, ctx.id, { ...updates, updatedAt: new Date() })
+      }
+      if (useSupportQueueReorder && queuePriorityRaw !== undefined) {
+        await applyCompanySupportPriorityRank(ctx.id, queuePriorityRaw)
+      }
       requestBump()
     }
 
     if (actions.tag_ids?.length) {
-      const existing = await db
-        .select({ tagId: ticketTags.tagId })
-        .from(ticketTags)
-        .where(eq(ticketTags.ticketId, ctx.id))
+      const existing = await findBy(ticketTags, { ticketId: ctx.id })
       const existingIds = new Set(existing.map((r) => r.tagId))
       const toAdd = actions.tag_ids.filter((id) => !existingIds.has(id))
       if (toAdd.length > 0) {
-        await db.insert(ticketTags).values(
-          toAdd.map((tagId) => ({
-            ticketId: ctx.id,
-            tagId,
-          }))
-        )
+        await insertMany(ticketTags, toAdd.map((tagId) => ({ ticketId: ctx.id, tagId })))
         requestBump()
       }
     }
 
     if (actions.assignee_ids?.length) {
-      const existing = await db
-        .select({ userId: ticketAssignees.userId })
-        .from(ticketAssignees)
-        .where(eq(ticketAssignees.ticketId, ctx.id))
+      const existing = await findBy(ticketAssignees, { ticketId: ctx.id })
       const existingIds = new Set(existing.map((r) => r.userId))
       const toAdd = actions.assignee_ids.filter((id) => !existingIds.has(id))
       if (toAdd.length > 0) {
-        await db.insert(ticketAssignees).values(
-          toAdd.map((userId) => ({ ticketId: ctx.id, userId }))
-        ).onConflictDoNothing()
+        for (const userId of toAdd) await insertIgnore(ticketAssignees, { ticketId: ctx.id, userId })
         requestBump()
       }
     }
@@ -487,16 +446,13 @@ export async function runAutomationRules(
 
     if (automationNoteHtmlHasText(actions.add_note)) {
       const noteUserId = actions.add_note_user_id?.trim() || AUTOMATION_NOTE_USER_ID
-      const [noteRow] = await db
-        .insert(ticketComments)
-        .values({
-          ticketId: ctx.id,
-          userId: noteUserId,
-          comment: actions.add_note!.trim(),
-          visibility: 'note',
-          authorType: 'automation',
-        })
-        .returning({ id: ticketComments.id })
+      const noteRow = await insert(ticketComments, {
+        ticketId: ctx.id,
+        userId: noteUserId,
+        comment: actions.add_note!.trim(),
+        visibility: 'note',
+        authorType: 'automation',
+      })
       if (noteRow) {
         requestBump()
         await logTicketActivity({
@@ -521,15 +477,13 @@ export async function runAutomationRules(
         .map((t) => (typeof t === 'string' ? t : '').trim())
         .filter(Boolean)
       if (items.length > 0) {
-        const existing = await db
-          .select({ title: ticketChecklist.title, orderIndex: ticketChecklist.orderIndex })
-          .from(ticketChecklist)
-          .where(eq(ticketChecklist.ticketId, ctx.id))
+        const existing = await findBy(ticketChecklist, { ticketId: ctx.id })
         const existingTitles = new Set(existing.map((r) => r.title?.toLowerCase() ?? ''))
         const maxOrder = existing.reduce((m, r) => Math.max(m, r.orderIndex ?? 0), -1)
         const toAdd = items.filter((title) => !existingTitles.has(title.toLowerCase()))
         if (toAdd.length > 0) {
-          await db.insert(ticketChecklist).values(
+          await insertMany(
+            ticketChecklist,
             toAdd.map((title, idx) => ({
               ticketId: ctx.id,
               title,

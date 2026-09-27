@@ -1,9 +1,7 @@
-import { count,eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db } from '@/lib/db'
-import { tickets,ticketStatuses } from '@/lib/db'
+import { count, get, type Patch, remove, tickets, ticketStatuses, update } from '@/lib/fsdb'
 import { logSettingsDeleted, logSettingsUpdated } from '@/lib/settings-activity-log'
 import { isTicketStatusInKanban } from '@/lib/ticket-status-kanban'
 import { isLockedTicketStatusSlug } from '@/lib/ticket-status-locked-slugs'
@@ -74,7 +72,7 @@ export async function PATCH(
     is_active,
   } = body
 
-  const [current] = await db.select().from(ticketStatuses).where(eq(ticketStatuses.id, statusId)).limit(1)
+  const current = await get(ticketStatuses, statusId)
   if (!current) {
     return NextResponse.json({ error: 'Status not found' }, { status: 404 })
   }
@@ -98,11 +96,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
   }
 
-  const [updated] = await db
-    .update(ticketStatuses)
-    .set(values as typeof ticketStatuses.$inferInsert)
-    .where(eq(ticketStatuses.id, statusId))
-    .returning()
+  const updated = await update(ticketStatuses, statusId, values as Patch<typeof ticketStatuses.$inferSelect>)
 
   if (!updated) {
     return NextResponse.json({ error: 'Status not found' }, { status: 404 })
@@ -153,9 +147,7 @@ export async function DELETE(
 
   try {
     // First, get the status to check its slug
-    const status = await db.query.ticketStatuses.findFirst({
-      where: eq(ticketStatuses.id, statusId),
-    })
+    const status = await get(ticketStatuses, statusId)
 
     if (!status) {
       return NextResponse.json({ error: 'Status not found' }, { status: 404 })
@@ -166,12 +158,9 @@ export async function DELETE(
     }
 
     // Check if any tickets use this status
-    const [result] = await db
-      .select({ count: count() })
-      .from(tickets)
-      .where(eq(tickets.status, status.slug))
+    const inUse = await count(tickets, [['status', '==', status.slug]])
 
-    if (result && result.count > 0) {
+    if (inUse > 0) {
       return NextResponse.json(
         { error: 'Cannot delete: this status is currently in use on one or more tickets. It must be removed from all tickets before deletion.' },
         { status: 409 }
@@ -179,10 +168,7 @@ export async function DELETE(
     }
 
     // Delete the status
-    const [deleted] = await db
-      .delete(ticketStatuses)
-      .where(eq(ticketStatuses.id, statusId))
-      .returning({ id: ticketStatuses.id })
+    const deleted = await remove(ticketStatuses, statusId)
 
     if (!deleted) {
       return NextResponse.json({ error: 'Status not found' }, { status: 404 })

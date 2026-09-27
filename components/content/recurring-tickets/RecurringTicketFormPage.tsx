@@ -24,11 +24,11 @@ import {
 import dayjs from 'dayjs'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import { useSession } from '@/lib/auth-client'
 import { normalizeSpecificDates } from '@/lib/recurring-ticket-schedule'
 import { DEFAULT_RECURRING_VISIBILITY } from '@/lib/ticket-visibility'
 

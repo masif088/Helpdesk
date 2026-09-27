@@ -1,8 +1,8 @@
-import { desc, eq, inArray } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { companies, companyUsers,db, users } from '@/lib/db'
+import { getCustomerCompanyId } from '@/lib/customer-company'
+import { companies, companyUsers, find, findBy, getMany, getManyMap, sortRows, users, type UsersRow } from '@/lib/fsdb'
 
 /** GET /api/users - List users with company. When customer: only users in same company */
 export async function GET() {
@@ -17,34 +17,18 @@ export async function GET() {
 
     let companyId: string | null = null
     if (role === 'customer') {
-      const [userRow] = await db.select({ companyId: users.companyId }).from(users).where(eq(users.id, userId)).limit(1)
-      companyId = userRow?.companyId ?? null
-      if (!companyId) {
-        const [cu] = await db.select({ companyId: companyUsers.companyId }).from(companyUsers).where(eq(companyUsers.userId, userId)).limit(1)
-        companyId = cu?.companyId ?? null
-      }
+      companyId = await getCustomerCompanyId(userId)
     }
 
     if (role === 'customer' && !companyId) {
       return NextResponse.json([])
     }
 
-    let query = db
-      .select({
-        user: users,
-        company: companies,
-      })
-      .from(users)
-      .leftJoin(companies, eq(users.companyId, companies.id))
-      .orderBy(desc(users.createdAt))
-
+    let userRows: UsersRow[]
     if (role === 'customer' && companyId) {
       const [directRows, cuRows] = await Promise.all([
-        db.select({ id: users.id }).from(users).where(eq(users.companyId, companyId)),
-        db
-          .select({ userId: companyUsers.userId })
-          .from(companyUsers)
-          .where(eq(companyUsers.companyId, companyId)),
+        findBy(users, { companyId }),
+        findBy(companyUsers, { companyId }),
       ])
       const idSet = new Set<string>()
       for (const r of directRows) idSet.add(r.id)
@@ -53,10 +37,16 @@ export async function GET() {
       if (ids.length === 0) {
         return NextResponse.json([])
       }
-      query = query.where(inArray(users.id, ids)) as typeof query
+      userRows = sortRows(await getMany(users, ids), [['createdAt', 'desc']])
+    } else {
+      userRows = await find(users, { orderBy: [['createdAt', 'desc']] })
     }
 
-    const rows = await query
+    const companyById = await getManyMap(companies, userRows.map((u) => u.companyId))
+    const rows = userRows.map((user) => ({
+      user,
+      company: user.companyId ? companyById.get(user.companyId) ?? null : null,
+    }))
 
     const result = rows.map((r) => {
     const u = r.user

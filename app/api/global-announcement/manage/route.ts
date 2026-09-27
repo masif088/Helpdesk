@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
-import { db, globalAnnouncement } from '@/lib/db'
+import { globalAnnouncement, upsert } from '@/lib/fsdb'
 import {
   getGlobalAnnouncementRow,
   GLOBAL_ANNOUNCEMENT_ROW_ID,
@@ -36,19 +35,12 @@ export async function GET() {
   }
 
   try {
-    const row = await getGlobalAnnouncementRow()
-    if (!row) {
-      return NextResponse.json(
-        { error: 'Announcement row not found. Run migration 014_global_announcement.sql.' },
-        { status: 500 }
-      )
-    }
+    const row =
+      (await getGlobalAnnouncementRow()) ??
+      (await upsert(globalAnnouncement, { id: GLOBAL_ANNOUNCEMENT_ROW_ID, message: '', isEnabled: false }))
     return NextResponse.json(rowToJson(row))
   } catch {
-    return NextResponse.json(
-      { error: 'Database error. Run migration 014_global_announcement.sql if the table is missing.' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Database error while loading the announcement.' }, { status: 500 })
   }
 }
 
@@ -109,22 +101,15 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'End must be after start' }, { status: 400 })
   }
 
-  const [updated] = await db
-    .update(globalAnnouncement)
-    .set({
-      message: message.trim(),
-      isEnabled,
-      startsAt,
-      endsAt,
-      updatedAt: new Date(),
-      updatedBy: session.user.id,
-    })
-    .where(eq(globalAnnouncement.id, GLOBAL_ANNOUNCEMENT_ROW_ID))
-    .returning()
-
-  if (!updated) {
-    return NextResponse.json({ error: 'Announcement row not found. Run migration 014_global_announcement.sql.' }, { status: 500 })
-  }
+  const updated = await upsert(globalAnnouncement, {
+    id: GLOBAL_ANNOUNCEMENT_ROW_ID,
+    message: message.trim(),
+    isEnabled,
+    startsAt,
+    endsAt,
+    updatedAt: new Date(),
+    updatedBy: session.user.id,
+  })
 
   return NextResponse.json(rowToJson(updated))
 }

@@ -1,14 +1,14 @@
 'use client'
 
 import { App, ConfigProvider, theme } from 'antd'
-import type { Session } from 'next-auth'
-import { SessionProvider } from 'next-auth/react'
 
+import type { Session } from '@/auth'
 import FirebaseSessionBridge from '@/components/providers/FirebaseSessionBridge'
 import NotificationPollProvider from '@/components/providers/NotificationPollProvider'
 import QueryProvider from '@/components/providers/QueryProvider'
 import SessionAccessGuard from '@/components/providers/SessionAccessGuard'
 import { ThemeProvider, useTheme } from '@/components/providers/ThemeProvider'
+import { SessionProvider } from '@/lib/auth-client'
 
 function ThemedConfig({ children }: { children: React.ReactNode }) {
   const { resolved } = useTheme()
@@ -69,8 +69,8 @@ export default function AntdProvider({
   return (
     <ThemeProvider>
       <ThemedConfig>
-        {/* NextAuth: no polling + no focus refetch — avoids heavy /api/auth/session traffic. */}
-        <SessionProvider session={session} refetchInterval={0} refetchOnWindowFocus={false}>
+        {/* No focus refetch — avoids heavy /api/auth/session traffic. */}
+        <SessionProvider session={session} refetchOnWindowFocus={false}>
           <QueryProvider>
             <NotificationPollProvider>
               <SessionAccessGuard />

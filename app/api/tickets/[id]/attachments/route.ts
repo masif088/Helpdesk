@@ -1,8 +1,7 @@
-import { asc,eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { db, ticketAttachments } from '@/lib/db'
+import { find, ticketAttachments } from '@/lib/fsdb'
 import { getPublicUrl } from '@/lib/storage-idrive'
 
 /** GET /api/tickets/[id]/attachments */
@@ -21,16 +20,10 @@ export async function GET(
     return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 })
   }
 
-  const rows = await db
-    .select({
-      id: ticketAttachments.id,
-      fileUrl: ticketAttachments.fileUrl,
-      fileName: ticketAttachments.fileName,
-      filePath: ticketAttachments.filePath,
-    })
-    .from(ticketAttachments)
-    .where(eq(ticketAttachments.ticketId, ticketId))
-    .orderBy(asc(ticketAttachments.createdAt))
+  const rows = await find(ticketAttachments, {
+    where: [['ticketId', '==', ticketId]],
+    orderBy: [['createdAt', 'asc']],
+  })
 
   return NextResponse.json(
     rows.map((r) => ({
