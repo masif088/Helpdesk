@@ -1,6 +1,6 @@
 /**
  * POST /api/cron/process-recurring-tickets
- * Called every minute by Cloud Scheduler (see docs/cron-jobs.md).
+ * Called every 5 minutes by the scheduler (see docs/cron-jobs.md).
  * Finds all active recurring rules whose nextRunAt <= now, creates the ticket,
  * logs the run, and schedules the next run.
  */

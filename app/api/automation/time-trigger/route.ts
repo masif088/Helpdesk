@@ -1,8 +1,19 @@
+/**
+ * POST /api/automation/time-trigger — runs "Time Trigger" automation rules. Scheduled once a day (docs/cron-jobs.md).
+ *
+ * Each rule fires at most once per idle period of a ticket: after it fires, it is skipped for that ticket until
+ * the ticket is updated again (tracked in `tickets.timeTriggerFired`). So running the job more often never
+ * repeats notes / tags / status changes.
+ */
 import { NextRequest, NextResponse } from 'next/server'
 
 import { loadAutomationTicketContext, runAutomationRules } from '@/lib/automation-engine'
 import { cronSecret, isCronRequest } from '@/lib/cron-auth'
-import { automationRules, find, tickets } from '@/lib/fsdb'
+import { automationRules, find, tickets, update } from '@/lib/fsdb'
+import { DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
+import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
+
+const DAY_MS = 24 * 60 * 60 * 1000
 
 export async function POST(req: NextRequest) {
   // Scheduler secret required; without a configured secret only local dev may call it
@@ -11,41 +22,54 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Load all active time_trigger rules
   const rules = await find(automationRules, {
     where: [
       ['eventType', '==', 'time_trigger'],
       ['status', '==', true],
     ],
   })
-
   if (rules.length === 0) {
-    return NextResponse.json({ ok: true, processed: 0, message: 'No active time_trigger rules' })
+    return NextResponse.json({ ok: true, checked: 0, fired: 0, message: 'No active time_trigger rules' })
   }
+  const ruleIds = rules.map((r) => r.id)
 
-  // Load all non-closed tickets updated more than 1 day ago (minimum window to avoid over-processing)
-  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  // Open support tickets idle for at least a day (conditions are in days)
+  const oneDayAgo = new Date(Date.now() - DAY_MS)
   const candidates = (await find(tickets, { where: [['updatedAt', '<', oneDayAgo]] })).filter(
-    (t) => t.status !== 'closed'
+    (t) => (t.ticketType ?? DEFAULT_TICKET_TYPE) === DEFAULT_TICKET_TYPE && !isClosedLikeTicketStatus(t.status)
   )
 
-  let processed = 0
-  let triggered = 0
-
+  let checked = 0
+  let fired = 0
   for (const ticket of candidates) {
+    const updatedMs = new Date(ticket.updatedAt).getTime()
+    const firedMap = ticket.timeTriggerFired ?? {}
+    const alreadyFired = (ruleId: number) => {
+      const at = firedMap[String(ruleId)]
+      return !!at && new Date(at).getTime() >= updatedMs
+    }
+    // Every rule already fired since the last update → nothing to evaluate (skip the context reads)
+    if (ruleIds.every(alreadyFired)) continue
+
     const ctx = await loadAutomationTicketContext(ticket.id)
     if (!ctx) continue
+    checked++
 
-    const daysSinceUpdated = ticket.updatedAt
-      ? (Date.now() - new Date(ticket.updatedAt).getTime()) / (1000 * 60 * 60 * 24)
-      : null
-
-    const ctxWithTime = { ...ctx, days_since_updated: daysSinceUpdated }
-
-    await runAutomationRules('time_trigger', ctxWithTime)
-    processed++
-    triggered++
+    const matched: number[] = []
+    await runAutomationRules(
+      'time_trigger',
+      { ...ctx, days_since_updated: (Date.now() - updatedMs) / DAY_MS },
+      { skipRule: alreadyFired, onRuleMatched: (id) => matched.push(id) }
+    )
+    if (matched.length > 0) {
+      fired += matched.length
+      const now = new Date().toISOString()
+      const next = { ...firedMap }
+      for (const id of matched) next[String(id)] = now
+      // Not touching updatedAt: this is bookkeeping, not a ticket change
+      await update(tickets, ticket.id, { timeTriggerFired: next })
+    }
   }
 
-  return NextResponse.json({ ok: true, processed, triggered, rules: rules.length })
+  return NextResponse.json({ ok: true, candidates: candidates.length, checked, fired, rules: rules.length })
 }

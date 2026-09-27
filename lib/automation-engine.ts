@@ -76,6 +76,8 @@ export type AutomationEventType =
   | 'ticket_comment_added'
   | 'ticket_reply_added'
   | 'ticket_note_added'
+  /** Scheduled (POST /api/automation/time-trigger) */
+  | 'time_trigger'
 
 function isLeaf(c: OurCondition): c is OurConditionLeaf {
   return !('conditions' in c) || !Array.isArray((c as OurConditionGroup).conditions)
@@ -280,7 +282,13 @@ export async function runTicketCommentAutomation(
 
 export async function runAutomationRules(
   eventType: AutomationEventType,
-  ctx: TicketContext
+  ctx: TicketContext,
+  opts?: {
+    /** Skip a rule before evaluating it (time trigger: already fired for this idle period) */
+    skipRule?: (ruleId: number) => boolean
+    /** Called for each rule whose conditions matched (before its actions run) */
+    onRuleMatched?: (ruleId: number) => void
+  }
 ): Promise<void> {
   /** Higher `priority` value runs first; every matching rule runs (not only the first). */
   const rows = await find(automationRules, {
@@ -303,7 +311,9 @@ export async function runAutomationRules(
 
     const companyMatch = !rule.companyId || rule.companyId === ctx.company_id
     if (!companyMatch) continue
+    if (opts?.skipRule?.(rule.id)) continue
     if (!evalConditions(cond, ctx)) continue
+    opts?.onRuleMatched?.(rule.id)
 
     sendAutomationLog({
       event: 'automation_matched',

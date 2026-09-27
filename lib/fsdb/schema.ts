@@ -1647,6 +1647,8 @@ export type TicketsRow = {
   hourlyRate: number | null
   /** IDR | USD */
   rateCurrency: string | null
+  /** Time-trigger automation: rule id → ISO time it last fired on this ticket (fires once per idle period) */
+  timeTriggerFired: Record<string, string> | null
   source: string | null
   createdAt: Date
   updatedAt: Date
@@ -1676,6 +1678,7 @@ export type NewTicketsRow = {
   projectStatusId?: number | null
   hourlyRate?: number | null
   rateCurrency?: string | null
+  timeTriggerFired?: Record<string, string> | null
   source?: string | null
   createdAt?: Date
   updatedAt?: Date
@@ -1683,7 +1686,7 @@ export type NewTicketsRow = {
 
 export const tickets = defineTable<TicketsRow, NewTicketsRow>({
   name: 'tickets',
-  columns: ['id', 'title', 'description', 'originalDescription', 'shortNote', 'createdBy', 'contactUserId', 'dueDate', 'status', 'teamId', 'gmailThreadId', 'priority', 'createdVia', 'lastReadAt', 'customerLastReadAt', 'staffLastReadAt', 'typeId', 'ticketType', 'companyId', 'projectId', 'projectStatusId', 'hourlyRate', 'rateCurrency', 'source', 'createdAt', 'updatedAt'],
+  columns: ['id', 'title', 'description', 'originalDescription', 'shortNote', 'createdBy', 'contactUserId', 'dueDate', 'status', 'teamId', 'gmailThreadId', 'priority', 'createdVia', 'lastReadAt', 'customerLastReadAt', 'staffLastReadAt', 'typeId', 'ticketType', 'companyId', 'projectId', 'projectStatusId', 'hourlyRate', 'rateCurrency', 'timeTriggerFired', 'source', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'seq',

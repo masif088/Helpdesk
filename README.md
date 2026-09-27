@@ -165,17 +165,19 @@ npm run db:seed          # statuses, types, job types + first admin (SEED_ADMIN_
 
 ---
 
-## Scheduled jobs (Cloud Scheduler)
+## Scheduled jobs
 
-Firebase App Hosting has no crontab: **Google Cloud Scheduler** calls the job endpoints over HTTP with
-`Authorization: Bearer <SYNC_INBOX_CRON_SECRET>`.
+Firebase App Hosting has no crontab: an external scheduler — **Google Apps Script** triggers (free) or
+**Google Cloud Scheduler** — calls the job endpoints over HTTP with `Authorization: Bearer <SYNC_INBOX_CRON_SECRET>`.
 
 | Endpoint | Schedule | Purpose |
 |---|---|---|
-| `POST /api/email/sync-inbox` | every 2 min | Sync Gmail inbox → create tickets from incoming email |
-| `POST /api/cron/process-recurring-tickets` | every 1 min | Create tickets from due recurring rules |
+| `POST /api/email/sync-inbox` | every 5 min | Sync Gmail inbox → create tickets from incoming email |
+| `POST /api/cron/process-recurring-tickets` | every 5 min | Create tickets from due recurring rules |
+| `POST /api/automation/time-trigger` | daily 06:00 | Time Trigger automation rules (each fires once per idle period) |
 
-Setup commands, logs and troubleshooting: [docs/cron-jobs.md](docs/cron-jobs.md).
+Setup (Apps Script code in [docs/apps-script-scheduler.gs](docs/apps-script-scheduler.gs)), logs and
+troubleshooting: [docs/cron-jobs.md](docs/cron-jobs.md).
 Deploy config (env values and Secret Manager secrets): [apphosting.yaml](apphosting.yaml).
 
 ---

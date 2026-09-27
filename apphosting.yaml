@@ -63,7 +63,7 @@ env:
     secret: GOOGLE_CLIENT_SECRET
     availability: [RUNTIME]
 
-  # ── Scheduled jobs (Cloud Scheduler sends it as "Authorization: Bearer <secret>") ──
+  # ── Scheduled jobs (Apps Script / Cloud Scheduler send it as "Authorization: Bearer <secret>", docs/cron-jobs.md) ──
   - variable: SYNC_INBOX_CRON_SECRET
     secret: SYNC_INBOX_CRON_SECRET
     availability: [RUNTIME]
