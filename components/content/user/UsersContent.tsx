@@ -134,6 +134,9 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
   const noun = isContactsPage ? 'Contact' : 'User'
   const [filterStatus, setFilterStatus] = useState<string | undefined>(undefined)
   const [filterRole, setFilterRole] = useState<string | undefined>(undefined)
+  /** Contacts page: person / automated, and company ('__none__' = no company) */
+  const [filterKind, setFilterKind] = useState<string | undefined>(undefined)
+  const [filterCompany, setFilterCompany] = useState<string | undefined>(undefined)
   const [form] = Form.useForm()
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10 })
   const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([])
@@ -178,9 +181,12 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
       }
       if (filterStatus && u.status !== filterStatus) return false
       if (filterRole && u.role !== filterRole) return false
+      if (filterKind && (u.contact_kind || 'person') !== filterKind) return false
+      if (filterCompany === '__none__' && u.company_id) return false
+      if (filterCompany && filterCompany !== '__none__' && u.company_id !== filterCompany) return false
       return true
     })
-  }, [users, searchText, audienceTab, filterStatus, filterRole, isCustomer])
+  }, [users, searchText, audienceTab, filterStatus, filterRole, filterKind, filterCompany, isCustomer])
 
   const customerCount = useMemo(() => users.filter((u) => u.role === 'customer').length, [users])
   const nonCustomerCount = useMemo(() => users.filter((u) => u.role !== 'customer').length, [users])
@@ -784,6 +790,37 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
                   <Option value="suspended">Suspended</Option>
                   <Option value="pending">Pending</Option>
                 </Select>
+                )}
+                {isContactsPage && (
+                  <>
+                    <Select
+                      placeholder="All types"
+                      allowClear
+                      value={filterKind}
+                      onChange={(v) => {
+                        setFilterKind(v)
+                        setPagination((p) => ({ ...p, current: 1 }))
+                      }}
+                      style={{ width: 170 }}
+                      options={CONTACT_KINDS.map((k) => ({ value: k, label: CONTACT_KIND_LABELS[k] }))}
+                    />
+                    <Select
+                      placeholder="All companies"
+                      allowClear
+                      showSearch
+                      optionFilterProp="label"
+                      value={filterCompany}
+                      onChange={(v) => {
+                        setFilterCompany(v)
+                        setPagination((p) => ({ ...p, current: 1 }))
+                      }}
+                      style={{ width: 220 }}
+                      options={[
+                        { value: '__none__', label: 'No company' },
+                        ...companies.map((c) => ({ value: c.id, label: c.name })),
+                      ]}
+                    />
+                  </>
                 )}
                 {audienceTab === 'non_customer' && (
                   <Select
