@@ -1,7 +1,7 @@
 'use client'
 
 import { CopyOutlined, PlayCircleOutlined } from '@ant-design/icons'
-import { App, Button, Layout, Tooltip, Typography } from 'antd'
+import { App, Button, InputNumber, Layout, Tooltip, Typography } from 'antd'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { useState } from 'react'
@@ -23,6 +23,7 @@ const LATE_AFTER_MS: Record<ScheduledJobKey, number> = {
   'sync-inbox': 15 * 60_000,
   'recurring-tickets': 15 * 60_000,
   'time-trigger': 26 * 60 * 60_000,
+  'inbox-reminders': 3 * 60 * 60_000,
 }
 
 interface Props {
@@ -32,6 +33,8 @@ interface Props {
   secretConfigured: boolean
   gmail: { email: string | null; active: boolean; lastSyncAt: string | null } | null
   script: string
+  /** Inbox reminder threshold in hours (0 = off) */
+  reminderHours: number
 }
 
 function RunStatus({ job, run }: { job: ScheduledJobKey; run?: JobRun }) {
@@ -41,11 +44,31 @@ function RunStatus({ job, run }: { job: ScheduledJobKey; run?: JobRun }) {
   return late ? <StatusPill color="#D97706" title="Late" /> : <StatusPill color="#16A34A" title="OK" />
 }
 
-export default function ScheduledJobsContent({ user, runs: initialRuns, appUrl, secretConfigured, gmail, script }: Props) {
+export default function ScheduledJobsContent({ user, runs: initialRuns, appUrl, secretConfigured, gmail, script, reminderHours: initialReminderHours }: Props) {
   const { message } = App.useApp()
   const [collapsed, setCollapsed] = useState(false)
   const [running, setRunning] = useState<ScheduledJobKey | null>(null)
   const [runs, setRuns] = useState(initialRuns)
+  const [reminderHours, setReminderHours] = useState<number | null>(initialReminderHours)
+  const [savingHours, setSavingHours] = useState(false)
+  const saveReminderHours = async () => {
+    setSavingHours(true)
+    try {
+      const res = await fetch('/api/app-settings', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inbox_reminder_hours: reminderHours ?? 0 }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not save')
+      message.success(reminderHours ? `Reminder after ${reminderHours} hours` : 'Inbox reminders turned off')
+    } catch (e) {
+      message.error((e as Error).message)
+    } finally {
+      setSavingHours(false)
+    }
+  }
 
   const runNow = async (job: ScheduledJobKey) => {
     setRunning(job)
@@ -127,6 +150,16 @@ export default function ScheduledJobsContent({ user, runs: initialRuns, appUrl, 
                       <span className="kanban-chip">{job.schedule}</span>
                       <code>POST {job.path}</code>
                     </div>
+                    {job.key === 'inbox-reminders' ? (
+                      <div className="jobs-row__meta" style={{ marginTop: 8 }}>
+                        <span>Remind after</span>
+                        <InputNumber size="small" min={0} max={720} value={reminderHours} onChange={(v) => setReminderHours(v)} style={{ width: 80 }} />
+                        <span>hours (0 = off)</span>
+                        <Button size="small" loading={savingHours} onClick={() => void saveReminderHours()}>
+                          Save
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
                   <div className="jobs-row__run">
                     {!run && job.key === 'sync-inbox' && gmail?.lastSyncAt ? (

@@ -47,7 +47,9 @@ type NavItem = {
   icon: ReactNode
   /** Count badge; `alert` = highlighted (work waiting) */
   count?: number
-  countTone?: 'alert' | 'muted'
+  countTone?: 'alert' | 'muted' | 'danger'
+  /** Tooltip on the count */
+  countTitle?: string
 }
 
 /** Sidebar badge refresh: Inbox / My tickets counts */
@@ -108,7 +110,7 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
   const [appLogoUrl, setAppLogoUrl] = useState<string | null>(BRANDING.logo)
 
   const showScopeCounts = !isCustomer && canAccessTickets(role)
-  const [scopeCounts, setScopeCounts] = useState<{ inbox: number; mine: number } | null>(null)
+  const [scopeCounts, setScopeCounts] = useState<{ inbox: number; mine: number; overdue: number; reminderHours: number } | null>(null)
   // Refresh on an interval, on window focus, and whenever the route changes (e.g. after assigning a ticket).
   useEffect(() => {
     if (!showScopeCounts) return
@@ -117,7 +119,8 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
       fetch('/api/tickets/scope-counts', { credentials: 'include' })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
-          if (alive && d && typeof d.inbox === 'number') setScopeCounts({ inbox: d.inbox, mine: d.mine ?? 0 })
+          if (alive && d && typeof d.inbox === 'number')
+            setScopeCounts({ inbox: d.inbox, mine: d.mine ?? 0, overdue: d.overdue ?? 0, reminderHours: d.reminder_hours ?? 0 })
         })
         .catch(() => {})
     void load()
@@ -155,7 +158,10 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
                 label: 'Inbox',
                 icon: <InboxOutlined />,
                 count: scopeCounts?.inbox,
-                countTone: 'alert',
+                countTone: scopeCounts?.overdue ? 'danger' : 'alert',
+                countTitle: scopeCounts?.overdue
+                  ? `${scopeCounts.overdue} waiting more than ${scopeCounts.reminderHours}h`
+                  : undefined,
               },
               {
                 key: '/tickets?scope=mine',
@@ -252,7 +258,9 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
                   </span>
                   {!collapsed ? <span className="app-sidebar__label">{item.label}</span> : null}
                   {!collapsed && item.count ? (
-                    <span className={`app-sidebar__count is-${item.countTone ?? 'muted'}`}>{item.count > 99 ? '99+' : item.count}</span>
+                    <span className={`app-sidebar__count is-${item.countTone ?? 'muted'}`} title={item.countTitle}>
+                      {item.count > 99 ? '99+' : item.count}
+                    </span>
                   ) : null}
                 </SpaNavLink>
               )

@@ -29,6 +29,7 @@ function call_(path) {
 function syncInbox() { call_('/api/email/sync-inbox') }
 function recurringTickets() { call_('/api/cron/process-recurring-tickets') }
 function timeTrigger() { call_('/api/automation/time-trigger') }
+function inboxReminders() { call_('/api/cron/inbox-reminders') }
 
 /** Run once: (re)creates all triggers. */
 function installTriggers() {
@@ -36,6 +37,7 @@ function installTriggers() {
   ScriptApp.newTrigger('syncInbox').timeBased().everyMinutes(5).create()
   ScriptApp.newTrigger('recurringTickets').timeBased().everyMinutes(5).create()
   ScriptApp.newTrigger('timeTrigger').timeBased().atHour(6).everyDays(1).inTimezone('Asia/Jakarta').create()
+  ScriptApp.newTrigger('inboxReminders').timeBased().everyHours(1).create()
 }
 `
 }

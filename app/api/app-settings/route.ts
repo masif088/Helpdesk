@@ -23,8 +23,15 @@ export async function PUT(req: NextRequest) {
 
   for (const key of allowed) {
     if (key in body) {
-      await setAppSetting(key, body[key] ?? null)
+      await setAppSetting(key, (body[key] as string | null) ?? null)
     }
+  }
+  if ('inbox_reminder_hours' in body) {
+    const n = Number(body.inbox_reminder_hours)
+    if (!Number.isFinite(n) || n < 0 || n > 720) {
+      return NextResponse.json({ error: 'inbox_reminder_hours must be between 0 and 720' }, { status: 400 })
+    }
+    await setAppSetting('inbox_reminder_hours', String(n))
   }
 
   return NextResponse.json({ ok: true })

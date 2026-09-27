@@ -32,6 +32,8 @@ interface TicketsCardViewProps {
   onFilterByCompany?: (companyId: string) => void
   /** Folder pages: actions for the selected tickets (shows checkboxes when set) */
   bulkActions?: CardBulkAction[]
+  /** Inbox: show waiting time on cards (red past this many hours) */
+  waitingThresholdHours?: number | null
 }
 
 export type CardBulkAction = {
@@ -68,6 +70,7 @@ export default function TicketsCardView({
   onFilterByTag,
   onFilterByCompany,
   bulkActions,
+  waitingThresholdHours = null,
 }: TicketsCardViewProps) {
   const { modal } = App.useApp()
   const [selected, setSelected] = useState<Set<number>>(new Set())
@@ -207,6 +210,7 @@ export default function TicketsCardView({
               onFilterByCompany={onFilterByCompany}
               trackerStat={ticketStatsMap.get(ticket.id)}
               timer={timerFor(ticket.id)}
+              waitingThresholdHours={waitingThresholdHours}
               selectable={bulkOn}
               selected={selected.has(ticket.id)}
               onToggleSelect={toggle}

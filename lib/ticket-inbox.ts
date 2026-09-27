@@ -2,6 +2,7 @@
  * Inbox = support tickets nobody has picked up yet (no assignee, not closed).
  * Separate from priority: it answers "has anyone seen this?", newest first.
  */
+import { getAppSettings } from '@/lib/app-settings'
 import { notifyTicketUsers } from '@/lib/firebase/ticket-notifications-server'
 import {
   companies,
@@ -10,10 +11,13 @@ import {
   get,
   teamMembers,
   ticketAssignees,
+  tickets,
   type TicketsRow,
+  update,
   users,
 } from '@/lib/fsdb'
 import { DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
+import { loadTicketCandidates } from '@/lib/ticket-list-query'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
 export { isTicketScope, TICKET_SCOPE_LABELS, TICKET_SCOPES, type TicketScope } from '@/lib/ticket-scope'
@@ -93,4 +97,45 @@ export async function notifyNewUnassignedTicket(params: {
     actorName: params.actorName,
     actorRole: params.actorRole ?? null,
   })
+}
+
+/**
+ * Scheduled (hourly): tickets still in the Inbox after `inbox_reminder_hours` get one reminder to the same people
+ * who were told about the new ticket (team / company manager, else admins and managers).
+ */
+export async function runInboxReminders(): Promise<{ hours: number; overdue: number; reminded: number }> {
+  const { inbox_reminder_hours: hours } = await getAppSettings()
+  if (!hours) return { hours: 0, overdue: 0, reminded: 0 }
+  const cutoff = Date.now() - hours * 3600_000
+  const [candidates, assigned] = await Promise.all([loadTicketCandidates({ ticketType: DEFAULT_TICKET_TYPE }), loadAssignedTicketIds()])
+  const overdue = candidates.filter((t) => isInboxTicket(t, assigned) && new Date(t.createdAt).getTime() < cutoff)
+  let reminded = 0
+  for (const c of overdue) {
+    const t = await get(tickets, c.id)
+    if (!t || t.inboxReminderAt) continue
+    const company = t.companyId ? await get(companies, t.companyId) : null
+    const recipientUserIds = await newTicketRecipients(t.teamId, company)
+    const waited = Math.floor((Date.now() - new Date(t.createdAt).getTime()) / 3600_000)
+    if (recipientUserIds.length) {
+      await notifyTicketUsers({
+        recipientUserIds,
+        ticketId: t.id,
+        ticketTitle: t.title,
+        type: 'inbox_overdue',
+        title: `Still unassigned after ${waited}h`,
+        body: `"${t.title}"${company?.name ? ` (${company.name})` : ''} has been in the Inbox for ${waited} hours`,
+        actorUserId: 'system',
+        actorName: 'Inbox reminder',
+        actorRole: 'system',
+      })
+    }
+    await update(tickets, t.id, { inboxReminderAt: new Date() })
+    reminded++
+  }
+  return { hours, overdue: overdue.length, reminded }
+}
+
+/** True when an inbox ticket has waited longer than the reminder threshold. */
+export function isInboxOverdue(t: Pick<TicketsRow, 'createdAt'>, hours: number): boolean {
+  return hours > 0 && Date.now() - new Date(t.createdAt).getTime() > hours * 3600_000
 }

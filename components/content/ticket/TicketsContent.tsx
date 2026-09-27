@@ -3,7 +3,7 @@
 import { DeleteOutlined, UndoOutlined, WarningOutlined } from '@ant-design/icons'
 import { Alert, Layout, message, Spin } from 'antd'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
@@ -135,6 +135,16 @@ export default function TicketsContent({ user: currentUser }: TicketsContentProp
   } = useTicketsData(currentUser.id, isCustomer, canDeleteTicket)
 
   const isAdminUser = (currentUser.role ?? '').toLowerCase() === 'admin'
+
+  /** Inbox reminder threshold (Settings → Scheduled jobs) for the "Waiting" pill */
+  const [inboxReminderHours, setInboxReminderHours] = useState<number>(0)
+  useEffect(() => {
+    if (isCustomer || filterScope !== 'inbox') return
+    fetch('/api/app-settings')
+      .then((r) => r.json())
+      .then((d) => setInboxReminderHours(Number(d?.inbox_reminder_hours) || 0))
+      .catch(() => {})
+  }, [isCustomer, filterScope])
 
   const restoreFromTrash = async (ids: number[]) => {
     const results = await Promise.allSettled(
@@ -328,6 +338,7 @@ export default function TicketsContent({ user: currentUser }: TicketsContentProp
               onFilterByTag={filterByTagFromChip}
               onFilterByCompany={filterByCompanyFromChip}
               bulkActions={folderBulkActions}
+              waitingThresholdHours={!isCustomer && !filterTicketType && filterScope === 'inbox' ? inboxReminderHours : null}
             />
           ) : viewMode === 'list' ? (
             <TicketsListView

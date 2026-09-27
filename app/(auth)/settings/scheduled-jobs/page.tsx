@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import ScheduledJobsContent from '@/components/content/settings/ScheduledJobsContent'
+import { getAppSettings } from '@/lib/app-settings'
 import { isAdmin } from '@/lib/auth-utils'
 import { BRANDING } from '@/lib/branding'
 import { cronSecret } from '@/lib/cron-auth'
@@ -21,7 +22,11 @@ export default async function ScheduledJobsPage() {
   const host = h.get('x-forwarded-host') ?? h.get('host')
   const appUrl = (BRANDING.siteUrl || (host ? `https://${host}` : '')).replace(/\/$/, '')
 
-  const [runs, gmail] = await Promise.all([getJobRuns(), findOneBy(emailIntegrations, { provider: 'google' })])
+  const [runs, gmail, settings] = await Promise.all([
+    getJobRuns(),
+    findOneBy(emailIntegrations, { provider: 'google' }),
+    getAppSettings(),
+  ])
 
   return (
     <ScheduledJobsContent
@@ -39,6 +44,7 @@ export default async function ScheduledJobsPage() {
           : null
       }
       script={schedulerAppsScript(appUrl || 'https://your-app-url')}
+      reminderHours={settings.inbox_reminder_hours}
     />
   )
 }

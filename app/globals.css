@@ -567,6 +567,7 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
   line-height: 1;
 }
 .app-sidebar__count.is-alert { background: var(--brand-accent); color: #1F1300; }
+.app-sidebar__count.is-danger { background: #DC2626; color: #fff; }
 .app-sidebar__count.is-muted { background: rgba(148, 163, 184, 0.2); color: rgba(226, 232, 240, 0.9); }
 .app-sidebar__item.is-active .app-sidebar__count.is-muted { background: rgba(255, 255, 255, 0.22); color: #fff; }
 .app-sidebar__dot {
@@ -580,6 +581,7 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
 }
 .app-sidebar__dot.is-alert { background: var(--brand-accent); }
 .app-sidebar__dot.is-muted { background: #94A3B8; }
+.app-sidebar__dot.is-danger { background: #DC2626; }
 .app-sidebar__footer {
   display: flex;
   align-items: center;

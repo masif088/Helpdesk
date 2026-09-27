@@ -16,6 +16,7 @@ The check lives in `lib/cron-auth.ts`.
 |---|---|---|---|
 | `syncInbox` / `sync-inbox` | `POST /api/email/sync-inbox` | every 5 minutes | Read new Gmail messages → create tickets / add replies |
 | `recurringTickets` / `recurring-tickets` | `POST /api/cron/process-recurring-tickets` | every 5 minutes | Create tickets from recurring rules that are due |
+| `inboxReminders` / `inbox-reminders` | `POST /api/cron/inbox-reminders` | every hour | Remind the team once about tickets still unassigned after the reminder time (Settings → Scheduled jobs) |
 | `timeTrigger` / `time-trigger` | `POST /api/automation/time-trigger` | daily 06:00 (Asia/Jakarta) | Run "Time Trigger" automation rules |
 
 Time Trigger rules: each rule fires **once per idle period** of a ticket. After it fires it is skipped for
@@ -37,7 +38,7 @@ Time-driven triggers in a Google Apps Script project call the endpoints with `Ur
    - `APP_URL` = the app URL, no trailing slash (e.g. `https://helpdesk.example.com`)
    - `CRON_SECRET` = the value of `SYNC_INBOX_CRON_SECRET` on the server
 4. In the editor, select the function `installTriggers` → *Run*. Approve the permission prompt
-   (external requests + triggers). This creates the three triggers; run it again after changing the schedule.
+   (external requests + triggers). This creates the triggers; run it again after changing the schedule.
 5. Select `syncInbox` → *Run* once to test. The log shows the HTTP status and the response.
 
 Check runs in *Executions* (left sidebar), or in the app: **Settings → Scheduled jobs** shows the last run

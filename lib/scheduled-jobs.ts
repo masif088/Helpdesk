@@ -17,6 +17,14 @@ export const SCHEDULED_JOBS = [
     appsScriptFunction: 'recurringTickets',
   },
   {
+    key: 'inbox-reminders',
+    title: 'Inbox reminders',
+    description: 'Reminds the team once about tickets still unassigned after the reminder time.',
+    path: '/api/cron/inbox-reminders',
+    schedule: 'Every hour',
+    appsScriptFunction: 'inboxReminders',
+  },
+  {
     key: 'time-trigger',
     title: 'Time-trigger automations',
     description: 'Runs "Time Trigger" automation rules; each fires once per idle period of a ticket.',

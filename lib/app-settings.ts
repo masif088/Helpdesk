@@ -6,7 +6,11 @@ export type AppSettingsMap = {
   app_logo_url: string | null
   app_favicon_url: string | null
   email_sender_name: string | null
+  /** Inbox reminder: notify when a ticket is still unassigned after this many hours (0 = off) */
+  inbox_reminder_hours: number
 }
+
+export const DEFAULT_INBOX_REMINDER_HOURS = 4
 
 /** Defaults come from env branding (lib/branding.ts); values saved in Settings → App Branding win. */
 const DEFAULTS: AppSettingsMap = {
@@ -14,6 +18,7 @@ const DEFAULTS: AppSettingsMap = {
   app_logo_url: BRANDING.logo,
   app_favicon_url: null,
   email_sender_name: null,
+  inbox_reminder_hours: DEFAULT_INBOX_REMINDER_HOURS,
 }
 
 /** In-process cache: app settings are read on every page render (root layout metadata) but rarely change. */
@@ -42,6 +47,10 @@ async function loadAppSettings(): Promise<AppSettingsMap> {
     app_logo_url: resolveAssetUrl(map['app_logo_url']) ?? DEFAULTS.app_logo_url,
     app_favicon_url: resolveAssetUrl(map['app_favicon_url']),
     email_sender_name: map['email_sender_name'] ?? null,
+    inbox_reminder_hours: (() => {
+      const n = Number(map['inbox_reminder_hours'])
+      return map['inbox_reminder_hours'] != null && Number.isFinite(n) && n >= 0 ? n : DEFAULT_INBOX_REMINDER_HOURS
+    })(),
   }
 }
 

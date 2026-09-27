@@ -57,6 +57,8 @@ interface CardViewCardProps {
   selectable?: boolean
   selected?: boolean
   onToggleSelect?: (id: number, checked: boolean) => void
+  /** Inbox: show how long the ticket has waited; red past this many hours (0 = never red) */
+  waitingThresholdHours?: number | null
 }
 
 /** Card view row: status accent on the left, title + meta, chips and menu on the right. */
@@ -73,6 +75,7 @@ export default function CardViewCard({
   selectable = false,
   selected = false,
   onToggleSelect,
+  waitingThresholdHours = null,
   trackerStat,
   timer,
 }: CardViewCardProps) {
@@ -109,6 +112,14 @@ export default function CardViewCard({
             {ticket.created_via === 'automation' && <RobotOutlined title="Created by automation" />}
             <NewBadge show={ticket.is_new} />
           </span>
+          {waitingThresholdHours != null && ticket.created_at
+            ? (() => {
+                const hours = Math.floor((Date.now() - new Date(ticket.created_at).getTime()) / 3600_000)
+                const label = hours >= 48 ? `Waiting ${Math.floor(hours / 24)}d` : hours >= 1 ? `Waiting ${hours}h` : 'Just in'
+                const late = waitingThresholdHours > 0 && hours >= waitingThresholdHours
+                return <StatusPill color={late ? '#DC2626' : '#94A3B8'} title={label} />
+              })()
+            : null}
           <PriorityBadge priority={ticket.priority} />
           <StatusPill
             color={statusColor}

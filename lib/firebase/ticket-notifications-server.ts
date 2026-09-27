@@ -9,6 +9,8 @@ export type TicketNotificationType =
   | 'new_ticket_assignee'
   /** New support ticket with nobody assigned (Inbox) */
   | 'new_ticket'
+  /** Ticket still unassigned after the reminder threshold */
+  | 'inbox_overdue'
   | 'new_comment'
   | 'status_changed'
 

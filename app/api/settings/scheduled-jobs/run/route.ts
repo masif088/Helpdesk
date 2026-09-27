@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { POST as runTimeTrigger } from '@/app/api/automation/time-trigger/route'
+import { POST as runInboxReminders } from '@/app/api/cron/inbox-reminders/route'
 import { POST as runRecurringTickets } from '@/app/api/cron/process-recurring-tickets/route'
 import { POST as runSyncInbox } from '@/app/api/email/sync-inbox/route'
 import { auth } from '@/auth'
@@ -12,6 +13,7 @@ const HANDLERS: Record<ScheduledJobKey, (req: NextRequest) => Promise<Response>>
   'sync-inbox': runSyncInbox,
   'recurring-tickets': runRecurringTickets,
   'time-trigger': runTimeTrigger,
+  'inbox-reminders': runInboxReminders,
 }
 
 /** POST /api/settings/scheduled-jobs/run { job } — admin "Run now": calls the job in-process with the scheduler secret. */
