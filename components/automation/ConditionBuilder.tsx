@@ -14,7 +14,7 @@ import { defaultRQBQuery, type OurConditionGroup,ourFormatToRQB, rqbToOurFormat 
 function AddRuleButton({ handleOnClick, label }: ActionProps) {
   return (
     <Button type="dashed" icon={<PlusOutlined />} block onClick={(e) => handleOnClick(e)}>
-      {label ?? 'Add Rule'}
+      {label ?? 'Add condition'}
     </Button>
   )
 }
@@ -211,7 +211,7 @@ export default function ConditionBuilder({ value, onChange = () => {} }: Conditi
           onQueryChange={handleChange}
           addRuleToNewGroups
           showCombinatorsBetweenRules
-          translations={{ addRule: { label: 'Add Rule' } }}
+          translations={{ addRule: { label: 'Add condition' } }}
           controlElements={{
             addGroupAction: () => null,
             addRuleAction: AddRuleButton,

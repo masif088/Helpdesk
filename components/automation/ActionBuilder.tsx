@@ -172,9 +172,8 @@ export default function ActionBuilder({ value, onChange = () => {} }: ActionBuil
       }}
     >
       <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-        {shownKeys.length === 0 ? (
-          <div style={{ color: 'var(--automation-builder-muted-text)', padding: '8px 0' }}>No actions configured</div>
-        ) : (
+        {/* Empty: only the "Add action" button, like the conditions builder */}
+        {shownKeys.length === 0 ? null : (
           shownKeys.map((type) => (
             <div
               key={type}
@@ -337,7 +336,7 @@ export default function ActionBuilder({ value, onChange = () => {} }: ActionBuil
             trigger={['click']}
           >
             <Button type="dashed" icon={<PlusOutlined />} block>
-              Add Action
+              Add action
             </Button>
           </Dropdown>
         )}
