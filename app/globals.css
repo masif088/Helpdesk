@@ -1124,7 +1124,9 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
 .mt-group-info__text { flex: 1; min-width: 220px; }
 
 /* Settings forms on their own page (recurring ticket, message template…): one card, section headings */
-.settings-form {
+/* .ant-form resets padding with the same specificity and loads later, so qualify it */
+.settings-form,
+.settings-form.ant-form {
   padding: 20px 24px 8px;
   background: var(--kanban-card-bg);
   border: 1px solid var(--kanban-card-border);
@@ -1161,7 +1163,7 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
 .mt-field { display: flex; flex-direction: column; gap: 6px; }
 .mt-field__label { font-size: 13px; font-weight: 600; color: var(--kanban-card-title); }
 
-/* Modal forms: actions right-aligned under a divider */
+/* Modal forms: actions right-aligned under a divider line */
 .modal-footer-row {
   display: flex;
   justify-content: flex-end;

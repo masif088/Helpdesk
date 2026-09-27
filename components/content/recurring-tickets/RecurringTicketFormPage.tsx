@@ -255,7 +255,7 @@ export default function RecurringTicketFormPage({ initialValues }: Props) {
           .rt-quill-wrapper .ql-container { border-radius: 0 0 6px 6px; min-height: 160px; }
           .rt-quill-wrapper .ql-editor { min-height: 160px; }
         `}</style>
-        <div className="settings-page" style={{ padding: 24, maxWidth: 920 }}>
+        <div className="settings-page" style={{ padding: 24, width: '100%' }}>
           <BackLink href="/settings/recurring-tickets" style={{ marginBottom: 12 }}>
             Recurring tickets
           </BackLink>
