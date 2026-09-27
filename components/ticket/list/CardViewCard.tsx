@@ -1,21 +1,16 @@
 'use client'
 
 import { ClockCircleOutlined, DeleteOutlined, EditOutlined, FieldTimeOutlined, FlagOutlined, MoreOutlined, RobotOutlined, SyncOutlined } from '@ant-design/icons'
-import { Button, Dropdown, Flex, Modal, Tag, Tooltip, Typography } from 'antd'
+import { Button, Dropdown, Modal, Tooltip } from 'antd'
 import dayjs from 'dayjs'
 import { useRouter } from 'next/navigation'
 
 import type { TicketTrackerStat } from '@/app/api/tickets/ticket-time-stats/route'
-import { KANBAN_SEMANTIC_BLUE, KANBAN_SEMANTIC_GREEN, kanbanTagStyle } from '@/lib/kanban-tag-chip-style'
+import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
+import { Chip, PriorityBadge, StatusPill } from './TicketChips'
 import type { StatusColumn, TicketRecord } from './types'
 import { DEFAULT_ALL_STATUS_COLUMNS } from './types'
-
-const { Text } = Typography
-
-function fmtHours(s: number): string {
-  return (s / 3600).toFixed(1) + 'h'
-}
 
 function fmtSeconds(s: number): string {
   const h = Math.floor(s / 3600)
@@ -27,17 +22,17 @@ function fmtSeconds(s: number): string {
 function TrackerTooltipContent({ stat }: { stat: TicketTrackerStat | undefined }) {
   return (
     <div style={{ fontSize: 12, lineHeight: 1.6 }}>
-      <div>⏱ Today: <strong>{stat && stat.today_seconds > 0 ? fmtSeconds(stat.today_seconds) : '—'}</strong></div>
-      <div style={{ color: '#aaa' }}>⏱ Yesterday: {stat && stat.yesterday_seconds > 0 ? fmtSeconds(stat.yesterday_seconds) : '—'}</div>
+      <div>Today: <strong>{stat && stat.today_seconds > 0 ? fmtSeconds(stat.today_seconds) : '—'}</strong></div>
+      <div style={{ opacity: 0.7 }}>Yesterday: {stat && stat.yesterday_seconds > 0 ? fmtSeconds(stat.yesterday_seconds) : '—'}</div>
       {stat && stat.active_trackers.length > 0 ? (
         <div style={{ marginTop: 4 }}>
-          🟢 Active now:
+          Running now:
           {stat.active_trackers.map((a, idx) => (
             <div key={idx} style={{ paddingLeft: 8 }}>• {a.user_name}</div>
           ))}
         </div>
       ) : (
-        <div style={{ color: '#aaa', marginTop: 2 }}>No active tracker</div>
+        <div style={{ opacity: 0.7, marginTop: 2 }}>No active tracker</div>
       )}
     </div>
   )
@@ -57,6 +52,7 @@ interface CardViewCardProps {
   trackerStat?: TicketTrackerStat
 }
 
+/** Card view row: status accent on the left, title + meta, chips and menu on the right. */
 export default function CardViewCard({
   ticket,
   allStatusColumns,
@@ -73,171 +69,113 @@ export default function CardViewCard({
   const statusCols = allStatusColumns?.length ? allStatusColumns : DEFAULT_ALL_STATUS_COLUMNS
   const statusCol = statusCols.find((c) => c.id === ticket.status)
   const statusTitle = statusCol?.title ?? ticket.status
-  const statusColor = statusCol?.color ?? '#8c8c8c'
-
+  const statusColor = statusCol?.color ?? '#94A3B8'
+  const overdue = !!ticket.due_date && dayjs(ticket.due_date).isBefore(dayjs()) && !isClosedLikeTicketStatus(ticket.status)
+  const checklistTotal = Number(ticket.checklist_total) || 0
+  const checklistDone = Number(ticket.checklist_completed) || 0
   const ticketUrl = `/tickets/${ticket.id}`
+
   return (
-    <Flex
-      justify="space-between"
-      gap={12}
-      align="stretch"
-      style={{
-        width: '100%',
-        padding: 16,
-        background: 'var(--kanban-card-bg)',
-        borderRadius: 12,
-        border: '1px solid var(--kanban-card-border)',
-        boxShadow: 'var(--kanban-card-shadow)',
-      }}
-    >
+    <article className="ticket-row-card" style={{ ['--row-accent' as string]: statusColor }}>
       <a
         href={ticketUrl}
-        style={{
-          display: 'flex',
-          flex: 1,
-          minWidth: 0,
-          color: 'inherit',
-          textDecoration: 'none',
-          cursor: 'pointer',
-        }}
+        className="ticket-row-card__main"
         onClick={(e) => {
-          if (e.button !== 0) return
-          if (e.ctrlKey || e.metaKey) return
+          if (e.button !== 0 || e.ctrlKey || e.metaKey) return
           e.preventDefault()
           router.push(ticketUrl)
         }}
       >
-      <Flex vertical justify="flex-start" align="flex-start" gap={0} style={{ flex: 1, minWidth: 0 }}>
-        <Text strong style={{ fontSize: 16, fontWeight: 700, color: 'var(--kanban-card-title)', lineHeight: 1.4 }}>
-          {ticket.has_unread_replies && (
-            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#ff4d4f', marginRight: 6, verticalAlign: 'middle' }} title="Unread replies" />
-          )}
-          #{ticket.id} {ticket.title}
-          {ticket.created_via === 'recurring' && (
-            <SyncOutlined title="Created by recurring ticket" style={{ fontSize: 12, color: '#0E7490', marginLeft: 6, verticalAlign: 'middle' }} />
-          )}
-          {ticket.created_via === 'automation' && (
-            <RobotOutlined title="Created by automation" style={{ fontSize: 12, color: '#0E7490', marginLeft: 6, verticalAlign: 'middle' }} />
-          )}
-        </Text>
-        <Text style={{ fontSize: 13, color: '#1890ff', display: 'block' }}>
-          by {ticket.by_label ?? ticket.creator_name ?? 'Unassigned'}
-        </Text>
-        {!isCustomer && ticket.short_note && (
-          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2, lineHeight: 1.3 }}>
-            {ticket.short_note}
-          </Text>
-        )}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginTop: 4, width: '100%' }}>
+        <div className="ticket-row-card__top">
+          <span className="kanban-card__id">
+            {ticket.has_unread_replies && <span className="kanban-card__unread" title="Unread replies" />}#{ticket.id}
+            {ticket.created_via === 'recurring' && <SyncOutlined title="Created by recurring ticket" />}
+            {ticket.created_via === 'automation' && <RobotOutlined title="Created by automation" />}
+          </span>
+          <PriorityBadge priority={ticket.priority} />
+          <StatusPill
+            color={statusColor}
+            title={statusTitle}
+            onClick={
+              onFilterByStatus
+                ? (e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onFilterByStatus(ticket.status)
+                  }
+                : undefined
+            }
+          />
+        </div>
+        <div className="ticket-row-card__title">{ticket.title}</div>
+        <div className="ticket-row-card__meta">
+          <span>by {ticket.by_label ?? ticket.creator_name ?? 'Unassigned'}</span>
           {ticket.due_date && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--kanban-card-muted)' }}>
-              <FlagOutlined style={{ fontSize: 12 }} />
-              Due {dayjs(ticket.due_date).format('MMM DD, YYYY')}
+            <span className={overdue ? 'is-overdue' : undefined}>
+              <FlagOutlined /> Due {dayjs(ticket.due_date).format('D MMM YYYY')}
             </span>
           )}
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--kanban-card-muted)' }}>
-            <ClockCircleOutlined style={{ fontSize: 12 }} />
-            Last update {dayjs(ticket.updated_at).format('MMM DD, YYYY')}
+          <span>
+            <ClockCircleOutlined /> Updated {dayjs(ticket.updated_at).format('D MMM YYYY')}
           </span>
           <Tooltip title={<TrackerTooltipContent stat={trackerStat} />} placement="top" mouseEnterDelay={0.2}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--kanban-card-muted)', cursor: 'default', userSelect: 'none' }}>
-              <FieldTimeOutlined style={{ fontSize: 12 }} />
-              {trackerStat && (trackerStat.today_seconds > 0 || trackerStat.yesterday_seconds > 0)
-                ? fmtHours(trackerStat.today_seconds)
-                : '0.0h'}
-              {trackerStat && trackerStat.active_trackers.length > 0 && (
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#52c41a', display: 'inline-block' }} />
-              )}
+            <span>
+              {trackerStat && trackerStat.active_trackers.length > 0 ? <span className="kanban-card__live" aria-hidden /> : <FieldTimeOutlined />}
+              {trackerStat && trackerStat.today_seconds > 0 ? fmtSeconds(trackerStat.today_seconds) : '0m'} today
             </span>
           </Tooltip>
+          {checklistTotal > 0 && (
+            <span className="ticket-row-card__checklist">
+              <span className="kanban-card__checklist-bar">
+                <span style={{ width: `${Math.round((checklistDone / checklistTotal) * 100)}%` }} />
+              </span>
+              {checklistDone}/{checklistTotal}
+            </span>
+          )}
         </div>
-        {Number(ticket.checklist_total) > 0 && (
-          <span style={{ marginTop: 4, fontSize: 12, color: 'var(--kanban-card-muted)' }}>
-            Checklist: {ticket.checklist_completed}/{ticket.checklist_total}
-          </span>
-        )}
-      </Flex>
+        {!isCustomer && ticket.short_note && <div className="kanban-card__note">{ticket.short_note}</div>}
       </a>
-      <Flex justify="flex-end" gap={6} align="center" wrap="wrap" style={{ flexShrink: 0 }}>
-        {ticket.priority != null && ticket.priority > 0 && (
-          <Tag style={kanbanTagStyle({ neutral: true })}>P{ticket.priority}</Tag>
-        )}
-        {ticket.team_name && (
-          <Tag style={kanbanTagStyle({ fillHex: KANBAN_SEMANTIC_BLUE })}>{ticket.team_name}</Tag>
-        )}
-        {ticket.type && (
-          <Tag
-            style={kanbanTagStyle({
-              ...(ticket.type.color ? { fillHex: ticket.type.color } : { neutral: true }),
-            })}
-          >
-            {ticket.type.title}
-          </Tag>
-        )}
-        {ticket.company && (
-          <Tag
-            style={kanbanTagStyle({
-              ...(ticket.company.color ? { fillHex: ticket.company.color } : { neutral: true }),
-              cursor: onFilterByCompany ? 'pointer' : undefined,
-            })}
-            title={onFilterByCompany ? 'Filter by this company' : undefined}
-            onClick={
-              onFilterByCompany
-                ? (e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    onFilterByCompany(ticket.company!.id)
-                  }
-                : undefined
-            }
-          >
-            {ticket.company.name}
-          </Tag>
-        )}
-        {ticket.tags?.map((t) => (
-          <Tag
-            key={t.id}
-            style={kanbanTagStyle({
-              ...(t.color ? { fillHex: t.color } : { neutral: true }),
-              cursor: onFilterByTag ? 'pointer' : undefined,
-            })}
-            title={onFilterByTag ? 'Filter by this tag' : undefined}
-            onClick={
-              onFilterByTag
-                ? (e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    onFilterByTag(t.id)
-                  }
-                : undefined
-            }
-          >
-            {t.name}
-          </Tag>
-        ))}
-        {onFilterByStatus ? (
-          <Tag
-            style={kanbanTagStyle({
-              fillHex: statusColor,
-              cursor: 'pointer',
-            })}
-            title="Filter by this status"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              onFilterByStatus(ticket.status)
-            }}
-          >
-            {statusTitle}
-          </Tag>
-        ) : (
-          <Tag style={kanbanTagStyle({ fillHex: statusColor })}>{statusTitle}</Tag>
-        )}
-        {Number(ticket.checklist_total) > 0 && (
-          <Tag style={kanbanTagStyle({ fillHex: KANBAN_SEMANTIC_GREEN })}>
-            Checklist: {ticket.checklist_completed}/{ticket.checklist_total}
-          </Tag>
-        )}
+
+      <div className="ticket-row-card__side">
+        <div className="ticket-row-card__chips">
+          {!isCustomer && ticket.company && (
+            <Chip
+              color={ticket.company.color}
+              title={onFilterByCompany ? 'Filter by this company' : undefined}
+              onClick={
+                onFilterByCompany
+                  ? (e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      onFilterByCompany(ticket.company!.id)
+                    }
+                  : undefined
+              }
+            >
+              {ticket.company.name}
+            </Chip>
+          )}
+          {ticket.type && <Chip color={ticket.type.color}>{ticket.type.title}</Chip>}
+          {ticket.team_name && <Chip>{ticket.team_name}</Chip>}
+          {ticket.tags?.map((t) => (
+            <Chip
+              key={t.id}
+              color={t.color}
+              title={onFilterByTag ? 'Filter by this tag' : undefined}
+              onClick={
+                onFilterByTag
+                  ? (e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      onFilterByTag(t.id)
+                    }
+                  : undefined
+              }
+            >
+              #{t.name}
+            </Chip>
+          ))}
+        </div>
         <Dropdown
           menu={{
             items: [
@@ -266,9 +204,9 @@ export default function CardViewCard({
           }}
           trigger={['click']}
         >
-          <Button type="text" size="small" icon={<MoreOutlined />} style={{ marginLeft: 4 }} />
+          <Button type="text" size="small" icon={<MoreOutlined />} aria-label="Ticket actions" />
         </Dropdown>
-      </Flex>
-    </Flex>
+      </div>
+    </article>
   )
 }

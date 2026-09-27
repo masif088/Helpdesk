@@ -18,16 +18,15 @@ import {
   Space,
   Switch,
   Table,
-  Tag,
   Tooltip,
 } from 'antd'
 import { useRouter } from 'next/navigation'
 import type { Key } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { KANBAN_SEMANTIC_BLUE, kanbanTagStyle } from '@/lib/kanban-tag-chip-style'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
+import { Chip, PriorityBadge, StatusPill } from './TicketChips'
 import type { StatusColumn, TicketRecord, TicketSortField, TicketSortOrder } from './types'
 import {
   sortTickets,
@@ -179,38 +178,36 @@ export default function TicketsListView({
       title: 'Company', dataIndex: ['company', 'name'], key: 'company', ellipsis: true,
       render: (_: unknown, record: TicketRecord) =>
         record.company ? (
-          <span
-            style={{ color: onFilterByCompany ? '#1677ff' : undefined, cursor: onFilterByCompany ? 'pointer' : undefined, textDecoration: onFilterByCompany ? 'underline' : undefined }}
+          <Chip
+            color={record.company.color}
             title={onFilterByCompany ? 'Filter by this company' : undefined}
             onClick={onFilterByCompany ? (e) => { e.stopPropagation(); onFilterByCompany(record.company!.id) } : undefined}
-          >{record.company.name}</span>
+          >{record.company.name}</Chip>
         ) : '—',
     },
     priority: {
       title: 'Priority', key: 'priority', width: 100, align: 'center' as const,
       render: (_: unknown, record: TicketRecord) =>
-        record.priority != null && record.priority > 0
-          ? <Tag style={kanbanTagStyle({ neutral: true })}>P{record.priority}</Tag>
-          : '—',
+        record.priority != null && record.priority > 0 ? <PriorityBadge priority={record.priority} /> : '—',
     },
     type: {
       title: 'Type', key: 'type', width: 140,
       render: (_: unknown, record: TicketRecord) =>
         record.type
-          ? <Tag style={kanbanTagStyle({ ...(record.type.color ? { fillHex: record.type.color } : { neutral: true }) })}>{record.type.title}</Tag>
+          ? <Chip color={record.type.color}>{record.type.title}</Chip>
           : '—',
     },
     tags: {
       title: 'Tags', key: 'tags', width: 300,
       render: (_: unknown, record: TicketRecord) =>
         record.tags?.length ? (
-          <Flex gap={6} wrap="wrap">
+          <Flex gap={4} wrap="wrap">
             {record.tags.map((t) => (
-              <Tag key={t.id}
-                style={kanbanTagStyle({ ...(t.color ? { fillHex: t.color } : { neutral: true }), cursor: onFilterByTag ? 'pointer' : undefined })}
+              <Chip key={t.id}
+                color={t.color}
                 title={onFilterByTag ? 'Filter by this tag' : undefined}
                 onClick={onFilterByTag ? (e) => { e.stopPropagation(); onFilterByTag(t.id) } : undefined}
-              >{t.name}</Tag>
+              >#{t.name}</Chip>
             ))}
           </Flex>
         ) : '—',
@@ -219,8 +216,8 @@ export default function TicketsListView({
       title: 'Due date', dataIndex: 'due_date', key: 'due_date', width: 200,
       render: (_: unknown, record: TicketRecord) =>
         record.due_date ? (
-          <span style={{ fontWeight: 700, fontSize: 11, color: new Date(record.due_date) < new Date() && !isClosedLikeTicketStatus(record.status) ? '#ff4d4f' : '#8c8c8c' }}>
-            {new Date(record.due_date).toLocaleDateString()}
+          <span className={`ticket-due${new Date(record.due_date) < new Date() && !isClosedLikeTicketStatus(record.status) ? ' is-overdue' : ''}`}>
+            {new Date(record.due_date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
           </span>
         ) : '—',
     },
@@ -228,7 +225,7 @@ export default function TicketsListView({
       title: 'Team', key: 'team', width: 160, ellipsis: true,
       render: (_: unknown, record: TicketRecord) =>
         record.team_name
-          ? <Tag style={kanbanTagStyle({ fillHex: KANBAN_SEMANTIC_BLUE })}>{record.team_name}</Tag>
+          ? <Chip>{record.team_name}</Chip>
           : '—',
     },
     status: {
@@ -237,11 +234,11 @@ export default function TicketsListView({
         const col = allStatusColumns.find((c) => c.id === status)
         if (!col) return status
         return (
-          <Tag
-            style={kanbanTagStyle({ fillHex: col.color, cursor: onFilterByStatus ? 'pointer' : undefined })}
-            title={onFilterByStatus ? 'Filter by this status' : undefined}
+          <StatusPill
+            color={col.color}
+            title={col.title}
             onClick={onFilterByStatus ? (e) => { e.stopPropagation(); onFilterByStatus(record.status) } : undefined}
-          >{col.title}</Tag>
+          />
         )
       },
     },
@@ -320,11 +317,13 @@ export default function TicketsListView({
           <Button size="small" icon={<SettingOutlined />}>Columns</Button>
         </Popover>
       </Flex>
+    <div className="ticket-surface" style={{ margin: '0 24px' }}>
     <Table
       rowKey="id"
+      className="ticket-table"
       dataSource={sortedTickets}
       scroll={{ x: 'max-content' }}
-      style={{ width: '100%', paddingRight: 24, paddingLeft: 24 }}
+      style={{ width: '100%' }}
       rowSelection={
         bulkEnabled
           ? {
@@ -347,17 +346,17 @@ export default function TicketsListView({
       }}
       size="middle"
       columns={[
-        { title: '#', dataIndex: 'id', key: 'id', width: 72, align: 'center', render: (id: number) => <span style={{ color: '#8c8c8c', fontWeight: 500 }}>#{id}</span> },
+        { title: '#', dataIndex: 'id', key: 'id', width: 72, align: 'center', render: (id: number) => <span className="kanban-card__id">#{id}</span> },
         {
           title: 'Title', dataIndex: 'title', key: 'title', ellipsis: true,
           render: (title: string, record: TicketRecord) => (
-            <a href={`/tickets/${record.id}`} style={{ cursor: 'pointer', color: '#1677ff', padding: 0, height: 'auto', textDecoration: 'underline' }}
+            <a href={`/tickets/${record.id}`} className="ticket-table__title"
               onClick={(e) => { if (e.button !== 0 || e.ctrlKey || e.metaKey) return; e.preventDefault(); router.push(`/tickets/${record.id}`) }}>
-              {record.has_unread_replies && <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#ff4d4f', marginRight: 6, verticalAlign: 'middle' }} title="Unread replies" />}
+              {record.has_unread_replies && <span className="kanban-card__unread" style={{ display: 'inline-block', marginRight: 6, verticalAlign: 'middle' }} title="Unread replies" />}
               {title && title.length > 50 ? title.slice(0, 50) + '...' : title}
               {record.created_via === 'recurring' && <SyncOutlined title="Created by recurring ticket" style={{ fontSize: 11, color: '#0E7490', marginLeft: 6, verticalAlign: 'middle' }} />}
               {record.created_via === 'automation' && <RobotOutlined title="Created by automation" style={{ fontSize: 11, color: '#0E7490', marginLeft: 6, verticalAlign: 'middle' }} />}
-              {!isCustomer && record.short_note && <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2, lineHeight: 1.3 }}>{record.short_note}</div>}
+              {!isCustomer && record.short_note && <div className="kanban-card__note" style={{ marginTop: 2 }}>{record.short_note}</div>}
             </a>
           ),
         },
@@ -381,6 +380,7 @@ export default function TicketsListView({
         },
       ]}
     />
+    </div>
   </div>
 )
 }

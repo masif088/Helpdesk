@@ -1,7 +1,7 @@
 'use client'
 
 import { DeleteOutlined, EditOutlined, MoreOutlined } from '@ant-design/icons'
-import { Button, Dropdown, Flex, Modal, Table, Tooltip, Typography } from 'antd'
+import { Button, Dropdown, Flex, Modal, Table, Tooltip} from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -15,6 +15,7 @@ import { DEFAULT_ALL_STATUS_COLUMNS, sortTickets, TICKETS_LIST_SORT_BY, TICKETS_
 interface RoundRobinRow {
   key: string
   companyName: string
+  companyColor: string | null
   company: string
   tickets: TicketRecord[]
 }
@@ -109,21 +110,25 @@ export default function TicketsRoundRobinView({
         const stat = companyStats.get(row.company)
         const amName = stat?.active_manager_name ?? null
         return (
-          <div>
-            <Typography.Text strong style={{ whiteSpace: 'nowrap' }}>
-              {row.companyName}
-              {stat && stat.active_time_hours > 0 && (
-                <span style={{ fontWeight: 400, color: 'var(--ant-color-text-secondary, #8c8c8c)', marginLeft: 4 }}>
-                  ({stat.active_time_hours})
-                </span>
-              )}
-            </Typography.Text>
-            {stat && (
-              <div style={{ fontSize: 11, color: 'var(--ant-color-text-secondary, #8c8c8c)', marginTop: 2 }}>
-                Total Spend Time : {fmtSeconds(stat.today_seconds)}
-                {'  '}AM: {amName ?? 'NA'}
+          <div className="rr-company">
+            <span
+              className="rr-company__mark"
+              style={row.companyColor ? { background: row.companyColor } : undefined}
+              aria-hidden
+            >
+              {row.companyName.trim().charAt(0).toUpperCase()}
+            </span>
+            <div style={{ minWidth: 0 }}>
+              <div className="rr-company__name">
+                {row.companyName}
+                {stat && stat.active_time_hours > 0 && <span className="rr-company__hours">{stat.active_time_hours}h plan</span>}
               </div>
-            )}
+              {stat && (
+                <div className="rr-company__meta">
+                  {fmtSeconds(stat.today_seconds)} today · AM {amName ?? '—'}
+                </div>
+              )}
+            </div>
           </div>
         )
       },
@@ -136,8 +141,7 @@ export default function TicketsRoundRobinView({
       render: (_: unknown, row: RoundRobinRow) => {
         const ticket = row.tickets[i]
         if (!ticket) return null
-        const bgColor = getStatusColor(ticket.status, statusColumns)
-        const textColor = ticket.type?.color ?? '#000'
+        const statusColor = getStatusColor(ticket.status, statusColumns)
         const tStat = ticketStats.get(ticket.id)
         const tooltipContent = (
           <div style={{ fontSize: 12, lineHeight: 1.6 }}>
@@ -177,29 +181,15 @@ export default function TicketsRoundRobinView({
                     router.push(`/tickets/${ticket.id}`)
                   }
                 }}
-                style={{
-                  display: 'inline-block',
-                  textDecoration: 'none',
-                  backgroundColor: bgColor,
-                  color: textColor,
-                  padding: '4px 8px',
-                  borderRadius: 40,
-                  cursor: 'pointer',
-                  margin: 0,
-                  maxWidth: 100,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  fontSize: 12,
-                  flex: 1,
-                  minWidth: 100,
-                }}
+                className="rr-pill"
+                style={{ ['--rr-accent' as string]: statusColor }}
               >
+                <span className="rr-pill__dot" aria-hidden />
                 #{ticket.id}
+                {ticket.priority != null && ticket.priority > 0 && <span className="rr-pill__prio">P{ticket.priority}</span>}
               </a>
               </Tooltip>
-              <p style={{ fontSize: 9, margin: 0, padding: 0 }}>
-              {ticket.short_note}
-            </p>
+              {ticket.short_note ? <p className="rr-note">{ticket.short_note}</p> : null}
               </div>
               <Dropdown
                 menu={{
@@ -253,21 +243,24 @@ export default function TicketsRoundRobinView({
     return {
       key: String(cid),
       companyName,
+      companyColor: first?.company?.color ?? null,
       company: String(cid),
       tickets: companyTickets,
     }
   })
 
   return (
-    <div style={{ padding: 24, overflowX: 'auto' }}>
-      <Table
-        dataSource={dataSource}
-        columns={columns}
-        pagination={false}
-        size="small"
-        scroll={{ x: 'max-content' }}
-        bordered
-      />
+    <div style={{ padding: '0 24px 24px', overflowX: 'auto' }}>
+      <div className="ticket-surface">
+        <Table
+          className="ticket-table rr-table"
+          dataSource={dataSource}
+          columns={columns}
+          pagination={false}
+          size="small"
+          scroll={{ x: 'max-content' }}
+        />
+      </div>
     </div>
   )
 }

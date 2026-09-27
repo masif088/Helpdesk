@@ -103,9 +103,9 @@ export default function TicketsCardView({
 
   return (
     <div style={{ width: '100%' }}>
-      <Row gutter={24} style={{ paddingRight: 24, paddingLeft: 24 }}>
+      <Row gutter={24} style={{ paddingRight: 24, paddingLeft: 24, rowGap: 0 }}>
         {paged.map((ticket) => (
-          <Col span={24} style={{ marginBottom: 12 }} key={ticket.id}>
+          <Col span={24} style={{ marginBottom: 10 }} key={ticket.id}>
             <CardViewCard
               ticket={ticket}
               allStatusColumns={allStatusColumns}

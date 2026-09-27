@@ -1,7 +1,7 @@
 'use client'
 
 import { AppstoreOutlined, FilterOutlined, IdcardOutlined, PlusOutlined, ReloadOutlined, SearchOutlined, SettingOutlined, TeamOutlined, UnorderedListOutlined } from '@ant-design/icons'
-import { Badge, Button, ConfigProvider, Flex, Input, Popover, Segmented, Select, Space, Switch, theme, Tooltip, Typography } from 'antd'
+import { Button, ConfigProvider, Flex, Input, Popover, Segmented, Select, Space, Switch, theme, Tooltip, Typography } from 'antd'
 import { useState } from 'react'
 
 import { TICKETS_PAGE_LIMIT_OPTIONS, type TicketsPageLimit } from '@/lib/tickets-list-query'
@@ -174,22 +174,23 @@ export default function TicketsHeader({
               )}
             </Flex>
             <Flex gap={8} align="center">
-              {onToggleFilters && (
-                <Badge dot={hasActiveFilters && !filtersOpen} offset={[-4, 4]}>
-                  <Button
-                    icon={<FilterOutlined />}
-                    type={filtersOpen ? 'primary' : 'default'}
-                    ghost={filtersOpen}
-                    onClick={onToggleFilters}
-                    aria-pressed={filtersOpen}
-                  >
-                    Filters
-                  </Button>
-                </Badge>
-              )}
               <Button type="primary" icon={<PlusOutlined />} onClick={onCreateClick} loading={loading}>
                 Add Ticket
               </Button>
+              {onToggleFilters && (
+                <Tooltip title={filtersOpen ? 'Hide filters' : hasActiveFilters ? 'Filters applied — show' : 'Show filters'}>
+                  <button
+                    type="button"
+                    className={`filters-toggle${filtersOpen ? ' is-open' : ''}${hasActiveFilters ? ' has-filters' : ''}`}
+                    onClick={onToggleFilters}
+                    aria-pressed={filtersOpen}
+                  >
+                    <FilterOutlined />
+                    <span>Filters</span>
+                    {hasActiveFilters && <span className="filters-toggle__dot" aria-label="filters applied" />}
+                  </button>
+                </Tooltip>
+              )}
             </Flex>
           </Flex>
         )}

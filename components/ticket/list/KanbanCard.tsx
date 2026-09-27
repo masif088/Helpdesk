@@ -19,9 +19,9 @@ import { type ReactNode, useEffect, useState } from 'react'
 
 import type { TicketTrackerStat } from '@/app/api/tickets/ticket-time-stats/route'
 import DateDisplay from '@/components/common/DateDisplay'
-import { hexAccentToRgba, normalizeAccentHex } from '@/lib/kanban-tag-chip-style'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
+import { Chip } from './TicketChips'
 import type { StatusColumn, TicketRecord } from './types'
 
 function fmtSeconds(s: number): string {
@@ -67,30 +67,6 @@ export type KanbanTimerProps = {
   busy: boolean
   onStart: (jobType: string) => void
   onStop: (sessionId: string) => void
-}
-
-function Chip({
-  color,
-  children,
-  onClick,
-  title,
-}: {
-  color?: string | null
-  children: ReactNode
-  onClick?: (e: React.MouseEvent) => void
-  title?: string
-}) {
-  const accent = color ? normalizeAccentHex(color) : null
-  return (
-    <span
-      className={`kanban-chip${onClick ? ' is-clickable' : ''}`}
-      title={title}
-      onClick={onClick}
-      style={accent ? { color: accent, background: hexAccentToRgba(accent, 0.12) } : undefined}
-    >
-      {children}
-    </span>
-  )
 }
 
 function TimerControl({ timer }: { timer: KanbanTimerProps }) {

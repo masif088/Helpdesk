@@ -1151,6 +1151,189 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
   background: #fff;
   animation: kanban-pulse 1.4s ease-in-out infinite;
 }
+/* Shared ticket list parts: status pill, due date, surfaces (List / Card / Round Robin) */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--kanban-card-title);
+  white-space: nowrap;
+}
+.status-pill.is-clickable { cursor: pointer; }
+.status-pill__dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.ticket-due { font-size: 12px; font-weight: 600; color: var(--kanban-card-muted); }
+.ticket-due.is-overdue { color: #DC2626; }
+.ticket-surface {
+  background: var(--kanban-card-bg);
+  border: 1px solid var(--kanban-card-border);
+  border-radius: 16px;
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+.ticket-table .ant-table { background: transparent; }
+.ticket-table .ant-table-thead > tr > th {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--kanban-card-muted) !important;
+}
+.ticket-table .ant-table-pagination { padding: 0 16px; }
+.ticket-table__title {
+  color: var(--kanban-card-title) !important;
+  font-weight: 600;
+  text-decoration: none;
+}
+.ticket-table__title:hover { color: var(--brand-primary) !important; }
+
+/* Card view row */
+.ticket-row-card {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  padding: 14px 14px 14px 20px;
+  background: var(--kanban-card-bg);
+  border: 1px solid var(--kanban-card-border);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.ticket-row-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--row-accent);
+}
+.ticket-row-card:hover {
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.1);
+  border-color: color-mix(in srgb, var(--brand-primary) 35%, var(--kanban-card-border));
+}
+.ticket-row-card__main { flex: 1; min-width: 0; color: inherit !important; text-decoration: none; }
+.ticket-row-card__top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ticket-row-card__title {
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.4;
+  color: var(--kanban-card-title);
+}
+.ticket-row-card__main:hover .ticket-row-card__title { color: var(--brand-primary); }
+.ticket-row-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--kanban-card-muted);
+}
+.ticket-row-card__meta > span { display: inline-flex; align-items: center; gap: 5px; }
+.ticket-row-card__meta .is-overdue { color: #DC2626; font-weight: 700; }
+.ticket-row-card__checklist .kanban-card__checklist-bar { width: 60px; flex: none; }
+.ticket-row-card__side { display: flex; align-items: flex-start; gap: 6px; flex-shrink: 0; max-width: 45%; }
+.ticket-row-card__chips { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+
+/* Round Robin */
+.rr-company { display: flex; align-items: center; gap: 10px; }
+.rr-company__mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: #fff;
+  background: var(--brand-primary);
+}
+.rr-company__name { font-weight: 650; white-space: nowrap; color: var(--kanban-card-title); }
+.rr-company__hours {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 6px;
+  color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+}
+.rr-company__meta { font-size: 11px; color: var(--kanban-card-muted); margin-top: 2px; }
+.rr-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 96px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  color: var(--kanban-card-title) !important;
+  background: color-mix(in srgb, var(--rr-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--rr-accent) 40%, transparent);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.rr-pill:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12); }
+.rr-pill__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--rr-accent); }
+.rr-pill__prio { font-size: 10px; font-weight: 700; color: var(--kanban-card-muted); }
+.rr-note {
+  max-width: 120px;
+  margin: 3px 0 0;
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--kanban-card-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Filters toggle — states: normal, filters applied, panel open */
+.filters-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--ticket-nav-icon-btn-border);
+  background: var(--kanban-card-bg);
+  color: var(--kanban-card-title);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.filters-toggle:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+.filters-toggle.has-filters {
+  background: var(--brand-primary-soft);
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+}
+.filters-toggle.is-open {
+  background: #0F172A;
+  border-color: #0F172A;
+  color: #fff;
+}
+.filters-toggle__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-accent);
+  box-shadow: 0 0 0 2px var(--kanban-card-bg);
+}
+
 @keyframes kanban-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
