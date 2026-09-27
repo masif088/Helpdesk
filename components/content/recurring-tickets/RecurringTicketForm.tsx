@@ -23,10 +23,6 @@ import dayjs from 'dayjs'
 import { useEffect, useState } from 'react'
 
 import { normalizeSpecificDates } from '@/lib/recurring-ticket-schedule'
-import {
-  DEFAULT_RECURRING_VISIBILITY,
-  TICKET_VISIBILITY_OPTIONS,
-} from '@/lib/ticket-visibility'
 
 import type { RecurringTicketRow } from './RecurringTicketsContent'
 
@@ -161,7 +157,6 @@ export default function RecurringTicketForm({ initialValues, onSaved, onCancel }
         end_date: initialValues.endDate ? dayjs(initialValues.endDate) : null,
         ticket_status: initialValues.ticketStatus ?? 'open',
         ticket_priority: initialValues.ticketPriority || null,
-        visibility: initialValues.visibility ?? DEFAULT_RECURRING_VISIBILITY,
         company_id: initialValues.companyId ?? null,
         team_id: initialValues.teamId ?? null,
         ticket_type_id: initialValues.ticketTypeId ?? null,
@@ -179,7 +174,6 @@ export default function RecurringTicketForm({ initialValues, onSaved, onCancel }
         start_date: dayjs(),
         ticket_status: 'open',
         ticket_priority: null,
-        visibility: DEFAULT_RECURRING_VISIBILITY,
       })
     }
   }, [initialValues, form])
@@ -202,7 +196,6 @@ export default function RecurringTicketForm({ initialValues, onSaved, onCancel }
         end_date: values.end_date ? (values.end_date as dayjs.Dayjs).format('YYYY-MM-DD') : null,
         ticket_status: values.ticket_status || 'open',
         ticket_priority: values.ticket_priority || null,
-        visibility: values.visibility ?? DEFAULT_RECURRING_VISIBILITY,
         company_id: values.company_id || null,
         team_id: values.team_id || null,
 

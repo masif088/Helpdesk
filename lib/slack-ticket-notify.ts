@@ -6,7 +6,6 @@ import {
   get,
   slackTicketNotificationRules,
   teams,
-  ticketPriorities,
   tickets,
   ticketTags,
   ticketTypes,
@@ -26,7 +25,6 @@ export type SlackNotifyRuleFilter = {
   on_tag_added?: boolean
   /** Non-empty = ticket must match one of these (null field on ticket = no match) */
   team_ids?: string[]
-  priority_ids?: number[]
   company_ids?: string[]
   type_ids?: number[]
   /**
@@ -77,13 +75,9 @@ async function matchesDimensions(
   event: SlackTicketNotifyEvent,
   ticketTagIds: string[]
 ): Promise<boolean> {
-  const { team_ids, priority_ids, company_ids, type_ids, to_status_slugs, tag_ids, account_manager_ids } = filter
+  const { team_ids, company_ids, type_ids, to_status_slugs, tag_ids, account_manager_ids } = filter
   if (team_ids && team_ids.length > 0) {
     if (!ticket.teamId || !team_ids.includes(ticket.teamId)) return false
-  }
-  if (priority_ids && priority_ids.length > 0) {
-    if (ticket.priority == null) return false
-    if (!priority_ids.includes(ticket.priority)) return false
   }
   if (company_ids && company_ids.length > 0) {
     if (!ticket.companyId || !company_ids.includes(ticket.companyId)) return false
@@ -182,13 +176,7 @@ async function loadLabels(ticket: SlackTicketPayload): Promise<{
     )
   }
   if (ticket.priority != null && ticket.priority !== undefined) {
-    const pRank = ticket.priority
-    jobs.push(
-      (async () => {
-        const match = (await findOneBy(ticketPriorities, { sortOrder: pRank })) ?? (await get(ticketPriorities, pRank))
-        out.priority = match?.title?.trim() ? match.title : `Level ${pRank}`
-      })()
-    )
+    out.priority = `P${ticket.priority}`
   }
   if (ticket.typeId != null) {
     jobs.push(

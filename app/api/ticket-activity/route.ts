@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { isAdmin } from '@/lib/auth-utils'
 import { getCustomerCompanyId } from '@/lib/customer-company'
 import { customerTicketsAccessPredicate } from '@/lib/customer-ticket-access'
 import {
@@ -19,7 +18,6 @@ import {
   type UsersRow,
 } from '@/lib/fsdb'
 import { TICKET_ACTIVITY_ACTIONS, type TicketActivityAction } from '@/lib/ticket-activity-actions'
-import { buildTicketVisibilityPredicate } from '@/lib/ticket-visibility-server'
 
 const DEFAULT_LIMIT = 50
 const MAX_LIMIT = 100
@@ -29,7 +27,7 @@ const MAX_SCAN = 10_000
 type Joined = { log: TicketActivityLogRow; ticket: TicketsRow; actor: UsersRow | null }
 
 /**
- * GET /api/ticket-activity — recent ticket_activity_log rows scoped like GET /api/tickets (company / visibility).
+ * GET /api/ticket-activity — recent ticket_activity_log rows scoped like GET /api/tickets (customers: own company).
  * Query: limit, offset, action (TicketActivityAction), search (ticket id, title, actor, metadata text)
  */
 export async function GET(request: Request) {
@@ -63,9 +61,7 @@ export async function GET(request: Request) {
   let ticketAllowed: ((t: TicketsRow) => boolean) | null = null
   if (role === 'customer') {
     const companyId = await getCustomerCompanyId(userId)
-    ticketAllowed = await customerTicketsAccessPredicate(userId, companyId)
-  } else if (!isAdmin(role)) {
-    ticketAllowed = await buildTicketVisibilityPredicate(userId, role)
+    ticketAllowed = customerTicketsAccessPredicate(userId, companyId)
   }
 
   const matchesSearch = (j: Joined): boolean => {

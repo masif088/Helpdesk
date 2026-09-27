@@ -30,7 +30,6 @@ export interface TicketRecord {
   contact_user_id?: string | null
   due_date: string | null
   status: string
-  visibility: 'private' | 'team' | 'specific_users' | 'public'
   team_id: string | null
   type_id: number | null
   /** DB ticket_type: support | spam | trash (not ticket_types / type_id) */
@@ -135,27 +134,6 @@ export function darkenColor(hex: string, percent: number = 30): string {
   const g = Math.max(0, Math.round(parseInt(hex.slice(2, 4), 16) * (1 - percent / 100)))
   const b = Math.max(0, Math.round(parseInt(hex.slice(4, 6), 16) * (1 - percent / 100)))
   return '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('')
-}
-
-export function getVisibilityColor(visibility: string): string {
-  switch (visibility) {
-  case 'public':
-  case 'team':
-    return 'green'
-  case 'private':
-  case 'specific_users':
-    return 'default'
-  case 'account_manager':
-    return 'blue'
-  case 'team_leader':
-    return 'geekblue'
-  case 'admin':
-    return 'purple'
-  case 'project_manager':
-    return 'cyan'
-  default:
-    return 'default'
-  }
 }
 
 export type TicketSortField = 'id' | 'title' | 'priority' | 'due_date' | 'updated_at' | 'created_at' | 'company'

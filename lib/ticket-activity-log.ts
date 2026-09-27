@@ -26,7 +26,6 @@ export type TicketActivitySnapshot = {
   description: string | null
   shortNote: string | null
   status: string
-  visibility: string
   teamId: string | null
   typeId: number | null
   /** support | spam | trash */
@@ -57,7 +56,6 @@ export async function loadTicketActivitySnapshot(
     description: t.description ?? null,
     shortNote: t.shortNote ?? null,
     status: t.status,
-    visibility: t.visibility,
     teamId: t.teamId ?? null,
     typeId: t.typeId ?? null,
     ticketType: t.ticketType ?? 'support',
@@ -80,7 +78,6 @@ export function diffTicketSnapshots(
     'description',
     'shortNote',
     'status',
-    'visibility',
     'teamId',
     'typeId',
     'ticketType',

@@ -1,5 +1,5 @@
 /**
- * Seed Firestore: ticket_statuses, ticket_types, ticket_priorities, job_types, users (+ Firebase Auth accounts).
+ * Seed Firestore: ticket_statuses, ticket_types, job_types, users (+ Firebase Auth accounts).
  * Run: npm run db:seed
  *
  * Env:
@@ -14,7 +14,7 @@ import 'dotenv/config'
 
 import { createAppUser, findUserByEmail } from '../lib/app-users'
 import { isFirebaseAdminConfigured } from '../lib/firebase/admin'
-import { count, insertMany, jobTypes, removeWhere, ticketPriorities, ticketStatuses, ticketTypes } from '../lib/fsdb'
+import { count, insertMany, jobTypes, removeWhere, ticketStatuses, ticketTypes } from '../lib/fsdb'
 
 const STATUSES = [
   { slug: 'open', title: 'Open', customerTitle: 'Ticket received', description: 'Ticket has been received and is in the queue.', color: '#F1C232', showInKanban: true, sortOrder: 1 },
@@ -51,17 +51,6 @@ async function seedTicketTypes() {
     { slug: 'support', title: 'Support', color: '#fa8c16', sortOrder: 4 },
   ])
   console.log('Created ticket_types: bug, feature, task, support')
-}
-
-async function seedTicketPriorities() {
-  if ((await count(ticketPriorities)) > 0) return
-  await insertMany(ticketPriorities, [
-    { slug: 'urgent', title: 'Urgent', color: '#ff4d4f', sortOrder: 1 },
-    { slug: 'high', title: 'High', color: '#fa8c16', sortOrder: 2 },
-    { slug: 'medium', title: 'Medium', color: '#1890ff', sortOrder: 3 },
-    { slug: 'low', title: 'Low', color: '#8c8c8c', sortOrder: 4 },
-  ])
-  console.log('Created ticket_priorities: urgent, high, medium, low')
 }
 
 async function seedJobTypes() {
@@ -138,7 +127,6 @@ async function main() {
 
   await seedTicketStatuses()
   await seedTicketTypes()
-  await seedTicketPriorities()
   await seedJobTypes()
   await seedUsers()
 }

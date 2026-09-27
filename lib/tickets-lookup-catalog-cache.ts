@@ -5,7 +5,6 @@ import {
   find,
   tags,
   teams,
-  ticketPriorities,
   ticketStatuses,
   ticketTypes,
   users,
@@ -24,7 +23,6 @@ async function loadTicketsLookupCatalog() {
     teamsData,
     usersData,
     ticketTypesData,
-    ticketPrioritiesData,
     companiesData,
     tagsData,
     statusesData,
@@ -32,7 +30,6 @@ async function loadTicketsLookupCatalog() {
     find(teams, { orderBy: [['name', 'asc']] }),
     find(users, { orderBy: [['fullName', 'asc']] }),
     find(ticketTypes, { orderBy: [['sortOrder', 'asc']] }),
-    find(ticketPriorities, { orderBy: [['sortOrder', 'asc']] }),
     find(companies, { orderBy: [['name', 'asc']] }),
     find(tags, { orderBy: [['name', 'asc']] }),
     find(ticketStatuses, { orderBy: [['sortOrder', 'asc']] }),
@@ -54,13 +51,6 @@ async function loadTicketsLookupCatalog() {
       color: t.color,
       isAgentOnly: t.isAgentOnly,
     })),
-    ticketPriorities: ticketPrioritiesData.map((p) => ({
-      id: p.id,
-      title: p.title,
-      slug: p.slug,
-      color: p.color,
-      sortOrder: p.sortOrder,
-    })),
     companies: companiesData.map((c) => ({ id: c.id, name: c.name, color: c.color, email: c.email })),
     tags: tagsData.map((t) => ({ id: t.id, name: t.name, slug: t.slug, color: t.color })),
     statuses: statusesData.map((s) => ({
@@ -78,12 +68,12 @@ async function loadTicketsLookupCatalog() {
 }
 
 /**
- * Shared catalog for `/api/tickets/lookup` (teams, users, types, priorities, companies, tags, statuses).
+ * Shared catalog for `/api/tickets/lookup` (teams, users, types, companies, tags, statuses).
  * Time-based revalidation lowers Firestore reads; user-specific slices stay uncached in the route.
  */
 export const TICKETS_LOOKUP_CATALOG_TAG = 'tickets-lookup-catalog' as const
 
-/** Call after mutating teams, users, companies, tags, ticket types/priorities/statuses. */
+/** Call after mutating teams, users, companies, tags, ticket types/statuses. */
 export function revalidateTicketsLookupCatalog() {
   revalidateTag(TICKETS_LOOKUP_CATALOG_TAG, { expire: 0 })
 }

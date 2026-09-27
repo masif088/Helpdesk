@@ -40,7 +40,6 @@ export async function GET() {
       teams: visibleTeams,
       users: catalog.users,
       ticketTypes: ticketTypesFiltered,
-      ticketPriorities: catalog.ticketPriorities,
       companies: catalog.companies,
       tags: catalog.tags,
       statuses: catalog.statuses,

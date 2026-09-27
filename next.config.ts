@@ -15,7 +15,6 @@ const nextConfig: NextConfig = {
     const legacySettings = [
       "ticket-statuses",
       "ticket-types",
-      "ticket-priorities",
       "tags",
       "email-integration",
       "slack-notifications",

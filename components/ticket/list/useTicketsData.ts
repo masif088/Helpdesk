@@ -977,10 +977,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
     setEditingTicket(record)
     setNewTicketAttachments([])
     setDeletedTicketAttachmentIds([])
-    let assigneeIds = record.assignees?.map((a) => a.user_id) || []
-    if (record.visibility === 'specific_users' && record.created_by && !assigneeIds.includes(record.created_by)) {
-      assigneeIds = [record.created_by, ...assigneeIds]
-    }
+    const assigneeIds = record.assignees?.map((a) => a.user_id) || []
     setSelectedAssignees(assigneeIds)
     setSelectedTagIds(record.tags?.map((t) => t.id) || [])
     form.setFieldsValue({
@@ -1090,7 +1087,6 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
       const effectiveValues = { ...values }
       if (isCustomer && !editingTicket) {
         effectiveValues.status = newTicketDefaultStatus
-        effectiveValues.visibility = 'public'
         effectiveValues.company_id = userCompanyId ?? null
       }
 
@@ -1198,7 +1194,6 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
         const createPayload = {
           ...sharedBody,
           status: newTicketDefaultStatus,
-          visibility: 'public',
           description: values.description || null,
           tag_ids: selectedTagIds,
           contact_user_id: effectiveValues.contact_user_id ?? null,
@@ -1241,7 +1236,6 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
           contact_user_id: (effectiveValues.contact_user_id as string | undefined) ?? null,
           due_date: effectiveValues.due_date ? (effectiveValues.due_date as dayjs.Dayjs).toISOString() : null,
           status: newTicketDefaultStatus as TicketRecord['status'],
-          visibility: 'public',
           team_id: teamId ?? null,
           type_id: typeId ?? null,
           priority: priorityVal,

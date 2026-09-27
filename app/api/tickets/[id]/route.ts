@@ -65,7 +65,6 @@ async function triggerTicketUpdatedAutomation(ticketId: number) {
       company_id: row.t.companyId,
       created_via: row.t.createdVia,
       team_id: row.t.teamId,
-      visibility: row.t.visibility,
       assignee_ids: assigneeRows.map((r) => r.userId),
     })
   } catch (err) {
@@ -369,7 +368,6 @@ export async function PATCH(
     description,
     short_note,
     status,
-    visibility,
     team_id,
     type_id,
     priority,
@@ -506,7 +504,6 @@ export async function PATCH(
     ...(description !== undefined && { description }),
     ...(short_note !== undefined && { shortNote: short_note ?? null }),
     ...(status !== undefined && { status }),
-    ...(visibility !== undefined && { visibility }),
     ...(team_id !== undefined && { teamId: team_id || null }),
     ...(type_id !== undefined && { typeId: type_id ?? null }),
     ...(closingForSupportQueue && { priority: null }),

@@ -56,7 +56,6 @@ function serializeProjectBoardTicket(
     contact_user_id: t.contactUserId ?? null,
     due_date: t.dueDate ? new Date(t.dueDate).toISOString() : null,
     status: statusKey,
-    visibility: t.visibility as 'private' | 'team' | 'specific_users' | 'public',
     team_id: t.teamId,
     type_id: t.typeId,
     ticket_type: t.ticketType ?? 'project',

@@ -30,7 +30,6 @@ import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import { useSession } from '@/lib/auth-client'
 import { normalizeSpecificDates } from '@/lib/recurring-ticket-schedule'
-import { DEFAULT_RECURRING_VISIBILITY } from '@/lib/ticket-visibility'
 
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false })
 
@@ -131,7 +130,6 @@ export interface RecurringTicketFormValues {
   nextRunAt: string | null
   ticketStatus: string | null
   ticketPriority: number | null
-  visibility: string | null
   companyId: string | null
   teamId: string | null
   ticketTypeId: number | string | null
@@ -198,7 +196,6 @@ export default function RecurringTicketFormPage({ initialValues }: Props) {
         end_date: initialValues.endDate ? dayjs(initialValues.endDate) : null,
         ticket_status: initialValues.ticketStatus ?? 'open',
         ticket_priority: initialValues.ticketPriority || null,
-        visibility: initialValues.visibility ?? DEFAULT_RECURRING_VISIBILITY,
         company_id: initialValues.companyId ?? null,
         team_id: initialValues.teamId ?? null,
         ticket_type_id: initialValues.ticketTypeId ?? null,
@@ -216,7 +213,6 @@ export default function RecurringTicketFormPage({ initialValues }: Props) {
         start_date: dayjs(),
         ticket_status: 'open',
         ticket_priority: null,
-        visibility: DEFAULT_RECURRING_VISIBILITY,
       })
     }
   }, [initialValues, form])
@@ -237,7 +233,6 @@ export default function RecurringTicketFormPage({ initialValues }: Props) {
         end_date: values.end_date ? (values.end_date as dayjs.Dayjs).format('YYYY-MM-DD') : null,
         ticket_status: values.ticket_status || 'open',
         ticket_priority: values.ticket_priority || null,
-        visibility: values.visibility ?? DEFAULT_RECURRING_VISIBILITY,
         company_id: values.company_id || null,
         team_id: values.team_id || null,
         ticket_type_id: values.ticket_type_id || null,

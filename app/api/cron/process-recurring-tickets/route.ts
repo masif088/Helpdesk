@@ -62,7 +62,6 @@ export async function POST(req: NextRequest) {
           teamId: rule.teamId ?? null,
           companyId: rule.companyId ?? null,
           typeId: rule.ticketTypeId ?? null,
-          visibility: rule.visibility ?? 'team',
           createdBy: rule.createdBy ?? null,
           contactUserId: rule.contactUserId ?? null,
           createdVia: 'recurring',

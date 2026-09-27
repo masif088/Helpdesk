@@ -18,7 +18,6 @@ import {
   ticketAssignees,
   ticketChecklist,
   ticketComments,
-  ticketPriorities,
   tickets,
   type TicketsRow,
   ticketStatuses,
@@ -53,8 +52,6 @@ export interface TicketContext {
   status?: string | null
   /** Integer ticket Priority value */
   priority?: number | null
-  /** @deprecated Mapped from priority for legacy automation rules */
-  priority_slug?: string | null
   /** Ticket type slug (ticket_types.slug), for conditions e.g. Type = bug */
   type_slug?: string | null
   /** Row ticket_type: support | spam | trash */
@@ -62,7 +59,6 @@ export interface TicketContext {
   company_id?: string | null
   created_via?: string | null
   team_id?: string | null
-  visibility?: string | null
   sender_email?: string | null
   sender_domain?: string | null
   assignee_ids?: string[]
@@ -131,12 +127,8 @@ function evalLeaf(leaf: OurConditionLeaf, ctx: TicketContext): boolean {
           .filter((n) => !Number.isNaN(n))
         return list.length === 0 || Number.isNaN(actNum) || !list.includes(actNum)
       }
-      default: {
-        const slug = (ctx.priority_slug ?? '').toLowerCase()
-        const expectStr = String(expectVal ?? '').toLowerCase()
-        if (slug) return slug === expectStr
-        return String(ctx.priority ?? '').toLowerCase() === expectStr
-      }
+      default:
+        return String(ctx.priority ?? '').toLowerCase() === String(expectVal ?? '').toLowerCase()
     }
   }
 
@@ -251,25 +243,17 @@ export async function loadAutomationTicketContext(ticketId: number): Promise<Tic
   const [type, assigneeRows] = await Promise.all([get(ticketTypes, t.typeId), findBy(ticketAssignees, { ticketId })])
   const row = { typeSlug: type?.slug ?? null }
 
-  let prioritySlug: string | null = null
-  if (t.priority != null) {
-    const pr = (await findOneBy(ticketPriorities, { sortOrder: t.priority })) ?? (await get(ticketPriorities, t.priority))
-    prioritySlug = pr?.slug ?? null
-  }
-
   return {
     id: t.id,
     title: t.title,
     description: t.description,
     status: t.status,
     priority: t.priority ?? 0,
-    priority_slug: prioritySlug,
     type_slug: row.typeSlug ?? null,
     ticket_type: coerceTicketType(t.ticketType),
     company_id: t.companyId,
     created_via: t.createdVia,
     team_id: t.teamId,
-    visibility: t.visibility,
     assignee_ids: assigneeRows.map((r) => r.userId),
   }
 }
@@ -339,9 +323,6 @@ export async function runAutomationRules(
       `${actions.priority}`.trim() !== ''
     ) {
       queuePriorityRaw = actions.priority
-    } else if (actions.priority_slug) {
-      const p = await findOneBy(ticketPriorities, { slug: String(actions.priority_slug) })
-      if (p) queuePriorityRaw = p.sortOrder ?? p.id
     }
 
     if (actions.type_slug) {
@@ -359,9 +340,6 @@ export async function runAutomationRules(
     if (actions.company_id) {
       const co = await get(companies, actions.company_id)
       if (co) updates.companyId = co.id
-    }
-    if (actions.visibility) {
-      updates.visibility = actions.visibility
     }
     if (actions.ticket_type !== undefined && actions.ticket_type !== null && actions.ticket_type !== '') {
       const cls = parseTicketType(actions.ticket_type)
@@ -501,12 +479,10 @@ export async function runAutomationRules(
       ctx.title = fresh.title
       ctx.description = fresh.description
       ctx.status = fresh.status
-      ctx.priority_slug = fresh.priority_slug
       ctx.type_slug = fresh.type_slug
       ctx.company_id = fresh.company_id
       ctx.created_via = fresh.created_via
       ctx.team_id = fresh.team_id
-      ctx.visibility = fresh.visibility
       ctx.assignee_ids = fresh.assignee_ids
     }
   }

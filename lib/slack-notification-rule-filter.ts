@@ -18,9 +18,6 @@ export function normalizeSlackRuleFilter(body: Record<string, unknown>) {
     on_client_reply: f.on_client_reply === true,
     on_tag_added: f.on_tag_added === true,
     team_ids: Array.isArray(f.team_ids) ? f.team_ids.filter((x): x is string => typeof x === 'string') : [],
-    priority_ids: Array.isArray(f.priority_ids)
-      ? f.priority_ids.filter((x): x is number => typeof x === 'number' && Number.isInteger(x))
-      : [],
     company_ids: Array.isArray(f.company_ids)
       ? f.company_ids.filter((x): x is string => typeof x === 'string')
       : [],

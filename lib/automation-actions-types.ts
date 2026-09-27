@@ -8,8 +8,6 @@ export interface AutomationActions {
   /** Integer ticket Priority value */
   priority?: number
   /** @deprecated UI removed; engine still applies legacy rules */
-  priority_slug?: string
-  /** @deprecated UI removed; engine still applies legacy rules */
   type_slug?: string
   /** Row classification: support | spam | trash (column ticket_type, not type_id) */
   ticket_type?: string
@@ -17,8 +15,6 @@ export interface AutomationActions {
   status_slug?: string
   /** Add these tags (array of tag uuids) */
   tag_ids?: string[]
-  /** @deprecated UI removed; engine still applies legacy rules */
-  visibility?: string
   /** Assign ticket to this company (uuid) */
   company_id?: string
   /** Assign these agents to the ticket (array of user uuids) */

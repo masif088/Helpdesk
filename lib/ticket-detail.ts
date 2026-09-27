@@ -271,7 +271,6 @@ export async function getTicketDetail(ticketId: number, options?: TicketDetailOp
     contact_user_id: t.contactUserId ?? null,
     due_date: t.dueDate ? new Date(t.dueDate).toISOString() : null,
     status: t.status,
-    visibility: t.visibility,
     team_id: t.teamId,
     type_id: t.typeId,
     ticket_type: ticketTypeCls,

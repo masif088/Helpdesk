@@ -286,7 +286,7 @@ export default function SettingsContent({ user: currentUser }: SettingsContentPr
                   <Col xs={24} sm={12} md={8}>
                     <HubTile
                       title="Teams"
-                      description="Groups for assignments and ticket visibility"
+                      description="Groups for ticket assignments"
                       href="/settings/teams"
                       icon={<TeamOutlined />}
                     />

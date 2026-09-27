@@ -134,7 +134,7 @@ default values are defined in `lib/fsdb/schema.ts`; queries go through the helpe
 (`get`, `find`, `insert`, `update`, `upsert`, `remove`, …). There are no schema migrations — new fields are
 added in `schema.ts` and default to `null` on old documents.
 
-- **Ids:** uuid tables keep uuid ids; integer tables (tickets, statuses, types, priorities, automation rules,
+- **Ids:** uuid tables keep uuid ids; integer tables (tickets, statuses, types, automation rules,
   project statuses) take the next value from `_counters/{collection}`.
 - **Relations:** Firestore has no foreign keys. Deletes that used to cascade go through `lib/fsdb/cascade.ts`.
 - **Search:** tickets, comments, users and companies store keyword arrays (`kwTitle`, `kwDescription`,
@@ -146,7 +146,7 @@ added in `schema.ts` and default to `null` on old documents.
 ### First setup
 
 ```bash
-npm run db:seed          # statuses, types, priorities, job types + first admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD)
+npm run db:seed          # statuses, types, job types + first admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD)
 ```
 
 ---

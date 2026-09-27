@@ -25,7 +25,6 @@ export const TICKET_LIST_FIELDS: (keyof TicketsRow & string)[] = [
   'id',
   'title',
   'status',
-  'visibility',
   'teamId',
   'typeId',
   'ticketType',

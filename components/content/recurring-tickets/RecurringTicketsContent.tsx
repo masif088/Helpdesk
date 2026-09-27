@@ -66,7 +66,6 @@ export interface RecurringTicketRow {
   ticketTypeId: number | null
   contactUserId: string | null
   assigneeIds: string[]
-  visibility: string
   createdAt: string
 }
 

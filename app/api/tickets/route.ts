@@ -415,7 +415,6 @@ export async function POST(request: Request) {
     description,
     short_note,
     status,
-    visibility,
     team_id,
     type_id,
     priority,
@@ -429,11 +428,6 @@ export async function POST(request: Request) {
     project_id: bodyProjectId,
     project_status_id: bodyProjectStatusId,
   } = body
-
-  const resolvedInsertVisibility =
-    visibility !== undefined && visibility !== null && String(visibility).trim() !== ''
-      ? String(visibility).trim()
-      : 'public'
 
   /** created_via: 'portal' (admin app) | 'website' (embed/widget) | 'app' (mobile/external) - for automation conditions */
   const createdVia = bodyCreatedVia || 'portal'
@@ -529,7 +523,6 @@ export async function POST(request: Request) {
     description: description || null,
     shortNote: short_note ?? null,
     status: status || 'open',
-    visibility: resolvedInsertVisibility,
     teamId: team_id || null,
     typeId: type_id ?? null,
     dueDate: due_date ? new Date(due_date) : null,

@@ -62,7 +62,6 @@ function filterFromApi(f: Record<string, unknown> | undefined) {
     on_client_reply: raw.on_client_reply === true,
     on_tag_added: raw.on_tag_added === true,
     team_ids: Array.isArray(raw.team_ids) ? (raw.team_ids as string[]) : [],
-    priority_ids: Array.isArray(raw.priority_ids) ? (raw.priority_ids as number[]) : [],
     company_ids: Array.isArray(raw.company_ids) ? (raw.company_ids as string[]) : [],
     type_ids: Array.isArray(raw.type_ids) ? (raw.type_ids as number[]) : [],
     to_status_slugs: toSlugs,
@@ -84,7 +83,6 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
   const [form] = Form.useForm()
 
   const [teamOpts, setTeamOpts] = useState<Option[]>([])
-  const [priorityOpts, setPriorityOpts] = useState<Option[]>([])
   const [companyOpts, setCompanyOpts] = useState<Option[]>([])
   const [typeOpts, setTypeOpts] = useState<Option[]>([])
   const [statusOpts, setStatusOpts] = useState<Option[]>([])
@@ -122,9 +120,8 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
 
   const loadSelectData = useCallback(async () => {
     try {
-      const [teamsRes, priRes, compRes, typRes, statusRes, tagsRes, usersRes] = await Promise.all([
+      const [teamsRes, compRes, typRes, statusRes, tagsRes, usersRes] = await Promise.all([
         fetch('/api/teams', { credentials: 'include' }),
-        fetch('/api/ticket-priorities', { credentials: 'include' }),
         fetch('/api/companies', { credentials: 'include' }),
         fetch('/api/ticket-types', { credentials: 'include' }),
         fetch('/api/ticket-statuses', { credentials: 'include' }),
@@ -132,7 +129,6 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
         fetch('/api/users', { credentials: 'include' }),
       ])
       const teamsJson = teamsRes.ok ? await teamsRes.json() : []
-      const priJson = priRes.ok ? await priRes.json() : []
       const compWrap = compRes.ok ? await compRes.json() : {}
       const typJson = typRes.ok ? await typRes.json() : []
       const statusJson = statusRes.ok ? await statusRes.json() : []
@@ -145,12 +141,6 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
         (Array.isArray(teamsJson) ? teamsJson : []).map((t: { id: string; name: string }) => ({
           label: t.name,
           value: t.id,
-        }))
-      )
-      setPriorityOpts(
-        (Array.isArray(priJson) ? priJson : []).map((p: { id: number; title: string }) => ({
-          label: p.title,
-          value: p.id,
         }))
       )
       setCompanyOpts(
@@ -210,7 +200,6 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
       on_client_reply: false,
       on_tag_added: false,
       team_ids: [],
-      priority_ids: [],
       company_ids: [],
       type_ids: [],
       to_status_slugs: [],
@@ -234,7 +223,6 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
       on_client_reply: f.on_client_reply,
       on_tag_added: f.on_tag_added,
       team_ids: f.team_ids,
-      priority_ids: f.priority_ids,
       company_ids: f.company_ids,
       type_ids: f.type_ids,
       to_status_slugs: f.to_status_slugs,
@@ -258,7 +246,6 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
       on_client_reply: v.on_client_reply === true,
       on_tag_added: v.on_tag_added === true,
       team_ids: v.team_ids?.length ? v.team_ids : [],
-      priority_ids: v.priority_ids?.length ? v.priority_ids : [],
       company_ids: v.company_ids?.length ? v.company_ids : [],
       type_ids: v.type_ids?.length ? v.type_ids : [],
       to_status_slugs: v.to_status_slugs?.length ? v.to_status_slugs : [],
@@ -366,7 +353,6 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
         const f = filterFromApi(row.filter)
         const parts: string[] = []
         if (f.team_ids.length) parts.push(`${f.team_ids.length} team(s)`)
-        if (f.priority_ids.length) parts.push(`${f.priority_ids.length} priority`)
         if (f.company_ids.length) parts.push(`${f.company_ids.length} company`)
         if (f.type_ids.length) parts.push(`${f.type_ids.length} type`)
         if (f.to_status_slugs.length) parts.push(`${f.to_status_slugs.length} new status`)
@@ -421,7 +407,7 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
             <Paragraph type="secondary" style={{ marginBottom: 16 }}>
               In Slack: <Text strong>App</Text> → choose your workspace → <Text strong>Incoming Webhooks</Text> → add to a
               channel → copy the URL that starts with <Text code>https://hooks.slack.com/services/</Text>. One URL = one
-              channel. Leave all team / priority / company / type / tag / new-status filters empty so every ticket that
+              channel. Leave all team / company / type / tag / new-status filters empty so every ticket that
               matches the selected events is included. When you use more than one of those filters, they combine with{' '}
               <Text strong>AND</Text> (ticket must match all of them); inside one field, multiple values are{' '}
               <Text strong>OR</Text> (e.g. any of the selected companies).
@@ -515,7 +501,7 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
         
           <Title level={5}>Only if ticket matches (optional)</Title>
           <Paragraph type="secondary" style={{ marginTop: -8, marginBottom: 12 }}>
-            Across Team, Priority, Company, Type, Tags, etc., each filled section must pass — that is <Text strong>AND</Text>.
+            Across Team, Company, Type, Tags, etc., each filled section must pass — that is <Text strong>AND</Text>.
             Inside one multi-select, any selected value can match — that is <Text strong>OR</Text> (e.g. Company A or
             Company B).
           </Paragraph>

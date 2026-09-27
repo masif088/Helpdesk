@@ -55,9 +55,7 @@ interface TicketRecord {
   title: string
   description: string | null
   status: string
-  visibility?: 'private' | 'team' | 'specific_users' | 'public'
   type_id: number | null
-  priority_id: number | null
   priority?: number | null
   company_id: string | null
   due_date: string | null
@@ -108,7 +106,6 @@ export default function TabTickets({ companyData, currentUser, viewerRole, baseP
   const [loading, setLoading] = useState(true)
   const [statuses, setStatuses] = useState<StatusOption[]>([])
   const [types, setTypes] = useState<TypeOption[]>([])
-  const [priorities, setPriorities] = useState<TypeOption[]>([])
   const [allTags, setAllTags] = useState<Array<{ id: string; name: string }>>([])
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [filterStatus, setFilterStatus] = useState<string[]>([])
@@ -194,7 +191,6 @@ export default function TabTickets({ companyData, currentUser, viewerRole, baseP
           description: t.description,
           status: t.status,
           type_id: t.type_id,
-          priority_id: t.priority_id,
           priority: typeof t.priority === 'number' ? t.priority : null,
           company_id: t.company_id,
           due_date: t.due_date,
@@ -224,12 +220,10 @@ export default function TabTickets({ companyData, currentUser, viewerRole, baseP
       const data = await apiFetch<{
         statuses: Array<{ slug: string; title: string; color?: string; is_active?: boolean }>
         ticketTypes: TypeOption[]
-        ticketPriorities: TypeOption[]
         tags: Array<{ id: string; name: string }>
       }>('/api/tickets/lookup')
       setStatuses(data.statuses || [])
       setTypes(data.ticketTypes || [])
-      setPriorities(data.ticketPriorities || [])
       setAllTags(data.tags || [])
       const slugs = (data.statuses || []).map((s) => s.slug)
       if (slugs.length) {
@@ -238,7 +232,6 @@ export default function TabTickets({ companyData, currentUser, viewerRole, baseP
     } catch {
       setStatuses([])
       setTypes([])
-      setPriorities([])
       setAllTags([])
     }
   }
@@ -295,7 +288,6 @@ export default function TabTickets({ companyData, currentUser, viewerRole, baseP
       description: ticket.description || '',
       status: ticket.status,
       type_id: ticket.type_id ?? undefined,
-      priority_id: ticket.priority_id ?? undefined,
       company_id: companyData.id,
       due_date: ticket.due_date ? dayjs(ticket.due_date) : null,
     })
@@ -324,7 +316,6 @@ export default function TabTickets({ companyData, currentUser, viewerRole, baseP
         description: values.description || null,
         status: values.status || 'open',
         type_id: values.type_id ?? null,
-        priority_id: values.priority_id ?? null,
         company_id: companyData.id,
         due_date: values.due_date ? values.due_date.format('YYYY-MM-DD') : null,
         tag_ids: selectedTagIds,
@@ -334,9 +325,7 @@ export default function TabTickets({ companyData, currentUser, viewerRole, baseP
         title: values.title?.trim() || 'Untitled',
         description: values.description || null,
         status: defaultStatusSlug,
-        visibility: 'public',
         type_id: values.type_id ?? null,
-        priority_id: values.priority_id ?? null,
         company_id: companyData.id,
         due_date: values.due_date ? values.due_date.format('YYYY-MM-DD') : null,
         tag_ids: selectedTagIds,
@@ -731,30 +720,6 @@ export default function TabTickets({ companyData, currentUser, viewerRole, baseP
                       }}
                     />
                     {t.title}
-                  </Space>
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item
-            name="priority_id"
-            label="Priority"
-            rules={[{ required: true, message: 'Please select priority!' }]}
-          >
-            <Select placeholder="Select priority" allowClear>
-              {priorities.map((p) => (
-                <Option key={p.id} value={p.id}>
-                  <Space>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        width: 10,
-                        height: 10,
-                        borderRadius: 2,
-                        backgroundColor: p.color,
-                      }}
-                    />
-                    {p.title}
                   </Space>
                 </Option>
               ))}

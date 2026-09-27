@@ -1248,7 +1248,6 @@ export async function POST(request: NextRequest) {
               description: body || null,
               createdBy: creatorUserId ?? null,
               status: 'open',
-              visibility: 'public',
               companyId: ticketCompanyId,
               createdVia: 'email',
               ticketType: isSpam ? 'spam' : DEFAULT_TICKET_TYPE,

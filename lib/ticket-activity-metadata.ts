@@ -11,7 +11,7 @@ function trunc(s: string): string {
 
 function formatScalarLabel(v: unknown, fieldKey?: string): string {
   if (v === null || v === undefined || v === '') return 'None'
-  if (fieldKey === 'status' || fieldKey === 'visibility' || fieldKey === 'ticketType') {
+  if (fieldKey === 'status' || fieldKey === 'ticketType') {
     const s = String(v)
     return trunc(
       s
@@ -33,7 +33,6 @@ const TICKET_FIELD_LABELS: Record<string, string> = {
   title: 'Title',
   description: 'Description',
   shortNote: 'Short note',
-  visibility: 'Visibility',
   ticketType: 'Ticket type',
   companyId: 'Company',
   contactUserId: 'Contact',

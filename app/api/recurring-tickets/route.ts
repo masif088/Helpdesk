@@ -4,10 +4,6 @@ import { auth } from '@/auth'
 import { isAdminOrManager } from '@/lib/auth-utils'
 import { find, insert, recurringTickets } from '@/lib/fsdb'
 import { computeNextRunAt, type Frequency, normalizeSpecificDates } from '@/lib/recurring-ticket-schedule'
-import {
-  DEFAULT_RECURRING_VISIBILITY,
-  isTicketVisibilityLevel,
-} from '@/lib/ticket-visibility'
 
 function authError() {
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -55,7 +51,6 @@ export async function POST(req: NextRequest) {
     ticket_type_id,
     contact_user_id,
     assignee_ids,
-    visibility = DEFAULT_RECURRING_VISIBILITY,
   } = body
 
   if (!title?.trim()) {
@@ -66,9 +61,6 @@ export async function POST(req: NextRequest) {
   }
   if (!start_date) {
     return NextResponse.json({ error: 'start_date is required' }, { status: 400 })
-  }
-  if (!isTicketVisibilityLevel(visibility)) {
-    return NextResponse.json({ error: 'invalid visibility' }, { status: 400 })
   }
 
   const validFrequencies: Frequency[] = ['daily', 'weekdays', 'weekends', 'specific_days', 'specific_date', 'interval']
@@ -115,7 +107,6 @@ export async function POST(req: NextRequest) {
       ticketTypeId: ticket_type_id ?? null,
       contactUserId: contact_user_id ?? null,
       assigneeIds: Array.isArray(assignee_ids) ? assignee_ids : [],
-      visibility,
       createdBy: session.user.id,
     })
 

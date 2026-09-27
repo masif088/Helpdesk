@@ -30,7 +30,6 @@ export default async function EditRecurringTicketPage({ params }: { params: Prom
     nextRunAt: null,
     ticketStatus: row.ticketStatus ?? 'open',
     ticketPriority: row.ticketPriority ?? null,
-    visibility: row.visibility ?? 'team',
     companyId: row.companyId ?? null,
     teamId: row.teamId ?? null,
     ticketTypeId: row.ticketTypeId ?? null,

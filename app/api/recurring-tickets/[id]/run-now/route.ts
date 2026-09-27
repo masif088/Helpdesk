@@ -38,7 +38,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         teamId: rule.teamId ?? null,
         companyId: rule.companyId ?? null,
         typeId: rule.ticketTypeId ?? null,
-        visibility: rule.visibility ?? 'team',
         createdBy: rule.createdBy ?? null,
         contactUserId: rule.contactUserId ?? null,
         createdVia: 'recurring',

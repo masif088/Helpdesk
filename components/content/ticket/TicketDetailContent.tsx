@@ -278,7 +278,6 @@ export default function TicketDetailContent({
     }, [displayTicket?.id])
     const [teams, setTeams] = useState<any[]>([])
     /** Signed-in user’s team memberships (from /api/tickets/lookup); used to narrow team options for non-public tickets. */
-    const [userTeamIds, setUserTeamIds] = useState<string[]>([])
     const [users, setUsers] = useState<any[]>([])
     const [companyCustomers, setCompanyCustomers] = useState<Array<{ id: string; full_name: string | null; email: string }>>([])
     const [ticketTypes, setTicketTypes] = useState<Array<{ id: number; title: string; slug: string; color: string }>>([])
@@ -397,14 +396,12 @@ export default function TicketDetailContent({
             try {
                 const data = await apiFetch<{
                     teams: any[]
-                    userTeamIds?: string[]
                     users: any[]
                     ticketTypes: any[]
                     companies: any[]
                     tags: any[]
                 }>('/api/tickets/lookup')
                 setTeams(data?.teams || [])
-                setUserTeamIds(Array.isArray(data?.userTeamIds) ? data.userTeamIds : [])
                 setUsers(data?.users || [])
                 setTicketTypes(data?.ticketTypes || [])
                 setCompanies(data?.companies || [])
@@ -618,19 +615,8 @@ export default function TicketDetailContent({
         return DEFAULT_STATUS_MAP[status]?.title || status
     }
 
-    /** Team picker: public tickets can use any team; team visibility is limited to your teams. */
-    const teamOptionsForTicket = useMemo(() => {
-      const vis = displayTicket?.visibility
-      if (vis === 'public') return teams || []
-      const mine = new Set(userTeamIds)
-      const list = (teams || []).filter((t: { id: string }) => mine.has(t.id))
-      const cur = displayTicket?.team_id as string | undefined
-      if (cur && !list.some((t: { id: string }) => t.id === cur)) {
-        const extra = teams.find((t: { id: string }) => t.id === cur)
-        if (extra) return [...list, extra]
-      }
-      return list
-    }, [teams, userTeamIds, displayTicket?.team_id, displayTicket?.visibility])
+    /** Team picker: any team. */
+    const teamOptionsForTicket = useMemo(() => teams || [], [teams])
 
     const addChecklistItemByTitle = async (
         title: string,

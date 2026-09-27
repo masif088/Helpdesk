@@ -131,11 +131,6 @@ export function canAccessRecurringTickets(role: string | undefined): boolean {
   return isAdminOrManager(role)
 }
 
-/** Ticket / recurring visibility audience rules: Admin & Manager */
-export function canAccessTicketVisibilitySettings(role: string | undefined): boolean {
-  return isAdminOrManager(role)
-}
-
 /** Settings hub (/settings): any configured admin area the role can open */
 export function canAccessSettingsHub(role: string | undefined): boolean {
   const r = (role ?? '').toLowerCase()
@@ -155,7 +150,6 @@ export function canAccessSettingsHub(role: string | undefined): boolean {
     canAccessCompanyLog(role) ||
     canAccessAiSettings(role) ||
     canAccessRecurringTickets(role) ||
-    canAccessTicketVisibilitySettings(role) ||
     canAccessChecklistTemplates(role)
   )
 }

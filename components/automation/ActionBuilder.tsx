@@ -22,7 +22,6 @@ interface LookupData {
   companies: { id: string; name: string }[]
   teams: { id: string; name: string }[]
   ticketTypes: { id: number; title: string; slug: string; color?: string }[]
-  ticketPriorities: { id: number; title: string; slug: string; color?: string }[]
   statuses: { id: number; title: string; slug: string; color?: string }[]
   tags: { id: string; name: string; slug: string; color?: string }[]
   users?: { id: string; full_name?: string; email?: string }[]

@@ -993,7 +993,6 @@ export type RecurringTicketsRow = {
   assigneeIds: string[] | null
   ticketTypeId: number | null
   contactUserId: string | null
-  visibility: string
   createdBy: string | null
   createdAt: Date
   updatedAt: Date
@@ -1021,7 +1020,6 @@ export type NewRecurringTicketsRow = {
   assigneeIds?: string[] | null
   ticketTypeId?: number | null
   contactUserId?: string | null
-  visibility?: string
   createdBy?: string | null
   createdAt?: Date
   updatedAt?: Date
@@ -1029,11 +1027,11 @@ export type NewRecurringTicketsRow = {
 
 export const recurringTickets = defineTable<RecurringTicketsRow, NewRecurringTicketsRow>({
   name: 'recurring_tickets',
-  columns: ['id', 'title', 'description', 'frequency', 'specificDays', 'specificDate', 'intervalDays', 'timeOfDay', 'timezone', 'startDate', 'endDate', 'isActive', 'lastRunAt', 'nextRunAt', 'ticketStatus', 'ticketPriority', 'teamId', 'companyId', 'assigneeIds', 'ticketTypeId', 'contactUserId', 'visibility', 'createdBy', 'createdAt', 'updatedAt'],
+  columns: ['id', 'title', 'description', 'frequency', 'specificDays', 'specificDate', 'intervalDays', 'timeOfDay', 'timezone', 'startDate', 'endDate', 'isActive', 'lastRunAt', 'nextRunAt', 'ticketStatus', 'ticketPriority', 'teamId', 'companyId', 'assigneeIds', 'ticketTypeId', 'contactUserId', 'createdBy', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',
-  defaults: {'frequency': 'daily', 'timeOfDay': '08:00', 'timezone': 'UTC', 'isActive': true, 'ticketPriority': 0, 'assigneeIds': [], 'visibility': 'team'},
+  defaults: {'frequency': 'daily', 'timeOfDay': '08:00', 'timezone': 'UTC', 'isActive': true, 'ticketPriority': 0, 'assigneeIds': []},
   nowFields: ['createdAt', 'updatedAt'],
 })
 
@@ -1477,38 +1475,6 @@ export const ticketComments = defineTable<TicketCommentsRow, NewTicketCommentsRo
   nowFields: ['createdAt', 'receivedAt'],
 })
 
-export type TicketPrioritiesRow = {
-  id: number
-  slug: string
-  title: string
-  description: string | null
-  color: string | null
-  sortOrder: number | null
-  createdAt: Date
-  updatedAt: Date
-}
-
-export type NewTicketPrioritiesRow = {
-  id?: number
-  slug: string
-  title: string
-  description?: string | null
-  color?: string | null
-  sortOrder?: number | null
-  createdAt?: Date
-  updatedAt?: Date
-}
-
-export const ticketPriorities = defineTable<TicketPrioritiesRow, NewTicketPrioritiesRow>({
-  name: 'ticket_priorities',
-  columns: ['id', 'slug', 'title', 'description', 'color', 'sortOrder', 'createdAt', 'updatedAt'],
-  docKey: ['id'],
-  idField: 'id',
-  idGen: 'seq',
-  defaults: {'description': '', 'color': '#000000', 'sortOrder': 0},
-  nowFields: ['createdAt', 'updatedAt'],
-})
-
 export type TicketStatusesRow = {
   id: number
   slug: string
@@ -1652,7 +1618,6 @@ export type TicketsRow = {
   contactUserId: string | null
   dueDate: Date | null
   status: string
-  visibility: string
   teamId: string | null
   gmailThreadId: string | null
   priority: number | null
@@ -1680,7 +1645,6 @@ export type NewTicketsRow = {
   contactUserId?: string | null
   dueDate?: Date | null
   status?: string
-  visibility?: string
   teamId?: string | null
   gmailThreadId?: string | null
   priority?: number | null
@@ -1700,11 +1664,11 @@ export type NewTicketsRow = {
 
 export const tickets = defineTable<TicketsRow, NewTicketsRow>({
   name: 'tickets',
-  columns: ['id', 'title', 'description', 'originalDescription', 'shortNote', 'createdBy', 'contactUserId', 'dueDate', 'status', 'visibility', 'teamId', 'gmailThreadId', 'priority', 'createdVia', 'lastReadAt', 'customerLastReadAt', 'staffLastReadAt', 'typeId', 'ticketType', 'companyId', 'projectId', 'projectStatusId', 'source', 'createdAt', 'updatedAt'],
+  columns: ['id', 'title', 'description', 'originalDescription', 'shortNote', 'createdBy', 'contactUserId', 'dueDate', 'status', 'teamId', 'gmailThreadId', 'priority', 'createdVia', 'lastReadAt', 'customerLastReadAt', 'staffLastReadAt', 'typeId', 'ticketType', 'companyId', 'projectId', 'projectStatusId', 'source', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'seq',
-  defaults: {'status': 'open', 'visibility': 'private', 'priority': 0, 'ticketType': 'support'},
+  defaults: {'status': 'open', 'priority': 0, 'ticketType': 'support'},
   nowFields: ['createdAt', 'updatedAt'],
 })
 
@@ -1772,4 +1736,4 @@ export const users = defineTable<UsersRow, NewUsersRow>({
   nowFields: ['createdAt', 'updatedAt'],
 })
 
-export const allTables = [aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDailyActiveAssignments, companyDataTemplates, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketPriorities, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const
+export const allTables = [aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDailyActiveAssignments, companyDataTemplates, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const
