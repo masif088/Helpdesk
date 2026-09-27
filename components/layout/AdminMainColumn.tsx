@@ -3,6 +3,7 @@
 import { Layout } from 'antd'
 import type { CSSProperties, ReactNode } from 'react'
 
+import { sidebarInset } from '@/components/layout/AdminSidebar'
 import GlobalAnnouncementBar from '@/components/layout/GlobalAnnouncementBar'
 import type { NavbarAccountUser } from '@/components/layout/NavbarAccount'
 import TicketSearchNavbar from '@/components/layout/TicketSearchNavbar'
@@ -33,7 +34,7 @@ export default function AdminMainColumn({
 }: Props) {
   const isCustomer = (user.role ?? '').toLowerCase() === 'customer'
   const layoutStyle: CSSProperties = {
-    marginLeft: noSidebarInset ? 0 : collapsed ? 80 : 250,
+    marginLeft: noSidebarInset ? 0 : sidebarInset(collapsed),
     transition: 'margin-left 0.2s',
     background: 'var(--layout-bg)',
     minHeight: '100vh',

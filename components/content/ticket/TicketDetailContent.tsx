@@ -41,6 +41,7 @@ const { useBreakpoint } = Grid
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef,useState } from 'react'
 
+import { BRANDING } from '@/lib/branding'
 import { uploadTicketFile } from '@/utils/storage'
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
@@ -1098,7 +1099,7 @@ export default function TicketDetailContent({
                 lines.push(htmlToText((c as any).comment), '')
             }
         }
-        lines.push('---', `*DeskTeam360 — Ticket #${t.id} — Exported ${new Date().toLocaleString()}*`)
+        lines.push('---', `*${BRANDING.name} — Ticket #${t.id} — Exported ${new Date().toLocaleString()}*`)
         const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -1564,27 +1565,10 @@ export default function TicketDetailContent({
                                                     </Button>
                                                 </Flex>
                                             ) : (
-                                                <>
-                                                    <TitleDisplay
-                                                        id={displayTicket.id}
-                                                        title={typeof displayTicket.title === 'string' ? displayTicket.title : ''}
-                                                    />
-                                                    {!isCustomer && (
-                                                        <Button
-                                                            type="primary"
-                                                            icon={<EditOutlined />}
-                                                            onClick={() => {
-                                                                setTitleDraft(
-                                                                    typeof displayTicket.title === 'string'
-                                                                        ? displayTicket.title
-                                                                        : '',
-                                                                )
-                                                                setTitleEditing(true)
-                                                            }}
-                                                            aria-label="Edit title"
-                                                        />
-                                                    )}
-                                                </>
+                                                <TitleDisplay
+                                                    id={displayTicket.id}
+                                                    title={typeof displayTicket.title === 'string' ? displayTicket.title : ''}
+                                                />
                                             )}
                                         </span>
                                     </Title>
@@ -1626,6 +1610,22 @@ export default function TicketDetailContent({
                                                 gap: 8,
                                             }}
                                         >
+                                            {!titleEditing && (
+                                                <Tooltip title="Edit title">
+                                                    <Button
+                                                        icon={<EditOutlined />}
+                                                        onClick={() => {
+                                                            setTitleDraft(
+                                                                typeof displayTicket.title === 'string'
+                                                                    ? displayTicket.title
+                                                                    : '',
+                                                            )
+                                                            setTitleEditing(true)
+                                                        }}
+                                                        aria-label="Edit title"
+                                                    />
+                                                </Tooltip>
+                                            )}
                                             <Tooltip title="Download as Markdown">
                                                 <Button icon={<FileMarkdownOutlined />} onClick={downloadTicketMd} />
                                             </Tooltip>

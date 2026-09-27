@@ -1,5 +1,7 @@
 import Link from 'next/link'
 
+import { BRANDING } from '@/lib/branding'
+
 import { BottomNav } from '../_components'
 import { getMobileDashboardStats, getMobileSession, getMobileTickets } from '../_data'
 import { PRIORITY_COLOR } from '../_mock'
@@ -16,7 +18,7 @@ export default async function MobileDashboard() {
   return (
     <div style={{ paddingBottom: 70 }}>
       <div style={{ background: '#1a1a2e', padding: '14px 16px 12px', borderBottom: '1px solid #2a2a3e' }}>
-        <div style={{ fontSize: 11, color: '#8c8c8c', textTransform: 'uppercase', letterSpacing: 1 }}>DeskTeam360</div>
+        <div style={{ fontSize: 11, color: '#8c8c8c', textTransform: 'uppercase', letterSpacing: 1 }}>{BRANDING.name}</div>
         <div style={{ fontSize: 20, fontWeight: 700, marginTop: 2 }}>Dashboard</div>
       </div>
 

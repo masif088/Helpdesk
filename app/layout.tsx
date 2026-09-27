@@ -8,6 +8,7 @@ import Script from "next/script";
 import { auth } from "@/auth";
 import AntdProvider from "@/components/providers/AntdProvider";
 import { getAppSettings } from "@/lib/app-settings";
+import { BRANDING } from "@/lib/branding";
 
 const themeInitScript = `
 (function(){
@@ -26,32 +27,32 @@ const fontSans = Plus_Jakarta_Sans({
   display: "swap",
 });
 
-const SITE_URL = 'https://ticket.deskteam360.com'
-const OG_TITLE = 'Deskteam360 Ticketing System'
-const OG_DESCRIPTION = 'Deskteam360 Ticketing System'
-
+/** Title, description, logo and favicon come from env (lib/branding.ts); Settings → App Branding overrides. */
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getAppSettings()
-  const appName = settings.app_name || process.env.NEXT_PUBLIC_APP_NAME || 'Deskteam360'
-  const logoUrl = settings.app_logo_url || '/logo.jpg'
+  const appName = settings.app_name || BRANDING.name
+  const title = process.env.NEXT_PUBLIC_APP_TITLE?.trim() || appName
+  const description = BRANDING.description
+  const logoUrl = settings.app_logo_url || BRANDING.logo || '/og-image.png'
+  const favicon = settings.app_favicon_url || BRANDING.favicon
   return {
-    metadataBase: new URL(SITE_URL),
-    title: { default: OG_TITLE, template: `%s | ${appName}` },
-    description: OG_DESCRIPTION,
-    manifest: '/manifest.json',
-    icons: settings.app_favicon_url ? [{ url: settings.app_favicon_url }] : undefined,
+    ...(BRANDING.siteUrl ? { metadataBase: new URL(BRANDING.siteUrl) } : {}),
+    title: { default: title, template: `%s | ${appName}` },
+    description,
+    applicationName: appName,
+    icons: { icon: [{ url: favicon }], shortcut: [{ url: favicon }] },
     openGraph: {
-      title: OG_TITLE,
-      description: OG_DESCRIPTION,
-      url: SITE_URL,
+      title,
+      description,
+      ...(BRANDING.siteUrl ? { url: BRANDING.siteUrl } : {}),
       siteName: appName,
-      images: [{ url: logoUrl, alt: OG_TITLE }],
+      images: [{ url: logoUrl, alt: title }],
       type: 'website',
     },
     twitter: {
       card: 'summary',
-      title: OG_TITLE,
-      description: OG_DESCRIPTION,
+      title,
+      description,
       images: [logoUrl],
     },
   }

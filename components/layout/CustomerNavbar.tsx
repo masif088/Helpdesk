@@ -18,6 +18,7 @@ import { useEffect,useMemo, useState } from 'react'
 import { shouldOpenHrefInNewTab,SpaNavLink } from '@/components/common/SpaNavLink'
 import ThemeToggle from '@/components/common/ThemeToggle'
 import { signOut } from '@/lib/auth-client'
+import { BRANDING } from '@/lib/branding'
 
 const { Header } = Layout
 const { Text } = Typography
@@ -26,7 +27,7 @@ interface CustomerNavbarProps {
   user: { id: string; email?: string | null; name?: string | null; image?: string | null }
 }
 
-const PORTAL_TITLE = 'Deskteam360 Portal'
+const PORTAL_TITLE = `${BRANDING.name} Portal`
 
 export default function CustomerNavbar({ user }: CustomerNavbarProps) {
   const router = useRouter()

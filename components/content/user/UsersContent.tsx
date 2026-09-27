@@ -793,7 +793,7 @@ export default function UsersContent({ user: currentUser }: UsersContentProps) {
                   },
                   {
                     key: 'non_customer',
-                    label: <span title="Admin, manager, staff — internal Deskteam roles">Agents & staff ({nonCustomerCount})</span>,
+                    label: <span title="Admin, manager, staff — internal roles">Agents & staff ({nonCustomerCount})</span>,
                   },
                 ]}
                 style={{ marginBottom: 16 }}

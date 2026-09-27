@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import { BRANDING } from '@/lib/branding'
 
 const { Content } = Layout
 const { Title, Text } = Typography
@@ -98,7 +99,7 @@ export default function AppBrandingContent({ user }: Props) {
               tooltip="Shown in the browser tab title and throughout the app"
               rules={[{ required: true, message: 'App name is required' }]}
             >
-              <Input placeholder="DeskTeam360" maxLength={64} />
+              <Input placeholder={BRANDING.name} maxLength={64} />
             </Form.Item>
 
             <Form.Item
@@ -144,7 +145,7 @@ export default function AppBrandingContent({ user }: Props) {
               label="Email Sender Name"
               tooltip='Display name shown in outgoing emails, e.g. "DeskTeam360 Support". If empty, only the email address is shown.'
             >
-              <Input placeholder="DeskTeam360 Support" maxLength={64} />
+              <Input placeholder={`${BRANDING.name} Support`} maxLength={64} />
             </Form.Item>
 
             <Form.Item style={{ marginTop: 8 }}>

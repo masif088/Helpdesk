@@ -120,10 +120,16 @@ SYNC_INBOX_CRON_SECRET="your-secret-here"
 ### App
 
 ```env
-NEXT_PUBLIC_APP_NAME="DeskTeam360"         # fallback navbar title (overridden by Settings → App Branding)
-NEXT_PUBLIC_APP_DESCRIPTION="..."
+# Branding (lib/branding.ts). Settings → App Branding overrides name / logo / favicon when filled in.
+NEXT_PUBLIC_APP_NAME="Helpdesk"                 # sidebar, top navbar, emails, print/export
+NEXT_PUBLIC_APP_TITLE="Helpdesk — Client Support" # browser tab + share title (default: app name)
+NEXT_PUBLIC_APP_DESCRIPTION="Ticketing and client support"
+NEXT_PUBLIC_APP_LOGO="brand/logo.svg"           # relative → public/brand/logo.svg; or a full https:// URL
+NEXT_PUBLIC_APP_FAVICON="brand/favicon.png"     # relative → public/…; or a full URL (default /favicon.ico)
 TICKETS_LOOKUP_CATALOG_REVALIDATE_SECONDS=3600
 ```
+
+`NEXT_PUBLIC_*` values are baked in at build time — rebuild (`npm run build`) after changing them.
 
 ---
 

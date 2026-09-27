@@ -1,6 +1,7 @@
 'use client'
 
 import { signOut } from '@/lib/auth-client'
+import { BRANDING } from '@/lib/branding'
 
 import { BottomNav } from '../_components'
 
@@ -37,7 +38,7 @@ export default function ProfileClient({ name, email, role }: Props) {
           Sign Out
         </button>
 
-        <div style={{ textAlign: 'center', fontSize: 11, color: '#555' }}>DeskTeam360 · v1.0</div>
+        <div style={{ textAlign: 'center', fontSize: 11, color: '#555' }}>{BRANDING.name}</div>
       </div>
 
       <BottomNav />

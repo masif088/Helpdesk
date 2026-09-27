@@ -1,6 +1,8 @@
 'use client'
 
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
+
+import { BRANDING } from '@/lib/branding'
 
 interface Comment {
   id: string
@@ -84,7 +86,7 @@ export default function TicketPrintView({ ticketData: t, comments, isAgent }: Ti
       }
     }
     lines.push('---')
-    lines.push(`*DeskTeam360 — Ticket #${t?.id} — Exported ${new Date().toLocaleString()}*`)
+    lines.push(`*${BRANDING.name} — Ticket #${t?.id} — Exported ${new Date().toLocaleString()}*`)
 
     const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })
     const url = URL.createObjectURL(blob)
@@ -144,7 +146,7 @@ export default function TicketPrintView({ ticketData: t, comments, isAgent }: Ti
         {/* Header */}
         <div className="print-header">
           <div>
-            <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>DeskTeam360</div>
+            <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>{BRANDING.name}</div>
             <h1>{t?.title}</h1>
           </div>
           <div className="ticket-num">#{t?.id}</div>
@@ -206,7 +208,7 @@ export default function TicketPrintView({ ticketData: t, comments, isAgent }: Ti
 
         {/* Footer */}
         <div className="print-footer">
-          <span>DeskTeam360 — Ticket #{t?.id}</span>
+          <span>{BRANDING.name} — Ticket #{t?.id}</span>
           <span>Printed {new Date().toLocaleString()}</span>
         </div>
       </div>

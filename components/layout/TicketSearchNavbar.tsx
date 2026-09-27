@@ -16,6 +16,7 @@ import NavbarAccount, { type NavbarAccountUser } from '@/components/layout/Navba
 import ActiveTimeTrackerNavButton from '@/components/ticket/ActiveTimeTrackerNavButton'
 import TicketActivityActorAvatar from '@/components/ticket/TicketActivityActorAvatar'
 import TicketNotificationBell from '@/components/ticket/TicketNotificationBell'
+import { BRANDING } from '@/lib/branding'
 import {
   formatTicketActivityNavbarLabel,
   isTicketActivityNavbarPeekRow,
@@ -45,7 +46,7 @@ type ActivityPeekRow = {
 const NAV_HEIGHT = 56
 /** Match Ant Design `large` controls so search + history icon align on one line. */
 const NAV_CONTROL_SIZE = 'large' as const
-const DEFAULT_TITLE = process.env.NEXT_PUBLIC_APP_NAME || 'Deskteam360'
+const DEFAULT_TITLE = BRANDING.name
 const PREVIEW_MIN_CHARS = 2
 const PREVIEW_LIMIT = 5
 const DEBOUNCE_MS = 300

@@ -1,3 +1,4 @@
+import { BRANDING, resolveAssetUrl } from '@/lib/branding'
 import { appSettings, find, upsert } from '@/lib/fsdb'
 
 export type AppSettingsMap = {
@@ -7,9 +8,10 @@ export type AppSettingsMap = {
   email_sender_name: string | null
 }
 
+/** Defaults come from env branding (lib/branding.ts); values saved in Settings → App Branding win. */
 const DEFAULTS: AppSettingsMap = {
-  app_name: 'DeskTeam360',
-  app_logo_url: null,
+  app_name: BRANDING.name,
+  app_logo_url: BRANDING.logo,
   app_favicon_url: null,
   email_sender_name: null,
 }
@@ -36,9 +38,9 @@ async function loadAppSettings(): Promise<AppSettingsMap> {
   const rows = await find(appSettings)
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value])) as Record<string, string | null>
   return {
-    app_name: map['app_name'] ?? DEFAULTS.app_name,
-    app_logo_url: map['app_logo_url'] ?? null,
-    app_favicon_url: map['app_favicon_url'] ?? null,
+    app_name: map['app_name'] || DEFAULTS.app_name,
+    app_logo_url: resolveAssetUrl(map['app_logo_url']) ?? DEFAULTS.app_logo_url,
+    app_favicon_url: resolveAssetUrl(map['app_favicon_url']),
     email_sender_name: map['email_sender_name'] ?? null,
   }
 }

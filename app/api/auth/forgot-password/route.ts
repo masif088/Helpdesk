@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
 import { findUserByEmail, setUserPassword } from '@/lib/app-users'
+import { BRANDING } from '@/lib/branding'
 import { companies, emailIntegrations, findOneBy, get, messageTemplates, update, users } from '@/lib/fsdb'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
 
@@ -105,13 +106,13 @@ async function sendResetEmail(params: {
   }
   const recipientMap = userRowToMergeMap(recipientUser ?? null, recipientCompanyName)
 
-  const subject = tpl.emailSubject?.trim() || 'Your DeskTeam360 password has been reset'
+  const subject = tpl.emailSubject?.trim() || `Your ${BRANDING.name} password has been reset`
   const subjectMime = encodeSubjectHeader(subject)
 
   const rawTpl = tpl.content?.trim() ?? ''
   const fallbackHtml =
     `<p>Hi ${recipientMap.full_name !== '—' ? recipientMap.full_name : ''},</p>` +
-    `<p>We received a request to reset your DeskTeam360 account password.</p>` +
+    `<p>We received a request to reset your ${BRANDING.name} account password.</p>` +
     `<p>Your temporary password is: <strong><code>${params.temporaryPassword}</code></strong></p>` +
     `<p>Please sign in and change your password immediately: <a href="${changePasswordUrl}">${changePasswordUrl}</a></p>` +
     `<p>If you did not request this, you can safely ignore this email.</p>`

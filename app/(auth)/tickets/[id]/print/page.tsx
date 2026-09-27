@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import TicketPrintView from '@/components/ticket/TicketPrintView'
+import { BRANDING } from '@/lib/branding'
 import { get, tickets, users } from '@/lib/fsdb'
 import { getTicketDetail } from '@/lib/ticket-detail'
 
@@ -13,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   if (!row) return {}
   const now = new Date()
   const ts = now.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(/\//g, '-').replace(',', '')
-  return { title: { absolute: `Print #${ticketId} ${row.title} - DeskTeam360 - ${ts}` } }
+  return { title: { absolute: `Print #${ticketId} ${row.title} - ${BRANDING.name} - ${ts}` } }
 }
 
 export default async function TicketPrintPage({ params }: { params: Promise<{ id: string }> }) {

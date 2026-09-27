@@ -1,16 +1,17 @@
 import type { Metadata, Viewport } from 'next'
 import { redirect } from 'next/navigation'
 
+import { BRANDING } from '@/lib/branding'
+
 import { getMobileSession } from './_data'
 
 export const metadata: Metadata = {
-  title: 'DeskTeam360',
-  description: 'Helpdesk ticketing',
-  manifest: '/manifest.json',
+  title: BRANDING.title,
+  description: BRANDING.description,
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'DeskTeam360',
+    title: BRANDING.name,
   },
 }
 
