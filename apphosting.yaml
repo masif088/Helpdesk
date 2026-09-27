@@ -1,6 +1,6 @@
 # Firebase App Hosting config — https://firebase.google.com/docs/app-hosting/configure
 #
-# Plain values: fill in below (they end up in the build, so only non-secret values here).
+# Plain values below are public / non-secret (they end up in the build).
 # Secrets: stored in Cloud Secret Manager, create each one once with
 #   firebase apphosting:secrets:set <NAME>
 # and grant the backend access when the CLI asks (or: firebase apphosting:secrets:grantaccess <NAME> --backend <backend>).
@@ -17,13 +17,13 @@ env:
   # ── App ────────────────────────────────────────────────────────────────
   # Public URL of the app (links in emails + Gmail OAuth redirect: <url>/api/email/google/callback)
   - variable: NEXT_PUBLIC_SITE_URL
-    value: https://REPLACE_ME.web.app
+    value: https://portal.circleflo.com
   - variable: NEXT_PUBLIC_APP_NAME
     value: Helpdesk
   - variable: NEXT_PUBLIC_APP_TITLE
     value: Helpdesk — Client Support
   - variable: NEXT_PUBLIC_APP_DESCRIPTION
-    value: Client support and ticketing
+    value: Ticketing and client support
   # Relative path → served from public/; full URL → used as-is
   # - variable: NEXT_PUBLIC_APP_LOGO
   #   value: brand/logo.svg
@@ -32,24 +32,24 @@ env:
 
   # ── Firebase web config (public) ──────────────────────────────────────
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: REPLACE_ME
+    value: AIzaSyBJip8uW9B302I4ErJwkYIbPZpZq6zDRMo
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: REPLACE_ME.firebaseapp.com
+    value: masif-ticketing.firebaseapp.com
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    value: REPLACE_ME
+    value: masif-ticketing
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: REPLACE_ME.firebasestorage.app
+    value: masif-ticketing.firebasestorage.app
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    value: REPLACE_ME
+    value: "967229539467"
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: REPLACE_ME
+    value: "1:967229539467:web:009b7a52c5bb0d1721008e"
 
   # ── Firebase Admin SDK (server only) ──────────────────────────────────
   - variable: FIREBASE_PROJECT_ID
-    value: REPLACE_ME
+    value: masif-ticketing
     availability: [RUNTIME]
   - variable: FIREBASE_CLIENT_EMAIL
-    value: REPLACE_ME@REPLACE_ME.iam.gserviceaccount.com
+    value: firebase-adminsdk-fbsvc@masif-ticketing.iam.gserviceaccount.com
     availability: [RUNTIME]
   - variable: FIREBASE_PRIVATE_KEY
     secret: FIREBASE_PRIVATE_KEY
@@ -57,7 +57,7 @@ env:
 
   # ── Email (Gmail OAuth, Google Cloud Console → Credentials → OAuth client "Web application") ──
   - variable: GOOGLE_CLIENT_ID
-    value: REPLACE_ME.apps.googleusercontent.com
+    value: 286801839947-c9pumg80tsg45u6u6e6ch4b2nut9uvdj.apps.googleusercontent.com
     availability: [RUNTIME]
   - variable: GOOGLE_CLIENT_SECRET
     secret: GOOGLE_CLIENT_SECRET
