@@ -8,7 +8,6 @@ import {
   MenuUnfoldOutlined,
   ReadOutlined,
   SettingOutlined,
-  TeamOutlined,
   WarningOutlined,
 } from '@ant-design/icons'
 import { Layout, Menu } from 'antd'
@@ -19,7 +18,6 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { shouldOpenHrefInNewTab,SpaNavLink } from '@/components/common/SpaNavLink'
 import {
-  canAccessMyTeams,
   canAccessSettingsHub,
   canAccessTickets,
   isSettingsHrefPathname,
@@ -58,7 +56,7 @@ function selectedKeysForPathname(pathname: string | null, ticketsSearch: string)
   if (pathname === '/reference' || pathname.startsWith('/reference/')) return ['/reference']
   if (pathname === '/projects' || pathname.startsWith('/projects/')) return ['/projects']
   if (isSettingsHrefPathname(pathname)) return ['/settings']
-  const topLevel = ['/dashboard', '/my-teams']
+  const topLevel = ['/dashboard']
   const top = topLevel.find((k) => pathname === k || (k !== '/dashboard' && pathname.startsWith(`${k}/`)))
   if (top) return [top]
   const ticketsDetail = pathname.startsWith('/tickets/')
@@ -141,15 +139,6 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
             icon: <ReadOutlined />,
             label: linkLabel('/reference', 'Reference'),
           },
-          ...(canAccessMyTeams(role)
-            ? [
-                {
-                  key: '/my-teams',
-                  icon: <TeamOutlined />,
-                  label: linkLabel('/my-teams', 'E Report'),
-                },
-              ]
-            : []),
         ]
       : []),
     ...(canAccessSettingsHub(role)

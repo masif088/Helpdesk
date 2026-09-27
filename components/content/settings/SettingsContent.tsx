@@ -3,7 +3,6 @@
 import {
   AppstoreOutlined,
   BankOutlined,
-  BarChartOutlined,
   BellOutlined,
   CalendarOutlined,
   CheckSquareOutlined,
@@ -36,12 +35,9 @@ import {
   canAccessCompanies,
   canAccessCompanyLog,
   canAccessCustomerTimeReport,
-  canAccessCustomerWeeklyRecap,
   canAccessEmailIntegration,
   canAccessKnowledgeBase,
   canAccessMessageTemplates,
-  canAccessMyTeams,
-  canAccessRecapSnapshots,
   canAccessRecurringTickets,
   canAccessSlackNotifications,
   canAccessTeams,
@@ -319,33 +315,10 @@ export default function SettingsContent({ user: currentUser }: SettingsContentPr
           )}
 
           {/* ── Reports ───────────────────────────────────────────── */}
-          {(canAccessMyTeams(role) ||
-            canAccessCustomerTimeReport(role) ||
-            canAccessRecapSnapshots(role) ||
-            canAccessCustomerWeeklyRecap(role) ||
+          {(canAccessCustomerTimeReport(role) ||
             canAccessCompanyLog(role)) && (
             <Section heading="Reports">
               <Row gutter={[16, 16]}>
-                {canAccessMyTeams(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="E Report"
-                      description="Employee work time and hourly activity per team"
-                      href="/my-teams"
-                      icon={<TeamOutlined />}
-                    />
-                  </Col>
-                )}
-                {canAccessCustomerTimeReport(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Customer Report"
-                      description="Customer-facing time summary per company"
-                      href="/customer-time-report"
-                      icon={<BarChartOutlined />}
-                    />
-                  </Col>
-                )}
                 {canAccessCustomerTimeReport(role) && (
                   <Col xs={24} sm={12} md={8}>
                     <HubTile
@@ -353,26 +326,6 @@ export default function SettingsContent({ user: currentUser }: SettingsContentPr
                       description="Detailed tracked time log across all tickets"
                       href="/reports"
                       icon={<ClockCircleOutlined />}
-                    />
-                  </Col>
-                )}
-                {canAccessRecapSnapshots(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Recap Snapshots"
-                      description="Saved customer time report recaps (month or week)"
-                      href="/settings/recap-snapshots"
-                      icon={<BarChartOutlined />}
-                    />
-                  </Col>
-                )}
-                {canAccessCustomerWeeklyRecap(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Customer Weekly Recap"
-                      description="Utilization and client time per customer per week"
-                      href="/settings/customer-weekly-recap"
-                      icon={<CalendarOutlined />}
                     />
                   </Col>
                 )}

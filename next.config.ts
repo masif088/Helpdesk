@@ -34,16 +34,6 @@ const nextConfig: NextConfig = {
       { source: "/companies/:path*", destination: "/settings/companies/:path*", permanent: true },
       { source: "/teams", destination: "/settings/teams", permanent: true },
       { source: "/teams/:path*", destination: "/settings/teams/:path*", permanent: true },
-      {
-        source: "/settings/customer-time-report",
-        destination: "/customer-time-report",
-        permanent: true,
-      },
-      {
-        source: "/settings/customer-time-report/:path*",
-        destination: "/customer-time-report/:path*",
-        permanent: true,
-      },
     ]
   },
 };

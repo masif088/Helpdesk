@@ -89,16 +89,6 @@ export function canAccessCompanyLog(role: string | undefined): boolean {
   return isAdminOrManager(role)
 }
 
-/** Saved Customer time report recaps (`recap_snapshots`) in Settings → General: Admin & Manager */
-export function canAccessRecapSnapshots(role: string | undefined): boolean {
-  return isAdminOrManager(role)
-}
-
-/** Customer weekly recap grid (`customer_weekly_recap_cells`) in Settings → General: Admin & Manager */
-export function canAccessCustomerWeeklyRecap(role: string | undefined): boolean {
-  return isAdminOrManager(role)
-}
-
 /** Global running-text announcement (Settings): Admin only */
 export function canManageGlobalAnnouncement(role: string | undefined): boolean {
   return isAdmin(role)
@@ -112,13 +102,6 @@ export function canManageDashboardAnnouncements(role: string | undefined): boole
 /** Customer (company) time & ticket summary report: Admin & Manager */
 export function canAccessCustomerTimeReport(role: string | undefined): boolean {
   return isAdminOrManager(role)
-}
-
-/** My Teams: work time & activity for teams the user belongs to (not customers) */
-export function canAccessMyTeams(role: string | undefined): boolean {
-  const r = (role ?? '').toLowerCase()
-  if (!role) return false
-  return r !== 'customer'
 }
 
 /** Projects (checklist / activities): internal users only */
@@ -170,8 +153,6 @@ export function canAccessSettingsHub(role: string | undefined): boolean {
     canAccessCompanies(role) ||
     canAccessTeams(role) ||
     canAccessCompanyLog(role) ||
-    canAccessRecapSnapshots(role) ||
-    canAccessCustomerWeeklyRecap(role) ||
     canAccessAiSettings(role) ||
     canAccessRecurringTickets(role) ||
     canAccessTicketVisibilitySettings(role) ||

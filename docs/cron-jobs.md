@@ -10,7 +10,6 @@ Auth uses `Authorization: Bearer <secret>` read from `.env`.
 | `POST /api/email/sync-inbox` | Every 2 minutes | Sync email inbox (Gmail/IMAP), create tickets from incoming mail |
 | `POST /api/cron/process-recurring-tickets` | Every 1 minute | Create tickets automatically from recurring rules that are due |
 | `POST /api/cron/company-daily-active` | Every day at 00:05 UTC | Daily snapshot of active ticket counts per company |
-| `POST /api/cron/customer-weekly-recap` | Every Sunday at 01:00 UTC | Materialize weekly recap data per team (heavy job, off-peak schedule) |
 
 ## Secret / Auth
 
@@ -48,9 +47,6 @@ Current crontab:
 5 0 * * * curl -s -X POST https://ticket.deskteam360.com/api/cron/company-daily-active \
   -H "Authorization: Bearer <SYNC_INBOX_CRON_SECRET>" > /var/log/dt-labs-company-daily.log 2>&1
 
-# Customer weekly recap — every Sunday at 01:00 UTC
-0 1 * * 0 curl -s -X POST https://ticket.deskteam360.com/api/cron/customer-weekly-recap \
-  -H "Authorization: Bearer <SYNC_INBOX_CRON_SECRET>" > /var/log/dt-labs-weekly-recap.log 2>&1
 ```
 
 ## Log Files
@@ -61,7 +57,6 @@ Each cron's output is stored on the server:
 /var/log/dt-labs-sync-inbox.log       — latest email sync result
 /var/log/dt-labs-recurring.log        — latest recurring ticket process result
 /var/log/dt-labs-company-daily.log    — latest daily snapshot result
-/var/log/dt-labs-weekly-recap.log     — latest weekly recap result
 ```
 
 Check the latest logs:

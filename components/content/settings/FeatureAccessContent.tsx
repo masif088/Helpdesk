@@ -39,10 +39,6 @@ const FEATURES: Feature[] = [
   { category: 'Tickets', name: 'Assign / reassign agent', admin: 'yes', manager: 'yes', staff: 'limited', customer: 'no', note: 'Staff can only self-assign' },
   // Dashboard & Reports
   { category: 'Dashboard & Reports', name: 'Dashboard', admin: 'yes', manager: 'yes', staff: 'yes', customer: 'no' },
-  { category: 'Dashboard & Reports', name: 'Customer time report', admin: 'yes', manager: 'yes', staff: 'no', customer: 'no' },
-  { category: 'Dashboard & Reports', name: 'My Teams (work time)', admin: 'yes', manager: 'yes', staff: 'yes', customer: 'no' },
-  { category: 'Dashboard & Reports', name: 'Customer recap snapshots', admin: 'yes', manager: 'yes', staff: 'no', customer: 'no' },
-  { category: 'Dashboard & Reports', name: 'Customer weekly recap', admin: 'yes', manager: 'yes', staff: 'no', customer: 'no' },
   // Projects
   { category: 'Projects', name: 'View & manage projects', admin: 'yes', manager: 'yes', staff: 'yes', customer: 'no' },
   // Ticket Attributes

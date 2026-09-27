@@ -139,7 +139,6 @@ Auth uses `Authorization: Bearer <secret>` from `.env`.
 | `POST /api/email/sync-inbox` | Every 2 min | Sync Gmail inbox → create tickets from incoming email |
 | `POST /api/cron/process-recurring-tickets` | Every 1 min | Create tickets from due recurring rules |
 | `POST /api/cron/company-daily-active` | Daily 00:05 UTC | Snapshot daily active assignment per company |
-| `POST /api/cron/customer-weekly-recap` | Sunday 01:00 UTC | Materialize weekly recap per team (heavy — run off-peak) |
 
 ### Crontab entries
 
@@ -156,9 +155,6 @@ Auth uses `Authorization: Bearer <secret>` from `.env`.
 5 0 * * * curl -s -X POST https://ticket.deskteam360.com/api/cron/company-daily-active \
   -H "Authorization: Bearer <SYNC_INBOX_CRON_SECRET>" > /var/log/dt-labs-company-daily.log 2>&1
 
-# Customer weekly recap — every Sunday at 01:00 UTC
-0 1 * * 0 curl -s -X POST https://ticket.deskteam360.com/api/cron/customer-weekly-recap \
-  -H "Authorization: Bearer <SYNC_INBOX_CRON_SECRET>" > /var/log/dt-labs-weekly-recap.log 2>&1
 ```
 
 ### View / edit crontab on server
@@ -175,7 +171,6 @@ crontab -e    # edit
 tail -f /var/log/dt-labs-sync-inbox.log
 tail -f /var/log/dt-labs-recurring.log
 tail -f /var/log/dt-labs-company-daily.log
-tail -f /var/log/dt-labs-weekly-recap.log
 ```
 
 ### Adding a new cron job
