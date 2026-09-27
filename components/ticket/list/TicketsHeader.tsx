@@ -4,6 +4,7 @@ import { AppstoreOutlined, FilterOutlined, IdcardOutlined, PlusOutlined, ReloadO
 import { Button, ConfigProvider, Flex, Input, Popover, Segmented, Select, Space, Switch, theme, Tooltip, Typography } from 'antd'
 import { useState } from 'react'
 
+import { isTicketFolder, TICKET_FOLDER_LABELS, type TicketFolder } from '@/lib/ticket-classification'
 import { TICKETS_PAGE_LIMIT_OPTIONS, type TicketsPageLimit } from '@/lib/tickets-list-query'
 
 type ViewMode = 'kanban' | 'list' | 'card' | 'roundrobin'
@@ -19,7 +20,7 @@ interface TicketsHeaderProps {
   onCommitSearch?: (v: string) => void
   searchFields?: string
   onSearchFieldsChange?: (v: string) => void
-  filterTicketType?: 'spam' | 'trash' | null
+  filterTicketType?: TicketFolder | null
   ticketsPageLimit?: TicketsPageLimit
   onTicketsPageLimitChange?: (v: TicketsPageLimit) => void
   onRefresh?: () => void
@@ -77,8 +78,8 @@ export default function TicketsHeader({
     try { localStorage.setItem('ticket-search-prefs', JSON.stringify(Object.fromEntries(SEARCH_FIELD_OPTIONS.map(f => [f.key, next.has(f.key)])))) } catch { /* ignore */ }
   }
 
-  const inJunkFolder = !isCustomer && (filterTicketType === 'spam' || filterTicketType === 'trash')
-  const junkTitle = filterTicketType === 'spam' ? 'Spam' : filterTicketType === 'trash' ? 'Trash' : null
+  const inJunkFolder = !isCustomer && isTicketFolder(filterTicketType)
+  const junkTitle = isTicketFolder(filterTicketType) ? TICKET_FOLDER_LABELS[filterTicketType] : null
   const viewOptions = [
     { label: <span style={{ marginRight: 8 }}><AppstoreOutlined /> Kanban</span>, value: 'kanban' },
     ...(!isCustomer ? [{ label: <span style={{ marginRight: 8 }}><TeamOutlined /> Round Robin</span>, value: 'roundrobin' }] : []),

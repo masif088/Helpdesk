@@ -24,6 +24,7 @@ import { useRouter } from 'next/navigation'
 import type { Key } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { type TicketFolder } from '@/lib/ticket-classification'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
 import { Chip, PriorityBadge, StatusPill } from './TicketChips'
@@ -68,7 +69,7 @@ interface TicketsListViewProps {
   tickets: TicketRecord[]
   allStatusColumns: StatusColumn[]
   isCustomer?: boolean
-  filterTicketType?: 'spam' | 'trash' | null
+  filterTicketType?: TicketFolder | null
   canDeleteTicket?: boolean
   onEdit: (ticket: TicketRecord) => void
   onDelete: (id: number) => void

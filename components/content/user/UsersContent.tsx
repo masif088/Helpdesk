@@ -42,6 +42,7 @@ import { createUser } from '@/app/actions/users'
 import AppTable from '@/components/common/AppTable'
 import { Chip, StatusPill } from '@/components/ticket/list/TicketChips'
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
+import { CONTACT_KIND_LABELS, CONTACT_KINDS } from '@/lib/contact-kind'
 import { USER_DEPARTMENTS, USER_POSITIONS } from '@/lib/user-work-dropdowns'
 import { uploadAvatar } from '@/utils/storage'
 
@@ -70,7 +71,7 @@ type UserAudienceTab = 'customer' | 'non_customer'
 
 interface UsersContentProps {
   user: { id: string; email?: string | null; name?: string | null; role?: string }
-  /** 'customer' → /customers (portal users); 'staff' → Settings → Users (internal accounts) */
+  /** 'customer' → /contacts (portal contacts); 'staff' → Settings → Users (internal accounts) */
   audience?: 'customer' | 'staff'
 }
 
@@ -91,6 +92,7 @@ const ROLE_COLORS: Record<string, string> = {
 interface UserRecord {
   id: string
   email: string
+  contact_kind?: string | null
   first_name: string | null
   last_name: string | null
   full_name: string | null
@@ -125,7 +127,10 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
   const [uploading, setUploading] = useState(false)
   const [searchText, setSearchText] = useState('')
   const audienceTab: UserAudienceTab = audience === 'customer' ? 'customer' : 'non_customer'
-  const detailHref = (id: string) => (audience === 'customer' ? `/customers/${id}` : `/settings/users/${id}`)
+  const detailHref = (id: string) => (audience === 'customer' ? `/contacts/${id}` : `/settings/users/${id}`)
+  /** Contacts page: role is always customer, no status field, has a contact type */
+  const isContactsPage = !isCustomer && audienceTab === 'customer'
+  const noun = isContactsPage ? 'Contact' : 'User'
   const [filterStatus, setFilterStatus] = useState<string | undefined>(undefined)
   const [filterRole, setFilterRole] = useState<string | undefined>(undefined)
   const [form] = Form.useForm()
@@ -212,6 +217,7 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
     form.setFieldsValue({
       role: audienceTab === 'customer' ? 'customer' : 'staff',
       status: 'active',
+      contact_kind: 'person',
       timezone: 'UTC',
       locale: 'en',
       is_email_verified: false,
@@ -229,6 +235,7 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
       full_name: record.full_name || '',
       role: record.role,
       status: record.status,
+      contact_kind: record.contact_kind || 'person',
       company_id: record.company_id || undefined,
       phone: record.phone || '',
       department: record.department || '',
@@ -384,7 +391,7 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
           first_name: values.first_name || null,
           last_name: values.last_name || null,
           full_name: values.full_name,
-          status: values.status,
+          ...(isContactsPage ? { contact_kind: values.contact_kind || 'person' } : { status: values.status }),
           avatar_url: avatarUrl,
           phone: values.phone || null,
           timezone: values.timezone || 'UTC',
@@ -393,7 +400,7 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
         }
         if (!isCustomer) {
           Object.assign(patchBody, {
-            role: values.role,
+            role: isContactsPage ? 'customer' : values.role,
             company_id: values.company_id || null,
             department: values.department || null,
             position: values.position || null,
@@ -409,7 +416,7 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
           body: JSON.stringify(patchBody),
         })
 
-        message.success('User updated successfully')
+        message.success(`${noun} updated`)
         setModalVisible(false)
         form.resetFields()
         setAvatarUrl(null)
@@ -422,8 +429,8 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
           first_name: values.first_name || null,
           last_name: values.last_name || null,
           full_name: values.full_name,
-          role: isCustomer ? 'user' : values.role,
-          status: values.status,
+          role: isCustomer ? 'user' : isContactsPage ? 'customer' : values.role,
+          status: isContactsPage ? 'active' : values.status,
         })
 
         if (result.error) {
@@ -442,6 +449,7 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
               position: values.position || null,
               bio: values.bio || null,
               company_id: values.company_id || null,
+              ...(isContactsPage ? { contact_kind: values.contact_kind || 'person' } : {}),
             })
           }
           if (avatarUrl) {
@@ -461,14 +469,14 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ send_activation_email: true }),
               })
-              message.success(`User created and activation email sent to ${values.email}`)
+              message.success(`${noun} created and activation email sent to ${values.email}`)
             } catch (mailErr: any) {
               message.warning(
-                `User created, but activation email failed: ${mailErr?.message || 'unknown error'}`
+                `${noun} created, but activation email failed: ${mailErr?.message || 'unknown error'}`
               )
             }
           } else {
-            message.success('User created successfully')
+            message.success(`${noun} created`)
           }
 
           setModalVisible(false)
@@ -561,6 +569,13 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
       sorter: (a, b) => (a.company?.name || '').localeCompare(b.company?.name || ''),
       sortDirections: ['ascend', 'descend'],
       render: (_, r) => (r.company?.name ? <Chip>{r.company.name}</Chip> : <span className="people-muted">—</span>),
+    },
+    {
+      title: 'Type',
+      key: 'contact_kind',
+      width: 120,
+      render: (_, r) =>
+        r.contact_kind === 'automated' ? <Chip color="#0E7490">Automated</Chip> : <Chip>Person</Chip>,
     },
     {
       title: 'Status',
@@ -668,14 +683,19 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
   const columns = useMemo(() => {
     if (isCustomer) {
       return baseColumns.filter(
-        (c) => !['role', 'company', 'department', 'position'].includes(String(c.key))
+        (c) => !['role', 'company', 'department', 'position', 'contact_kind'].includes(String(c.key))
       )
     }
     const hideKeys = new Set<string>()
-    if (audienceTab === 'non_customer') hideKeys.add('company')
+    if (audienceTab === 'non_customer') {
+      hideKeys.add('company')
+      hideKeys.add('contact_kind')
+    }
     if (audienceTab === 'customer') {
       hideKeys.add('department')
       hideKeys.add('position')
+      hideKeys.add('role')
+      hideKeys.add('status')
     }
     if (hideKeys.size === 0) return baseColumns
     return baseColumns.filter((c) => !hideKeys.has(String(c.key)))
@@ -690,20 +710,20 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
           <div className="page-head">
             <div>
               <Title level={2} className="page-head__title">
-                {isCustomer ? 'Users' : audienceTab === 'customer' ? 'Customers' : 'Users'}
+                {isContactsPage ? 'Contacts' : 'Users'}
               </Title>
               <Text className="page-head__sub">
                 {isCustomer
                   ? 'People who belong to your organization and can sign in to the portal'
-                  : audienceTab === 'customer'
-                    ? 'Client contacts who sign in to the portal, grouped by their company'
+                  : isContactsPage
+                    ? 'People and automated senders at your client companies'
                     : 'Internal accounts — admins, managers and staff'}
               </Text>
             </div>
             <div className="page-head__actions">
               <span className="page-head__count">{filteredUsers.length} shown</span>
               <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-                {audienceTab === 'customer' && !isCustomer ? 'Add customer' : 'Add user'}
+                {isContactsPage ? 'Add contact' : 'Add user'}
               </Button>
             </div>
           </div>
@@ -746,6 +766,7 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
                   }}
                   style={{ width: 260 }}
                 />
+{!isContactsPage && (
                 <Select
                   placeholder="Filter by Status"
                   allowClear
@@ -761,6 +782,7 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
                   <Option value="suspended">Suspended</Option>
                   <Option value="pending">Pending</Option>
                 </Select>
+                )}
                 {audienceTab === 'non_customer' && (
                   <Select
                     placeholder="Filter by Role"
@@ -887,7 +909,7 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
             </div>
 
           <Modal
-            title={editingUser ? 'Edit User' : 'Create User'}
+            title={editingUser ? `Edit ${noun.toLowerCase()}` : `Add ${noun.toLowerCase()}`}
             open={modalVisible}
             onCancel={() => {
               setModalVisible(false)
@@ -1040,7 +1062,33 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
 
 
 
-              {!isCustomer && (
+              {isContactsPage && (
+                <Row gutter={24}>
+                  <Col span={12}>
+                    <Form.Item
+                      name="contact_kind"
+                      label="Contact type"
+                      tooltip="Automated contacts (bots / no-reply senders): their emails become Notification tickets instead of support tickets."
+                    >
+                      <Select
+                        options={CONTACT_KINDS.map((k) => ({ value: k, label: CONTACT_KIND_LABELS[k] }))}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="company_id" label="Company">
+                      <Select
+                        placeholder="Select company (optional)"
+                        allowClear
+                        showSearch
+                        optionFilterProp="label"
+                        options={companies.map((c) => ({ label: c.name, value: c.id }))}
+                      />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              )}
+              {!isCustomer && !isContactsPage && (
                 <>
                   <Row gutter={24}>
                     <Col span={12}>
@@ -1053,7 +1101,6 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
                           <Option value="admin">Admin</Option>
                           <Option value="manager">Manager</Option>
                           <Option value="staff">Staff</Option>
-                          <Option value="customer">Customer</Option>
                         </Select>
                       </Form.Item>
                     </Col>

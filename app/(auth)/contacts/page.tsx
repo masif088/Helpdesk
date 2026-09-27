@@ -4,10 +4,10 @@ import { auth } from '@/auth'
 import UsersContent from '@/components/content/user/UsersContent'
 import { canAccessUsers } from '@/lib/auth-utils'
 
-export const metadata = { title: 'Customers' }
+export const metadata = { title: 'Contacts' }
 
-/** Customer (portal) users — separate from internal users in Settings → Users. */
-export default async function CustomersPage() {
+/** Contacts: portal users at client companies (role customer) — internal users live in Settings → Users. */
+export default async function ContactsPage() {
   const session = await auth()
   if (!session?.user) redirect('/login')
   const role = (session.user as { role?: string }).role

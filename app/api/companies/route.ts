@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { isAdminOrManager } from '@/lib/auth-utils'
+import { parseHourlyRateBody } from '@/lib/billing-rate'
 import { companies, companyUsers, find, get, insert, teams, tickets, update, users } from '@/lib/fsdb'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 import { upsertCompanyUserMembership } from '@/lib/upsert-company-user-membership'
@@ -60,6 +62,7 @@ export async function GET(request: Request) {
     filtered = rows.filter((r) => r.isActive === active)
   }
 
+  const showBilling = isAdminOrManager((session.user as { role?: string }).role)
   const data = filtered.map((r) => ({
     id: r.id,
     name: r.name,
@@ -70,6 +73,9 @@ export async function GET(request: Request) {
     active_team_id: r.activeTeamId ?? null,
     active_manager_id: r.activeManagerId ?? null,
     is_customer: r.isCustomer ?? false,
+    ...(showBilling
+      ? { default_hourly_rate: r.defaultHourlyRate ?? null, default_rate_currency: r.defaultRateCurrency ?? null }
+      : {}),
     created_at: r.createdAt ? new Date(r.createdAt).toISOString() : '',
     updated_at: r.updatedAt ? new Date(r.updatedAt).toISOString() : '',
     last_ticket_updated_at: lastTicketByCompany.get(r.id) ?? null,
@@ -90,6 +96,13 @@ export async function POST(request: Request) {
   const activeTeamId = normalizeUuidBody(body.active_team_id)
   const activeManagerId = normalizeUuidBody(body.active_manager_id)
   const isCustomerCompany = body.is_customer === true
+  const defaultRate = parseHourlyRateBody(body, { rate: 'default_hourly_rate', currency: 'default_rate_currency' })
+  if (defaultRate !== undefined) {
+    if (!isAdminOrManager((session.user as { role?: string }).role)) {
+      return NextResponse.json({ error: 'Only admins and managers can set the default hourly rate' }, { status: 403 })
+    }
+    if ('error' in defaultRate) return NextResponse.json({ error: defaultRate.error }, { status: 400 })
+  }
 
   if (!name) {
     return NextResponse.json({ error: 'Name is required' }, { status: 400 })
@@ -132,6 +145,9 @@ export async function POST(request: Request) {
     activeTeamId,
     activeManagerId,
     isCustomer: isCustomerCompany,
+    ...(defaultRate && !('error' in defaultRate)
+      ? { defaultHourlyRate: defaultRate.hourlyRate, defaultRateCurrency: defaultRate.rateCurrency }
+      : {}),
   })
 
   if (!row) {

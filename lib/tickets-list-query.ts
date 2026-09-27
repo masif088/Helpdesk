@@ -1,5 +1,7 @@
 import type { Dayjs } from 'dayjs'
 
+import type { TicketFolder } from '@/lib/ticket-classification'
+
 /** Page sizes supported by the ticket list UI. */
 export const TICKETS_PAGE_LIMIT_OPTIONS = [50, 100, 200] as const
 export type TicketsPageLimit = (typeof TICKETS_PAGE_LIMIT_OPTIONS)[number]
@@ -51,7 +53,7 @@ export function buildTicketsListQueryKey(
     filterDateRange: [Dayjs | null, Dayjs | null] | null
     filterDueDateRange: [Dayjs | null, Dayjs | null] | null
     debouncedSearch: string
-    filterTicketType: 'spam' | 'trash' | null
+    filterTicketType: TicketFolder | null
   }
 ): readonly ['tickets', 'list', TicketsListQueryKeyPayload] {
   const payload: TicketsListQueryKeyPayload = {

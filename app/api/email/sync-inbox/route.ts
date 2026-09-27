@@ -7,6 +7,7 @@ import { createAppUser, findUserByEmail, randomPassword } from '@/lib/app-users'
 import { loadAutomationTicketContext, runAutomationRules, runTicketCommentAutomation } from '@/lib/automation-engine'
 import { sendAutomationLog } from '@/lib/automation-log-webhook'
 import { companyDefaultRate } from '@/lib/billing-rate-server'
+import { looksAutomatedEmail } from '@/lib/contact-kind'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
 import {
   commentAttachments,
@@ -988,6 +989,8 @@ export async function POST(request: NextRequest) {
         const company = companyRows.find((r) => r.email?.toLowerCase() === senderEmail) ?? companyRows[0] ?? null
 
         let creatorUserId: string | null = null
+        /** Bot / no-reply sender → ticket goes to Notifications instead of the support queue */
+        let senderIsAutomated = looksAutomatedEmail(senderEmail)
         let ticketCompanyId: string | null = company?.id ?? null
         let createdUserTempPassword: string | null = null
         let shouldSendActivationForNewUser = false
@@ -996,6 +999,7 @@ export async function POST(request: NextRequest) {
 
         if (existingUser) {
           creatorUserId = existingUser.id
+          if (existingUser.contactKind) senderIsAutomated = existingUser.contactKind === 'automated'
           ticketCompanyId = existingUser.companyId ?? company?.id ?? null
           // Update user's companyId if they belong to company (email match or domain match) but weren't linked
           if (company?.id && !existingUser.companyId) {
@@ -1021,12 +1025,14 @@ export async function POST(request: NextRequest) {
                 fullName: truncateVarchar(displayName, 255),
                 companyId: company?.id ?? null,
                 role: 'customer',
+                contactKind: senderIsAutomated ? 'automated' : 'person',
                 password,
               })
             if (inserted) {
               creatorUserId = inserted.id
               createdUserTempPassword = password
-              shouldSendActivationForNewUser = true
+              // No portal invite for machine senders
+              shouldSendActivationForNewUser = !senderIsAutomated
               if (company?.id) {
                 try {
                   await insertIgnore(companyUsers, { companyId: company.id, userId: inserted.id })
@@ -1252,7 +1258,7 @@ export async function POST(request: NextRequest) {
               companyId: ticketCompanyId,
               ...(await companyDefaultRate(ticketCompanyId)),
               createdVia: 'email',
-              ticketType: isSpam ? 'spam' : DEFAULT_TICKET_TYPE,
+              ticketType: isSpam ? 'spam' : senderIsAutomated ? 'notification' : DEFAULT_TICKET_TYPE,
               /** NULL first; then append to end of company queue. */
               priority: ticketCompanyId ? null : 0,
               ...(emailDateIso && { createdAt: new Date(emailDateIso) }),

@@ -44,6 +44,7 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef,useState } from 'react'
 
 import { BRANDING } from '@/lib/branding'
+import { isTicketFolder, TICKET_FOLDER_LABELS } from '@/lib/ticket-classification'
 import { uploadTicketFile } from '@/utils/storage'
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
@@ -262,7 +263,7 @@ export default function TicketDetailContent({
     }, [ticketData?.id, initialCommentsHasOlder, initialCommentsOlderCursor, initialCommentsOlderRemaining])
 
     const [loading, setLoading] = useState(false)
-    const [classifyLoading, setClassifyLoading] = useState<'support' | 'spam' | 'trash' | null>(null)
+    const [classifyLoading, setClassifyLoading] = useState<'support' | 'spam' | 'trash' | 'notification' | null>(null)
     const [nextTicketNavLoading, setNextTicketNavLoading] = useState(false)
     const [newChecklistTitle, setNewChecklistTitle] = useState('')
     const [commentVisibility, setCommentVisibility] = useState<'note' | 'reply' | null>(null)
@@ -1371,7 +1372,7 @@ export default function TicketDetailContent({
     const rowTicketType = (displayTicket?.ticket_type as string | undefined) ?? 'support'
 
     const patchTicketClassification = useCallback(
-        async (ticket_type: 'support' | 'spam' | 'trash') => {
+        async (ticket_type: 'support' | 'spam' | 'trash' | 'notification') => {
             const tid = displayTicket?.id
             if (tid == null) return
             setClassifyLoading(ticket_type)
@@ -1387,7 +1388,9 @@ export default function TicketDetailContent({
                         ? 'Marked as support'
                         : ticket_type === 'spam'
                           ? 'Marked as spam'
-                          : 'Marked as trash',
+                          : ticket_type === 'notification'
+                            ? 'Moved to notifications'
+                            : 'Marked as trash',
                 )
                 router.refresh()
             } catch (e: unknown) {
@@ -1512,12 +1515,11 @@ export default function TicketDetailContent({
                             <Button
                                 icon={<ArrowLeftOutlined />}
                                 onClick={() => {
-                                    if (rowTicketType === 'spam') window.location.href = '/tickets?ticket_type=spam'
-                                    else if (rowTicketType === 'trash') window.location.href = '/tickets?ticket_type=trash'
+                                    if (isTicketFolder(rowTicketType)) window.location.href = `/tickets?ticket_type=${rowTicketType}`
                                     else window.location.href = '/tickets'
                                 }}
                             >
-                                Back to {isCustomer ? 'Portal' : rowTicketType === 'spam' ? 'Spam' : rowTicketType === 'trash' ? 'Trash' : 'Tickets'}
+                                Back to {isCustomer ? 'Portal' : isTicketFolder(rowTicketType) ? TICKET_FOLDER_LABELS[rowTicketType] : 'Tickets'}
                             </Button>
                             <div
                                 style={{
@@ -1658,8 +1660,8 @@ export default function TicketDetailContent({
                                                 />
                                             </Tooltip>
                                             {rowTicketType !== 'support' && (
-                                                <Tag color={rowTicketType === 'spam' ? 'red' : 'orange'}>
-                                                    {rowTicketType === 'spam' ? 'Spam ticket' : 'Trash ticket'}
+                                                <Tag color={rowTicketType === 'spam' ? 'red' : rowTicketType === 'notification' ? 'cyan' : 'orange'}>
+                                                    {rowTicketType === 'spam' ? 'Spam ticket' : rowTicketType === 'notification' ? 'Notification' : 'Trash ticket'}
                                                 </Tag>
                                             )}
                                             { rowTicketType !=='spam'&&(

@@ -495,7 +495,7 @@ export default function UserDetailContent({ user: currentUser, userData: initial
             <Space style={{ marginBottom: 24 }} wrap>
               <Button
                 icon={<ArrowLeftOutlined />}
-                onClick={() => router.push(isOwnProfile ? '/dashboard' : userData.role === 'customer' ? '/customers' : '/settings/users')}
+                onClick={() => router.push(isOwnProfile ? '/dashboard' : userData.role === 'customer' ? '/contacts' : '/settings/users')}
               >
                 {isOwnProfile ? 'Back to dashboard' : 'Back to Users'}
               </Button>

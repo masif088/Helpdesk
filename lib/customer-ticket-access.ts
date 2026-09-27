@@ -68,7 +68,7 @@ export async function assertCustomerMayAccessTicket(
     return { ok: false, status: 403 }
   }
   const cls = coerceTicketType(trow.ticketType)
-  if (cls === 'spam' || cls === 'trash' || cls === 'project') {
+  if (cls === 'spam' || cls === 'trash' || cls === 'notification' || cls === 'project') {
     return { ok: false, status: 403 }
   }
   return { ok: true }

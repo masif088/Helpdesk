@@ -186,6 +186,15 @@ export default function TicketsContent({ user: currentUser }: TicketsContentProp
             hasActiveFilters={hasActiveFilters}
           />
 
+          {!isCustomer && filterTicketType === 'notification' && (
+            <Alert
+              type="info"
+              showIcon
+              message="Notifications"
+              description="Emails from automated contacts (bots / no-reply). Not part of the support queue — mark one as support if it needs work."
+              style={{ marginLeft: '24px', marginRight: '48px', marginBottom: '12px' }}
+            />
+          )}
           {!isCustomer && filterTicketType === 'spam' && (
             <Alert
               type="warning"

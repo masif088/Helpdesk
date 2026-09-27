@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
 import { afterUserRowChanged, findUserByEmail, setUserPassword } from '@/lib/app-users'
+import { isContactKind } from '@/lib/contact-kind'
 import {
   companies,
   companyUsers,
@@ -280,6 +281,7 @@ export async function GET(
     timezone: u.timezone,
     locale: u.locale,
     is_email_verified: u.isEmailVerified,
+    contact_kind: u.contactKind ?? null,
   })
 }
 
@@ -372,6 +374,12 @@ export async function PATCH(
   if (body.timezone !== undefined) updateData.timezone = body.timezone || 'UTC'
   if (body.locale !== undefined) updateData.locale = body.locale || 'en'
   if (body.is_email_verified !== undefined) updateData.isEmailVerified = body.is_email_verified
+  if (body.contact_kind !== undefined) {
+    if (!isContactKind(body.contact_kind)) {
+      return NextResponse.json({ error: 'contact_kind must be person or automated' }, { status: 400 })
+    }
+    updateData.contactKind = body.contact_kind
+  }
 
   // Admin can change any user's password
   if (isAdmin && body.password) {

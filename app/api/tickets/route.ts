@@ -37,7 +37,7 @@ import { sendRequesterTicketCreatedEmail } from '@/lib/requester-new-ticket-emai
 import { notifySlackTicketEvent } from '@/lib/slack-ticket-notify'
 import { getPublicUrl } from '@/lib/storage-provider'
 import { logTicketActivity } from '@/lib/ticket-activity-log'
-import { coerceTicketType, DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
+import { coerceTicketType, DEFAULT_TICKET_TYPE, isTicketFolder } from '@/lib/ticket-classification'
 import {
   assignCompanySupportTicketRank,
   assignCreatorSupportTicketRank,
@@ -132,7 +132,7 @@ export async function GET(request: Request) {
    * Tickets with classification `project` are excluded from the main list (they live on the project board).
    */
   const listTicketType =
-    role !== 'customer' && (ticketTypeFilter === 'spam' || ticketTypeFilter === 'trash')
+    role !== 'customer' && isTicketFolder(ticketTypeFilter)
       ? ticketTypeFilter
       : DEFAULT_TICKET_TYPE
 

@@ -8,6 +8,7 @@ import {
   DeleteOutlined,
   DoubleLeftOutlined,
   DoubleRightOutlined,
+  NotificationOutlined,
   ReadOutlined,
   SettingOutlined,
   WarningOutlined,
@@ -63,13 +64,14 @@ function selectedKeysForPathname(pathname: string | null, ticketsSearch: string)
     const qs = ticketsSearch.trim()
     const sp = new URLSearchParams(qs.startsWith('?') ? qs.slice(1) : qs)
     const tt = sp.get('ticket_type')?.toLowerCase()
+    if (tt === 'notification') return ['/tickets?ticket_type=notification']
     if (tt === 'spam') return ['/tickets?ticket_type=spam']
     if (tt === 'trash') return ['/tickets?ticket_type=trash']
     return ['/tickets']
   }
   if (pathname === '/reference' || pathname.startsWith('/reference/')) return ['/reference']
   if (pathname === '/companies' || pathname.startsWith('/companies/')) return ['/companies']
-  if (pathname === '/customers' || pathname.startsWith('/customers/')) return ['/customers']
+  if (pathname === '/contacts' || pathname.startsWith('/contacts/')) return ['/contacts']
   if (pathname === '/projects' || pathname.startsWith('/projects/')) return ['/projects']
   if (isSettingsHrefPathname(pathname)) return ['/settings']
   const topLevel = ['/dashboard']
@@ -112,6 +114,7 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
           ? [{ key: '/tickets', label: 'Tickets', icon: <CheckSquareOutlined /> }]
           : [
               { key: '/tickets', label: 'All tickets', icon: <CheckSquareOutlined /> },
+              { key: '/tickets?ticket_type=notification', label: 'Notifications', icon: <NotificationOutlined /> },
               { key: '/tickets?ticket_type=spam', label: 'Spam', icon: <WarningOutlined /> },
               { key: '/tickets?ticket_type=trash', label: 'Trash', icon: <DeleteOutlined /> },
             ],
@@ -121,7 +124,7 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
     if (!isCustomer) {
       const clients: NavItem[] = []
       if (canAccessCompanies(role)) clients.push({ key: '/companies', label: 'Companies', icon: <BankOutlined /> })
-      if (canAccessUsers(role)) clients.push({ key: '/customers', label: 'Customers', icon: <ContactsOutlined /> })
+      if (canAccessUsers(role)) clients.push({ key: '/contacts', label: 'Contacts', icon: <ContactsOutlined /> })
       if (clients.length) out.splice(2, 0, { title: 'Clients', items: clients })
     }
     if (!isCustomer && canAccessSettingsHub(role)) {

@@ -71,6 +71,7 @@ export async function GET() {
       timezone: u.timezone,
       locale: u.locale,
       is_email_verified: u.isEmailVerified,
+      contact_kind: u.contactKind ?? null,
     }
   })
 

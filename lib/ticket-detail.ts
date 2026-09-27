@@ -196,12 +196,12 @@ export async function getTicketDetail(ticketId: number, options?: TicketDetailOp
       return null
     }
     const cls = coerceTicketType(t.ticketType)
-    if (cls === 'spam' || cls === 'trash' || cls === 'project') return null
+    if (cls === 'spam' || cls === 'trash' || cls === 'notification' || cls === 'project') return null
   } else if (options?.companyId && t.companyId !== options.companyId) {
     return null
   } else if (options?.companyId) {
     const cls = coerceTicketType(t.ticketType)
-    if (cls === 'spam' || cls === 'trash' || cls === 'project') return null
+    if (cls === 'spam' || cls === 'trash' || cls === 'notification' || cls === 'project') return null
   }
 
   const [assigneeLinks, checklistItemsRaw, attributsRows, screenshotsRows, ticketTagLinks, ccRecipientsRows] =

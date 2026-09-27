@@ -1713,6 +1713,8 @@ export type UsersRow = {
   mustChangePassword: boolean | null
   metadata: unknown | null
   companyId: string | null
+  /** Contacts only: 'person' | 'automated' (bot / no-reply → email tickets become notifications) */
+  contactKind: string | null
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -1740,6 +1742,7 @@ export type NewUsersRow = {
   mustChangePassword?: boolean | null
   metadata?: unknown | null
   companyId?: string | null
+  contactKind?: string | null
   createdAt?: Date
   updatedAt?: Date
   deletedAt?: Date | null
@@ -1747,7 +1750,7 @@ export type NewUsersRow = {
 
 export const users = defineTable<UsersRow, NewUsersRow>({
   name: 'users',
-  columns: ['id', 'email', 'firstName', 'lastName', 'fullName', 'avatarUrl', 'role', 'permissions', 'status', 'isEmailVerified', 'lastLoginAt', 'lastActiveAt', 'phone', 'department', 'position', 'bio', 'timezone', 'locale', 'mustChangePassword', 'metadata', 'companyId', 'createdAt', 'updatedAt', 'deletedAt'],
+  columns: ['id', 'email', 'firstName', 'lastName', 'fullName', 'avatarUrl', 'role', 'permissions', 'status', 'isEmailVerified', 'lastLoginAt', 'lastActiveAt', 'phone', 'department', 'position', 'bio', 'timezone', 'locale', 'mustChangePassword', 'metadata', 'companyId', 'contactKind', 'createdAt', 'updatedAt', 'deletedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',

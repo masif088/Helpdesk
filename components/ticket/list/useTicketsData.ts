@@ -7,6 +7,7 @@ import dayjs from 'dayjs'
 import { usePathname, useRouter,useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
+import { isTicketFolder,type TicketFolder } from '@/lib/ticket-classification'
 import { resolveDefaultNewTicketStatusSlug } from '@/lib/ticket-default-status'
 import type { ParsedUrlFilters } from '@/lib/ticket-filter-url'
 import {
@@ -210,7 +211,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
       let filterTicketType = parsed.filterTicketType
       if (
         isCustomer &&
-        (filterTicketType === 'spam' || filterTicketType === 'trash')
+        isTicketFolder(filterTicketType)
       ) {
         filterTicketType = null
       }
@@ -277,7 +278,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
   const [submitting, setSubmitting] = useState(false)
   const [filterSidebarCollapsed, setFilterSidebarCollapsed] = useState(initialState.filterSidebarCollapsed)
   const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'card' | 'roundrobin'>(initialState.viewMode)
-  const [filterTicketType, setFilterTicketType] = useState<'spam' | 'trash' | null>(
+  const [filterTicketType, setFilterTicketType] = useState<TicketFolder | null>(
     initialState.filterTicketType ?? null
   )
   const [newTicketAttachments, setNewTicketAttachments] = useState<NewTicketAttachment[]>([])
@@ -398,7 +399,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams()
       const inJunkFolder =
-        !isCustomer && (filterTicketType === 'spam' || filterTicketType === 'trash')
+        !isCustomer && isTicketFolder(filterTicketType)
       if (inJunkFolder) params.set('ticket_type', filterTicketType!)
       if (!isCustomer) {
         const noCompany = filterCompanyIds.includes('__none__')
@@ -642,11 +643,11 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
       }
       if (
         isCustomer &&
-        (parsed.filterTicketType === 'spam' || parsed.filterTicketType === 'trash')
+        isTicketFolder(parsed.filterTicketType)
       ) {
         parsed = { ...parsed, filterTicketType: null }
       }
-      const isJunkUrl = parsed.filterTicketType === 'spam' || parsed.filterTicketType === 'trash'
+      const isJunkUrl = isTicketFolder(parsed.filterTicketType)
 
       const applyStatusFromParsed = () => {
         let statuses = parsed.filterStatus
@@ -726,7 +727,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
       }
       if (
         isCustomer &&
-        (parsed.filterTicketType === 'spam' || parsed.filterTicketType === 'trash')
+        isTicketFolder(parsed.filterTicketType)
       ) {
         parsed = { ...parsed, filterTicketType: null }
       }
@@ -862,7 +863,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
 
   useEffect(() => {
     if (!isCustomer) return
-    if (filterTicketType === 'spam' || filterTicketType === 'trash') {
+    if (isTicketFolder(filterTicketType)) {
       setFilterTicketType(null)
     }
   }, [isCustomer, filterTicketType])
@@ -882,7 +883,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
   useEffect(() => {
     if (
       !isCustomer &&
-      (filterTicketType === 'spam' || filterTicketType === 'trash') &&
+      isTicketFolder(filterTicketType) &&
       viewMode !== 'card'
     ) {
       setViewMode('card')

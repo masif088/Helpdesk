@@ -1,7 +1,7 @@
 'use client'
 
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
-import { Button, Card, Col, Form, Input, Layout, message, Modal, Popconfirm, Row, Select, Space, Switch, Tooltip, Typography } from 'antd'
+import { Button, Card, Col, Form, Input, InputNumber, Layout, message, Modal, Popconfirm, Row, Select, Space, Switch, Tooltip, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo,useState } from 'react'
@@ -14,6 +14,7 @@ import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import { Chip, StatusPill } from '@/components/ticket/list/TicketChips'
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
+import { DEFAULT_RATE_CURRENCY, formatHourlyRate, RATE_CURRENCIES } from '@/lib/billing-rate'
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...options, credentials: 'include' })
@@ -45,6 +46,8 @@ interface CompanyRecord {
   created_at: string
   updated_at: string
   last_ticket_updated_at?: string | null
+  default_hourly_rate?: number | null
+  default_rate_currency?: string | null
 }
 
 interface LeaderOption {
@@ -103,6 +106,8 @@ function ColorPickerWithInput({
 }
 
 export default function CompaniesContent({ user: currentUser }: CompaniesContentProps) {
+  /** Admin / manager: see and set the default hourly rate */
+  const canEditBilling = ['admin', 'manager'].includes(String((currentUser as { role?: string }).role ?? '').toLowerCase())
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [companies, setCompanies] = useState<CompanyRecord[]>([])
@@ -194,6 +199,8 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       active_team_id: undefined,
       active_manager_id: undefined,
       is_customer: false,
+      default_hourly_rate: null,
+      default_rate_currency: DEFAULT_RATE_CURRENCY,
     })
     setModalVisible(true)
   }
@@ -208,6 +215,8 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       active_team_id: record.active_team_id || undefined,
       active_manager_id: record.active_manager_id || undefined,
       is_customer: record.is_customer ?? false,
+      default_hourly_rate: record.default_hourly_rate ?? null,
+      default_rate_currency: record.default_rate_currency ?? DEFAULT_RATE_CURRENCY,
     })
     setModalVisible(true)
   }
@@ -230,11 +239,20 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
     active_team_id?: string | null
     active_manager_id?: string | null
     is_customer?: boolean
+    default_hourly_rate?: number | null
+    default_rate_currency?: string | null
   }) => {
     const staffPayload = {
       active_team_id: values.active_team_id ?? null,
       active_manager_id: values.active_manager_id ?? null,
       is_customer: values.is_customer === true,
+      ...(canEditBilling
+        ? {
+            default_hourly_rate: values.default_hourly_rate ?? null,
+            default_rate_currency:
+              values.default_hourly_rate != null ? values.default_rate_currency ?? DEFAULT_RATE_CURRENCY : null,
+          }
+        : {}),
     }
     setSaving(true)
     try {
@@ -309,6 +327,21 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
         <StatusPill color={is_customer ? '#0F9D8A' : '#94A3B8'} title={is_customer ? 'Customer' : 'Internal'} />
       ),
     },
+    ...(canEditBilling
+      ? [
+          {
+            title: 'Rate',
+            key: 'default_hourly_rate',
+            width: 150,
+            render: (_: unknown, record: CompanyRecord) =>
+              record.default_hourly_rate != null ? (
+                <span className="people-strong">{formatHourlyRate(record.default_hourly_rate, record.default_rate_currency)}</span>
+              ) : (
+                <span className="people-muted">No rate</span>
+              ),
+          },
+        ]
+      : []),
     {
       title: 'Active Team',
       key: 'active_team_id',
@@ -521,6 +554,23 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
               </Form.Item>
 
               <Row gutter={24}>
+                {canEditBilling ? (
+                  <Col xs={24}>
+                    <Form.Item
+                      label="Default hourly rate"
+                      extra="Copied to new tickets of this company; each ticket can still be changed."
+                    >
+                      <Space.Compact style={{ width: '100%' }}>
+                        <Form.Item name="default_rate_currency" noStyle>
+                          <Select style={{ width: 90 }} options={RATE_CURRENCIES.map((c) => ({ value: c, label: c }))} />
+                        </Form.Item>
+                        <Form.Item name="default_hourly_rate" noStyle>
+                          <InputNumber min={0} placeholder="per hour" style={{ width: '100%' }} />
+                        </Form.Item>
+                      </Space.Compact>
+                    </Form.Item>
+                  </Col>
+                ) : null}
                 <Col xs={24} sm={5}>
                   <Form.Item
                     name="is_customer"

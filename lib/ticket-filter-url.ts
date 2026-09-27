@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 
 import type { TicketSortField, TicketSortOrder } from '@/components/ticket/list/types'
+import { isTicketFolder,type TicketFolder } from '@/lib/ticket-classification'
 
 /** URL param keys - used for shareable filter links and saved presets */
 export const URL_PARAMS = {
@@ -74,7 +75,7 @@ export interface ParsedUrlFilters {
   sortBy: TicketSortField
   sortOrder: TicketSortOrder
   filterSidebarCollapsed: boolean
-  filterTicketType: 'spam' | 'trash' | null
+  filterTicketType: TicketFolder | null
 }
 
 export function parseFiltersFromUrl(
@@ -116,8 +117,8 @@ export function parseFiltersFromUrl(
   const filterSidebarCollapsed = sidebarRaw === '0' ? false : true
 
   const ticketTypeRaw = searchParams.get(URL_PARAMS.ticket_type)?.trim().toLowerCase()
-  const filterTicketType: 'spam' | 'trash' | null =
-    ticketTypeRaw === 'spam' || ticketTypeRaw === 'trash' ? ticketTypeRaw : null
+  const filterTicketType: TicketFolder | null =
+    isTicketFolder(ticketTypeRaw) ? ticketTypeRaw : null
   const inJunkFolder = filterTicketType !== null
 
   const junkViewMode: 'kanban' | 'list' | 'card' | 'roundrobin' = 'card'
@@ -156,10 +157,10 @@ export function buildSearchStringFromFilters(state: {
   filterDueDateRange: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null
   filterSearch: string
   viewMode: string
-  filterTicketType?: 'spam' | 'trash' | null
+  filterTicketType?: TicketFolder | null
 }): string {
   const p = new URLSearchParams()
-  const inJunk = state.filterTicketType === 'spam' || state.filterTicketType === 'trash'
+  const inJunk = isTicketFolder(state.filterTicketType)
   if (inJunk) {
     p.set(URL_PARAMS.ticket_type, state.filterTicketType!)
     p.set(URL_PARAMS.view, 'card')

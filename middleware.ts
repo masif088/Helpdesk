@@ -46,7 +46,7 @@ export const config = {
     '/settings/:path*',
     '/change-password',
     '/companies/:path*',
-    '/customers/:path*',
+    '/contacts/:path*',
     '/crawl-sessions/:path*',
     '/my-company/:path*',
     '/profile/:path*',
