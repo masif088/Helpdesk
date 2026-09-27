@@ -2,8 +2,8 @@
 
 import 'react-quill-new/dist/quill.snow.css'
 
-import { BankOutlined, DeleteOutlined, EditOutlined, FileMarkdownOutlined, FolderOutlined, LeftOutlined, PrinterOutlined, ProfileOutlined, RightOutlined, WarningOutlined } from '@ant-design/icons'
-import { Button, Card, Flex, Form, Grid, Input, Layout, message, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { BankOutlined, DeleteOutlined, EditOutlined, FileMarkdownOutlined, FolderOutlined, LeftOutlined, PrinterOutlined, ProfileOutlined, RightOutlined, StopOutlined, WarningOutlined } from '@ant-design/icons'
+import { Button, Card, Dropdown, Flex, Form, Grid, Input, Layout, message, Tabs, Tag, Tooltip, Typography } from 'antd'
 
 const { useBreakpoint } = Grid
 import { useRouter } from 'next/navigation'
@@ -1364,6 +1364,36 @@ export default function TicketDetailContent({
         [displayTicket?.id, router],
     )
 
+    /** Email tickets: stop importing mail from this sender (address or whole domain), then trash the ticket */
+    const senderEmail: string | null =
+        displayTicket?.created_via === 'email' && typeof displayTicket?.creator?.email === 'string'
+            ? displayTicket.creator.email.trim().toLowerCase() || null
+            : null
+    const [ignoringSender, setIgnoringSender] = useState(false)
+    const ignoreSender = useCallback(
+        async (entry: string) => {
+            setIgnoringSender(true)
+            try {
+                const res = await fetch('/api/email/skip-list', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: entry, reason: `From ticket #${displayTicket?.id}` }),
+                })
+                const data = await res.json().catch(() => ({}))
+                // Already ignored is fine: continue with trashing
+                if (!res.ok && res.status !== 409) throw new Error(data.error || 'Could not ignore sender')
+                message.success(`Mail from ${entry} will no longer create tickets`)
+                if (canMoveTicketToTrash && rowTicketType !== 'trash') await patchTicketClassification('trash')
+            } catch (e) {
+                message.error(e instanceof Error ? e.message : 'Could not ignore sender')
+            } finally {
+                setIgnoringSender(false)
+            }
+        },
+        [displayTicket?.id, canMoveTicketToTrash, rowTicketType, patchTicketClassification],
+    )
+
     type MyOpenTicketNavDirection = 'next' | 'prev'
 
     const navigateMyOpenTicket = useCallback(
@@ -1631,6 +1661,27 @@ export default function TicketDetailContent({
                                             </Button>
                                             ) }
                                             
+                                            {!isCustomer && senderEmail ? (
+                                                <Dropdown
+                                                    trigger={['click']}
+                                                    menu={{
+                                                        items: [
+                                                            { key: 'address', label: `Ignore ${senderEmail}` },
+                                                            ...(senderEmail.includes('@')
+                                                                ? [{ key: 'domain', label: `Ignore everything from @${senderEmail.split('@').pop()}` }]
+                                                                : []),
+                                                        ],
+                                                        onClick: ({ key }) =>
+                                                            void ignoreSender(key === 'domain' ? `@${senderEmail.split('@').pop()}` : senderEmail),
+                                                    }}
+                                                >
+                                                    <Tooltip title={canMoveTicketToTrash ? 'Stop creating tickets from this sender and move this one to Trash' : 'Stop creating tickets from this sender'}>
+                                                        <Button icon={<StopOutlined />} loading={ignoringSender}>
+                                                            Ignore sender
+                                                        </Button>
+                                                    </Tooltip>
+                                                </Dropdown>
+                                            ) : null}
                                             {canMoveTicketToTrash && rowTicketType !== 'trash' && (
                                             <Button
                                             
