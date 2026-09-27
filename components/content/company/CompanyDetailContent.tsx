@@ -9,11 +9,9 @@ import {
   GlobalOutlined,
   PlayCircleOutlined,
   PlusOutlined,
-  SyncOutlined,
   TeamOutlined,
 } from '@ant-design/icons'
-import { Button, Card, Col, DatePicker, Divider, Flex, Form, Input, InputNumber, Layout, message, Modal, Row, Select, Space, Switch, Tabs, Tag, Typography } from 'antd'
-import dayjs, { type Dayjs } from 'dayjs'
+import { Button, Card, Col, Divider, Flex, Form, Input, InputNumber, Layout, message, Modal, Row, Select, Space, Switch, Tabs, Tag, Typography } from 'antd'
 import { useRouter } from 'next/navigation'
 import { useEffect,useState } from 'react'
 
@@ -96,12 +94,7 @@ export default function CompanyDetailContent({
   const [crawlForm] = Form.useForm()
   const [companyEditModalOpen, setCompanyEditModalOpen] = useState(false)
   const [companyEditLoading, setCompanyEditLoading] = useState(false)
-  const [resyncing, setResyncing] = useState(false)
   const [ticketTotal, setTicketTotal] = useState<number | null>(null)
-  const [resyncModalOpen, setResyncModalOpen] = useState(false)
-  const [resyncSince, setResyncSince] = useState<Dayjs | null>(dayjs().subtract(1, 'year'))
-  const [resyncUntil, setResyncUntil] = useState<Dayjs | null>(dayjs())
-  const [resyncAllTickets, setResyncAllTickets] = useState(false)
   const [companyEditForm] = Form.useForm()
   const [companyEditLeaderOptions, setCompanyEditLeaderOptions] = useState<
     { id: string; full_name: string | null; email: string; role: string }[]
@@ -118,35 +111,6 @@ export default function CompanyDetailContent({
       throw new Error(err?.error || res.statusText || 'Request failed')
     }
     return res.json()
-  }
-
-  async function handleResync() {
-    setResyncModalOpen(false)
-    setResyncing(true)
-    try {
-      const data = await apiFetch<{ ok: boolean; result: { contacts: { imported: number; skipped: number }; tickets: { imported: number; skipped: number }; comments: { imported: number } } }>(
-        '/api/freshdesk/resync',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            company_id: companyData.id,
-            tickets_since: resyncAllTickets ? null : (resyncSince ? resyncSince.startOf('day').toISOString() : null),
-            tickets_until: resyncAllTickets ? null : (resyncUntil ? resyncUntil.endOf('day').toISOString() : null),
-          }),
-        }
-      )
-      const r = data.result
-      message.success(
-        `Resync done — contacts: +${r.contacts.imported} (${r.contacts.skipped} skipped), tickets: +${r.tickets.imported} (${r.tickets.skipped} skipped), comments: +${r.comments.imported}`
-      )
-      router.refresh()
-    } catch (e: unknown) {
-      const errMsg = (e as Error).message || 'Resync failed'
-      message.error(errMsg, errMsg.toLowerCase().includes('rate limit') ? 8 : 4)
-    } finally {
-      setResyncing(false)
-    }
   }
 
   // Group company datas by template group
@@ -550,15 +514,6 @@ export default function CompanyDetailContent({
                 {companyData.name}
               </Title>
               <Space>
-                {companyData.freshdesk_id && (
-                  <Button
-                    icon={<SyncOutlined spin={resyncing} />}
-                    loading={resyncing}
-                    onClick={() => setResyncModalOpen(true)}
-                  >
-                    Resync from Freshdesk
-                  </Button>
-                )}
                 {canEdit && (
                   <Button type="primary" icon={<EditOutlined />} onClick={() => void openEditCompanyModal()}>
                     Edit company
@@ -661,69 +616,6 @@ export default function CompanyDetailContent({
                   </>
                 )}
               </Form>
-            </Modal>
-
-            {/* Resync Modal */}
-            <Modal
-              title="Resync from Freshdesk"
-              open={resyncModalOpen}
-              onCancel={() => setResyncModalOpen(false)}
-              onOk={() => void handleResync()}
-              okText="Start Resync"
-              okButtonProps={{ icon: <SyncOutlined /> }}
-              width={420}
-            >
-              <Flex vertical gap={16} style={{ padding: '12px 0' }}>
-                <div>
-                  <Switch
-                    checked={resyncAllTickets}
-                    onChange={setResyncAllTickets}
-                    style={{ marginRight: 10 }}
-                  />
-                  <span>Import all tickets (no date filter)</span>
-                </div>
-                {!resyncAllTickets && (
-                  <Flex vertical gap={10}>
-                    <div>
-                      <div style={{ marginBottom: 6, color: 'var(--ant-color-text-secondary)', fontSize: 13 }}>
-                        From (updated since):
-                      </div>
-                      <DatePicker
-                        value={resyncSince}
-                        onChange={(d) => {
-                          setResyncSince(d)
-                          if (d && resyncUntil && d.isAfter(resyncUntil)) setResyncUntil(d)
-                        }}
-                        style={{ width: '100%' }}
-                        disabledDate={(d) => d.isAfter(dayjs())}
-                        format="DD MMM YYYY"
-                        placeholder="Select start date"
-                      />
-                    </div>
-                    <div>
-                      <div style={{ marginBottom: 6, color: 'var(--ant-color-text-secondary)', fontSize: 13 }}>
-                        Until:
-                      </div>
-                      <DatePicker
-                        value={resyncUntil}
-                        onChange={(d) => {
-                          setResyncUntil(d)
-                          if (d && resyncSince && d.isBefore(resyncSince)) setResyncSince(d)
-                        }}
-                        style={{ width: '100%' }}
-                        disabledDate={(d) => d.isAfter(dayjs())}
-                        format="DD MMM YYYY"
-                        placeholder="Today"
-                      />
-                    </div>
-                  </Flex>
-                )}
-                {resyncAllTickets && (
-                  <Typography.Text type="warning" style={{ fontSize: 13 }}>
-                    ⚠ If this company has many tickets (1000+), the process may take a long time and could timeout.
-                  </Typography.Text>
-                )}
-              </Flex>
             </Modal>
 
             {activeSection ? (
