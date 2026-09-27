@@ -542,10 +542,18 @@ export async function POST(request: NextRequest) {
     }
 
     if (isCronCall) {
-      if (!integration.createdBy) {
-        return NextResponse.json({ error: 'Email integration has no created_by (connect via UI first)' }, { status: 503 })
+      let actorId = integration.createdBy
+      if (!actorId) {
+        // Connected without a known user (older connect flow): act as an admin and remember it
+        const admins = await find(users, { where: [['role', '==', 'admin']] })
+        const admin = admins.find((u) => !u.deletedAt && u.status !== 'inactive')
+        if (!admin) {
+          return NextResponse.json({ error: 'Email integration has no created_by and no active admin exists' }, { status: 503 })
+        }
+        actorId = admin.id
+        await update(emailIntegrations, integration.id, { createdBy: actorId })
       }
-      userId = integration.createdBy
+      userId = actorId
     }
 
     const oauth2Client = new google.auth.OAuth2(

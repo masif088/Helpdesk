@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { emailIntegrations, findOneBy, insert, update } from '@/lib/fsdb'
+import { readOAuthState } from '@/lib/oauth-state'
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
@@ -66,8 +67,9 @@ export async function GET(request: NextRequest) {
 
     const expiresAt = expiresIn ? new Date(Date.now() + expiresIn * 1000) : null
 
+    // Session cookie may be missing when Google redirects to another host than the one used to connect; the signed state still says who connected.
     const session = await auth()
-    const userId = session?.user?.id ?? null
+    const userId = session?.user?.id ?? readOAuthState(state)
 
     const existing = await findOneBy(emailIntegrations, { provider: 'google' })
 
@@ -79,7 +81,7 @@ export async function GET(request: NextRequest) {
           refreshToken: refreshToken || null,
           expiresAt,
           isActive: true,
-          createdBy: userId,
+          createdBy: userId ?? existing.createdBy ?? null,
           updatedAt: new Date(),
         })
       } else {

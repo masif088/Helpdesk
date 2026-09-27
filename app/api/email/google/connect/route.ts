@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { createOAuthState } from '@/lib/oauth-state'
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const SCOPES = [
@@ -27,7 +28,7 @@ export async function GET() {
       return NextResponse.redirect(new URL('/settings/email-integration?error=missing_config', baseUrl))
     }
 
-    const state = Buffer.from(JSON.stringify({ userId: session.user.id })).toString('base64url')
+    const state = createOAuthState(session.user.id)
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
