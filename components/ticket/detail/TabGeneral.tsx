@@ -546,6 +546,8 @@ export default function TabGeneral({
     ? automationLabel
     : ticketData.creator?.full_name || ticketData.creator?.email || '—'
 
+  const creatorInitial = (ticketData.creator?.full_name || ticketData.creator?.email || '').trim().charAt(0).toUpperCase()
+
   const LBL: React.CSSProperties = { fontSize: 12, display: 'block', marginBottom: 4, color: 'rgba(255,255,255,0.65)' }
   const VAL: React.CSSProperties = { color: 'rgba(255,255,255,0.85)' }
   const isUrl = (v: string) => { try { const u = new URL(v.trim()); return u.protocol === 'http:' || u.protocol === 'https:' } catch { return false } }
@@ -569,17 +571,31 @@ export default function TabGeneral({
                               />
                             ) : (
                               <TicketUserMention userId={creatorId} email={creatorEmail}>
-                                <Avatar size="small" style={{ cursor: creatorId ? 'pointer' : undefined, flexShrink: 0 }} icon={<UserOutlined />} src={ticketData.creator?.avatar_url} />
+                                <Avatar
+                                  size="small"
+                                  style={{ cursor: creatorId ? 'pointer' : undefined, flexShrink: 0, ...(!ticketData.creator?.avatar_url && creatorInitial ? { background: 'var(--brand-primary)' } : {}) }}
+                                  icon={creatorInitial ? undefined : <UserOutlined />}
+                                  src={ticketData.creator?.avatar_url}
+                                >
+                                  {creatorInitial}
+                                </Avatar>
                               </TicketUserMention>
                             )}
                             <Flex vertical gap={2} style={{ minWidth: 0 }}>
-                              {ticketData.company_id && (
+                              {ticketData.company_id ? (
                                 <Text strong>
                                   {ticketData.company?.name ||
                                     companyOptions.find((c) => c.id === ticketData.company_id)?.name ||
                                     '—'}
                                 </Text>
-                              )}
+                              ) : !isAutomationCreated && createdByPersonLabel !== '—' ? (
+                                // No company: the requester is the headline instead
+                                <TicketUserMention userId={creatorId} email={creatorEmail}>
+                                  <Text strong style={{ cursor: creatorId ? 'pointer' : undefined }}>
+                                    {createdByPersonLabel}
+                                  </Text>
+                                </TicketUserMention>
+                              ) : null}
                               <Text
                                 type="secondary"
                                 style={{ fontSize: 12, color: 'var(--ticket-thread-meta)' }}
