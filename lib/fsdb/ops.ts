@@ -258,16 +258,6 @@ export async function nextSeq(name: string, n = 1): Promise<number> {
   })
 }
 
-/** Raise a counter so it is at least `min` (used by the Postgres import). */
-export async function ensureSeqAtLeast(name: string, min: number): Promise<void> {
-  const ref = fdb().collection('_counters').doc(name)
-  await fdb().runTransaction(async (tx) => {
-    const snap = await tx.get(ref)
-    const current = Number(snap.data()?.value ?? 0)
-    if (current < min) tx.set(ref, { value: min }, { merge: true })
-  })
-}
-
 // ─── Row building ─────────────────────────────────────────────────────────────
 
 function buildRow<T extends AnyTable>(table: T, data: InsertOf<T>, now: Date, seqId?: number): RowOf<T> {

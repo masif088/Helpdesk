@@ -42,7 +42,7 @@ export async function GET() {
       userCount,
       message:
         userCount === 0
-          ? 'The users collection is empty. Run: npm run db:seed (or import from Postgres).'
+          ? 'The users collection is empty. Run: npm run db:seed.'
           : 'Firestore OK',
     })
   } catch (err: unknown) {

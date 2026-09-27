@@ -149,17 +149,6 @@ added in `schema.ts` and default to `null` on old documents.
 npm run db:seed          # statuses, types, priorities, job types + first admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD)
 ```
 
-### Importing the old Postgres data
-
-```bash
-DATABASE_URL="postgresql://…" npm run migrate:firestore -- --dry-run   # counts only
-DATABASE_URL="postgresql://…" npm run migrate:firestore
-```
-
-Copies every table into Firestore with the same ids, rebuilds search fields, sets the id counters, and imports
-all users into Firebase Auth with their existing bcrypt hashes (everyone keeps their current password).
-Safe to re-run.
-
 ---
 
 ## Cron Jobs

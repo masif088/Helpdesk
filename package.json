@@ -9,7 +9,6 @@
     "lint": "eslint",
     "db:seed": "npx tsx scripts/seed.ts",
     "prepare": "husky",
-    "migrate:firestore": "npx tsx scripts/migrate-postgres-to-firestore.ts",
     "firebase:deploy-firestore": "npx firebase-tools deploy --only firestore:rules,firestore:indexes"
   },
   "dependencies": {
@@ -46,7 +45,6 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-simple-import-sort": "^13.0.0",
     "husky": "^9.1.7",
-    "postgres": "^3.4.8",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
