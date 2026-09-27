@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import EmailIntegrationContent from '@/components/content/settings/EmailIntegrationContent'
+import { canAccessEmailIntegration } from '@/lib/auth-utils'
 import { emailIntegrations, findOneBy } from '@/lib/fsdb'
 
 export default async function EmailIntegrationPage() {
@@ -9,6 +10,9 @@ export default async function EmailIntegrationPage() {
 
   if (!session?.user) {
     redirect('/login')
+  }
+  if (!canAccessEmailIntegration((session.user as { role?: string }).role)) {
+    redirect('/dashboard')
   }
 
   const integrationRow = await findOneBy(emailIntegrations, { provider: 'google' })

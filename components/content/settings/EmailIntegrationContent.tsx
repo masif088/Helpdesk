@@ -1,16 +1,24 @@
 'use client'
 
-import { CheckCircleOutlined, DisconnectOutlined, MailOutlined, SyncOutlined } from '@ant-design/icons'
-import { Button, Card, Collapse,Layout, message, Space, Tag, Typography } from 'antd'
+import { DisconnectOutlined, MailOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons'
+import { Button, Collapse, Layout, message, Popconfirm, Tooltip, Typography } from 'antd'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import SettingsBackLink from '@/components/settings/SettingsBackLink'
+import EmailSkipList from '@/components/settings/EmailSkipList'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import { StatusPill } from '@/components/ticket/list/TicketChips'
+import { BRANDING } from '@/lib/branding'
 
 const { Content } = Layout
-const { Title, Text } = Typography
+dayjs.extend(relativeTime)
+
+const { Text } = Typography
 
 interface Integration {
   id: string
@@ -33,7 +41,7 @@ export default function EmailIntegrationContent({
 }: EmailIntegrationContentProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [collapsed, setCollapsed] = useState(true)
+  const [collapsed, setCollapsed] = useState(false)
   const [integration, setIntegration] = useState<Integration | null>(initialIntegration)
   const [disconnecting, setDisconnecting] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -119,91 +127,129 @@ export default function EmailIntegrationContent({
   }
 
   const isConnected = integration?.is_active && integration?.email_address
+  const redirectUri = `${(BRANDING.siteUrl || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/\/$/, '')}/api/email/google/callback`
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <AdminSidebar user={user} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={user}>
-        <Content style={{ padding: '24px', background: 'var(--layout-bg)', minHeight: '100vh' }}>
-          <SettingsBackLink />
-          <Card style={{ maxWidth: 600 }}>
-            <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-              <div>
-                <Title level={2}>
-                  <MailOutlined style={{ marginRight: 8 }} />
-                  Email Integration (Shared Inbox)
-                </Title>
-                <Text type="secondary">
-                  Connect a single Google account (e.g. support@domain.com) for the shared inbox. All agents will use this mailbox.
-                </Text>
-              </div>
+        <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
+          <SettingsPageHeader
+            title="Email (Gmail)"
+            description="One shared Google mailbox (e.g. support@yourdomain.com): new emails become tickets, replies become comments, and agents' replies are sent from it."
+          />
 
-              <div>
-                <Title level={5}>Google Connection</Title>
+          <div className="email-layout">
+            <section className="ticket-surface billing-section">
+              <header className="billing-section__head">
+                <span>
+                  <MailOutlined /> Mailbox
+                </span>
+                {isConnected ? <StatusPill color="#16A34A" title="Connected" /> : <StatusPill color="#94A3B8" title="Not connected" />}
+              </header>
+              <div style={{ padding: 16 }}>
                 {isConnected ? (
-                  <Space orientation="vertical" size="middle">
-                    <Space>
-                      <Tag icon={<CheckCircleOutlined />} color="success">Connected</Tag>
-                      <Text strong>{integration.email_address}</Text>
-                    </Space>
-                    <Space wrap align="center">
-                      <Button
-                        icon={<SyncOutlined />}
-                        onClick={handleSyncInbox}
-                        loading={syncing}
-                      >
-                        Sync inbox (company replies → comments)
-                      </Button>
-                      {integration.last_sync_at && (
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          Last sync: {new Date(integration.last_sync_at).toLocaleString()}
-                        </Text>
+                  <div className="email-connected">
+                    <div className="email-connected__address">{integration.email_address}</div>
+                    <div className="cell-muted" style={{ fontSize: 13 }}>
+                      {integration.last_sync_at ? (
+                        <Tooltip title={new Date(integration.last_sync_at).toLocaleString()}>
+                          Last sync {dayjs(integration.last_sync_at).fromNow()}
+                        </Tooltip>
+                      ) : (
+                        'Never synced'
                       )}
-                      <Button
-                        danger
-                        icon={<DisconnectOutlined />}
-                        onClick={handleDisconnect}
-                        loading={disconnecting}
-                      >
-                        Disconnect
+                      {' · '}
+                      <SpaNavLink href="/settings/scheduled-jobs">Syncs every 5 minutes via the scheduler</SpaNavLink>
+                    </div>
+                    <div className="email-connected__actions">
+                      <Button type="primary" icon={<SyncOutlined />} onClick={handleSyncInbox} loading={syncing}>
+                        Sync now
                       </Button>
-                    </Space>
-                  </Space>
+                      <Tooltip title="Sign in with Google again (e.g. to switch mailbox or refresh access)">
+                        <Button icon={<ReloadOutlined />} onClick={handleConnect}>
+                          Reconnect
+                        </Button>
+                      </Tooltip>
+                      <Popconfirm
+                        title="Disconnect this mailbox?"
+                        description="Email stops turning into tickets and replies can no longer be sent until you connect again."
+                        okText="Disconnect"
+                        okButtonProps={{ danger: true }}
+                        onConfirm={() => void handleDisconnect()}
+                      >
+                        <Button danger icon={<DisconnectOutlined />} loading={disconnecting}>
+                          Disconnect
+                        </Button>
+                      </Popconfirm>
+                    </div>
+                  </div>
                 ) : (
-                  <Space orientation="vertical">
-                    <Text type="secondary">No Google account connected.</Text>
-                    <Button type="primary" icon={<MailOutlined />} onClick={handleConnect}>
-                      Connect Google
-                    </Button>
-                  </Space>
+                  <div className="email-connected">
+                    <div className="cell-muted">No mailbox connected. Sign in with the Google account that receives support email.</div>
+                    <div className="email-connected__actions">
+                      <Button type="primary" icon={<MailOutlined />} onClick={handleConnect}>
+                        Connect Google
+                      </Button>
+                    </div>
+                  </div>
                 )}
-              </div>
 
-              <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
-                Requires GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local. Add callback URL to Google Cloud Console OAuth credentials: <code style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: 4 }}>{typeof window !== 'undefined' ? `${window.location.origin}/api/email/google/callback` : 'https://yoursite.com/api/email/google/callback'}</code>
-              </Text>
-
-              {lastDebug?.skippedDetails?.length ? (
-                <Collapse
-                  size="small"
-                  items={[{
-                    key: '1',
-                    label: `Debug: ${lastDebug.skippedDetails.length} email(s) skipped — click for details`,
-                    children: (
-                      <div style={{ maxHeight: 200, overflow: 'auto', fontSize: 12 }}>
-                        {lastDebug.skippedDetails.map((d, i) => (
-                          <div key={i} style={{ marginBottom: 8, padding: 4, background: '#fafafa', borderRadius: 4 }}>
-                            <strong>{d.email}</strong> — {d.reason}
-                            {d.subject && <div style={{ color: '#666', marginTop: 2 }}>Subject: {d.subject.slice(0, 60)}{d.subject.length > 60 ? '...' : ''}</div>}
+                {lastDebug?.skippedDetails?.length ? (
+                  <Collapse
+                    size="small"
+                    style={{ marginTop: 16 }}
+                    items={[
+                      {
+                        key: '1',
+                        label: `Last sync skipped ${lastDebug.skippedDetails.length} email(s) — details`,
+                        children: (
+                          <div style={{ maxHeight: 220, overflow: 'auto', fontSize: 12 }}>
+                            {lastDebug.skippedDetails.map((d, i) => (
+                              <div key={i} style={{ marginBottom: 8 }}>
+                                <strong>{d.email}</strong> — {d.reason}
+                                {d.subject ? <div className="cell-muted">Subject: {d.subject.slice(0, 80)}</div> : null}
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    ),
-                  }]}
-                />
-              ) : null}
-            </Space>
-          </Card>
+                        ),
+                      },
+                    ]}
+                  />
+                ) : null}
+              </div>
+            </section>
+
+            <section className="ticket-surface billing-section">
+              <header className="billing-section__head">
+                <span>Google Cloud setup</span>
+              </header>
+              <div className="info-grid">
+                <div className="info-field">
+                  <div className="info-field__label">Redirect URI</div>
+                  <div className="info-field__value">
+                    <Text copyable={{ text: redirectUri, tooltips: ['Copy', 'Copied'] }} style={{ overflowWrap: 'anywhere', fontSize: 13 }}>
+                      {redirectUri}
+                    </Text>
+                  </div>
+                </div>
+                <div className="info-field">
+                  <div className="info-field__label">Where</div>
+                  <div className="info-field__value cell-muted" style={{ fontSize: 13 }}>
+                    Google Cloud Console → APIs &amp; Services → Credentials → OAuth client (Web application) → Authorized redirect URIs. The Gmail API must be enabled.
+                  </div>
+                </div>
+                <div className="info-field">
+                  <div className="info-field__label">Server env</div>
+                  <div className="info-field__value cell-muted" style={{ fontSize: 13 }}>
+                    <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <EmailSkipList />
         </Content>
       </AdminMainColumn>
     </Layout>

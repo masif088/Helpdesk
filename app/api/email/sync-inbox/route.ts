@@ -10,31 +10,7 @@ import { companyDefaultRate } from '@/lib/billing-rate-server'
 import { looksAutomatedEmail } from '@/lib/contact-kind'
 import { isCronRequest } from '@/lib/cron-auth'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
-import {
-  commentAttachments,
-  companies,
-  companyUsers,
-  emailIntegrations,
-  emailMessages,
-  emailSkipList,
-  find,
-  findBy,
-  findOne,
-  findOneBy,
-  get,
-  insert,
-  insertIgnore,
-  insertMany,
-  messageTemplates,
-  sortRows,
-  ticketAttachments,
-  ticketCcRecipients,
-  ticketComments,
-  tickets,
-  update,
-  updateByKey,
-  users,
-} from '@/lib/fsdb'
+import { commentAttachments, companies, companyUsers, emailIntegrations, emailMessages, emailSkipList, find, findBy, findOne, findOneBy, get, insert, insertIgnore, insertMany, messageTemplates, sortRows, ticketAttachments, ticketCcRecipients, ticketComments, tickets, update, updateByKey, users } from '@/lib/fsdb'
 import { isInboxAutoUserActivationEmailEnabled } from '@/lib/inbox-user-activation'
 import { withJobRun } from '@/lib/job-runs'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
@@ -741,7 +717,12 @@ async function syncInbox(request: NextRequest) {
         }
       }
 
-      const skipRow = await findOne(emailSkipList, { where: [['emailLower', '==', senderEmail.toLowerCase()]] })
+      // Ignored senders: exact address or the whole domain ("@example.com")
+      const senderLower = senderEmail.toLowerCase()
+      const senderDomain = senderLower.includes('@') ? `@${senderLower.split('@').pop()}` : null
+      const skipRow = await findOne(emailSkipList, {
+        where: [['emailLower', 'in', senderDomain ? [senderLower, senderDomain] : [senderLower]]],
+      })
 
       if (skipRow) {
         alreadyProcessed.add(gmailMessageId)

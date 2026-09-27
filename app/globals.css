@@ -1176,6 +1176,12 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
   border-top: 1px solid var(--kanban-card-border);
 }
 
+/* Settings → Email (Gmail) */
+.email-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; margin-bottom: 16px; align-items: start; }
+.email-connected { display: flex; flex-direction: column; gap: 8px; }
+.email-connected__address { font-size: 18px; font-weight: 700; color: var(--kanban-card-title); overflow-wrap: anywhere; }
+.email-connected__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
 /* Settings → Connection status (checks) */
 .conn-banner {
   display: flex;
