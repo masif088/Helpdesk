@@ -768,6 +768,8 @@ export type JobTypesRow = {
   title: string
   sortOrder: number
   isActive: boolean
+  /** Time with this job type is billed to the client. */
+  billable: boolean
   createdAt: Date
 }
 
@@ -776,15 +778,16 @@ export type NewJobTypesRow = {
   title: string
   sortOrder?: number
   isActive?: boolean
+  billable?: boolean
   createdAt?: Date
 }
 
 export const jobTypes = defineTable<JobTypesRow, NewJobTypesRow>({
   name: 'job_types',
-  columns: ['slug', 'title', 'sortOrder', 'isActive', 'createdAt'],
+  columns: ['slug', 'title', 'sortOrder', 'isActive', 'billable', 'createdAt'],
   docKey: ['slug'],
   idField: 'slug',
-  defaults: {'sortOrder': 0, 'isActive': true},
+  defaults: {'sortOrder': 0, 'isActive': true, 'billable': true},
   nowFields: ['createdAt'],
 })
 
@@ -1600,6 +1603,10 @@ export type TicketsRow = {
   companyId: string | null
   projectId: string | null
   projectStatusId: number | null
+  /** Hourly billing rate for this ticket (admin/manager only). */
+  hourlyRate: number | null
+  /** IDR | USD */
+  rateCurrency: string | null
   source: string | null
   createdAt: Date
   updatedAt: Date
@@ -1627,6 +1634,8 @@ export type NewTicketsRow = {
   companyId?: string | null
   projectId?: string | null
   projectStatusId?: number | null
+  hourlyRate?: number | null
+  rateCurrency?: string | null
   source?: string | null
   createdAt?: Date
   updatedAt?: Date
@@ -1634,7 +1643,7 @@ export type NewTicketsRow = {
 
 export const tickets = defineTable<TicketsRow, NewTicketsRow>({
   name: 'tickets',
-  columns: ['id', 'title', 'description', 'originalDescription', 'shortNote', 'createdBy', 'contactUserId', 'dueDate', 'status', 'teamId', 'gmailThreadId', 'priority', 'createdVia', 'lastReadAt', 'customerLastReadAt', 'staffLastReadAt', 'typeId', 'ticketType', 'companyId', 'projectId', 'projectStatusId', 'source', 'createdAt', 'updatedAt'],
+  columns: ['id', 'title', 'description', 'originalDescription', 'shortNote', 'createdBy', 'contactUserId', 'dueDate', 'status', 'teamId', 'gmailThreadId', 'priority', 'createdVia', 'lastReadAt', 'customerLastReadAt', 'staffLastReadAt', 'typeId', 'ticketType', 'companyId', 'projectId', 'projectStatusId', 'hourlyRate', 'rateCurrency', 'source', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'seq',

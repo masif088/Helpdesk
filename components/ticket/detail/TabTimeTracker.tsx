@@ -138,7 +138,9 @@ export default function TabTimeTracker({
   const [manualForm] = Form.useForm()
   const [adjustTrackerForm] = Form.useForm()
 
-  type JobTypeOpt = { slug: string; title: string }
+  type JobTypeOpt = { slug: string; title: string; billable?: boolean }
+  const jobTypeSelectOptions = (opts: JobTypeOpt[]) =>
+    opts.map((o) => ({ value: o.slug, label: o.billable === false ? `${o.title} (non-billable)` : o.title }))
   const [jobTypeOptions, setJobTypeOptions] = useState<JobTypeOpt[]>([])
   const [timerJobType, setTimerJobType] = useState<string | null>(null)
 
@@ -149,11 +151,6 @@ export default function TabTimeTracker({
         const rows = await apiFetch<JobTypeOpt[]>('/api/job-types')
         if (cancelled) return
         setJobTypeOptions(Array.isArray(rows) ? rows : [])
-        setTimerJobType((prev) => {
-          if (prev != null) return prev
-          const other = rows.find((r) => r.slug === 'other')
-          return other?.slug ?? rows[0]?.slug ?? null
-        })
       } catch {
         if (!cancelled) setJobTypeOptions([])
       }
@@ -179,7 +176,7 @@ export default function TabTimeTracker({
     if (canManageOthersTime) {
       base.forUserId = currentUserId
     }
-    base.job_type = timerJobType ?? jobTypeOptions.find((o) => o.slug === 'other')?.slug ?? jobTypeOptions[0]?.slug
+    if (timerJobType) base.job_type = timerJobType
     manualForm.setFieldsValue(base)
     setManualOpen(true)
   }
@@ -399,12 +396,12 @@ export default function TabTimeTracker({
             {jobTypeOptions.length > 0 ? (
               <Select
                 style={{ minWidth: 200, maxWidth: 320 }}
-                placeholder="Job type"
+                placeholder="Select job type"
+                status={!activeTimeTracker && !timerJobType ? 'warning' : undefined}
                 value={timerJobType ?? undefined}
                 onChange={(v) => setTimerJobType(v ?? null)}
-                options={jobTypeOptions.map((o) => ({ value: o.slug, label: o.title }))}
+                options={jobTypeSelectOptions(jobTypeOptions)}
                 disabled={!!activeTimeTracker}
-                allowClear
               />
             ) : null}
             {activeTimeTracker ? (
@@ -437,6 +434,7 @@ export default function TabTimeTracker({
                   icon={<PlayCircleOutlined />}
                   onClick={() => { setPaused(false); void onStartTimeTracker(timerJobType) }}
                   loading={timeTrackerLoading}
+                  disabled={!timerJobType}
                 >
                   Resume
                 </Button>
@@ -455,6 +453,8 @@ export default function TabTimeTracker({
                 icon={<PlayCircleOutlined />}
                 onClick={() => void onStartTimeTracker(timerJobType)}
                 loading={timeTrackerLoading}
+                disabled={!timerJobType}
+                title={timerJobType ? undefined : 'Select a job type first'}
               >
                 Start Timer
               </Button>
@@ -632,14 +632,14 @@ export default function TabTimeTracker({
           <Form.Item
             name="job_type"
             label="Job type"
-            rules={jobTypeOptions.length ? [{ required: true, message: 'Select job type' }] : []}
+            rules={[{ required: true, message: 'Select job type' }]}
           >
             <Select
               showSearch
               optionFilterProp="label"
               placeholder="What was this work for?"
               style={{ width: '100%' }}
-              options={jobTypeOptions.map((o) => ({ value: o.slug, label: o.title }))}
+              options={jobTypeSelectOptions(jobTypeOptions)}
             />
           </Form.Item>
           <Space wrap>
@@ -743,7 +743,7 @@ export default function TabTimeTracker({
               optionFilterProp="label"
               placeholder="Select job type"
               style={{ width: '100%' }}
-              options={jobTypeOptions.map((o) => ({ value: o.slug, label: o.title }))}
+              options={jobTypeSelectOptions(jobTypeOptions)}
             />
           </Form.Item>
           <Form.Item

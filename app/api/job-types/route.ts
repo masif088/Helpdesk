@@ -10,18 +10,17 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const rows = (
-    await find(jobTypes, {
-      where: [['isActive', '==', true]],
-      orderBy: [['sortOrder', 'asc'], ['slug', 'asc']],
-    })
-  ).map((r) => ({ slug: r.slug, title: r.title, sort_order: r.sortOrder }))
+  const rows = await find(jobTypes, {
+    where: [['isActive', '==', true]],
+    orderBy: [['sortOrder', 'asc'], ['slug', 'asc']],
+  })
 
   return NextResponse.json(
     rows.map((r) => ({
       slug: r.slug,
       title: r.title,
-      sort_order: r.sort_order,
+      sort_order: r.sortOrder,
+      billable: r.billable !== false,
     }))
   )
 }

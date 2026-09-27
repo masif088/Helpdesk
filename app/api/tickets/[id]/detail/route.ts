@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { isAdmin } from '@/lib/auth-utils'
+import { isAdmin, isAdminOrManager } from '@/lib/auth-utils'
 import { getCustomerCompanyId } from '@/lib/customer-company'
 import { get, getByKey, teamMembers, teams, tickets } from '@/lib/fsdb'
 import { getTicketDetail } from '@/lib/ticket-detail'
@@ -51,7 +51,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
             companyId: await getCustomerCompanyId(userId),
           },
         }
-      : { screenshotUserId: userId }
+      : { screenshotUserId: userId, includeBilling: isAdminOrManager(role) }
 
   const data = await getTicketDetail(ticketId, detailOptions)
 

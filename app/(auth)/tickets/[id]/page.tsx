@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import TicketDetailContentClient from '@/components/ticket/TicketDetailContentClient'
-import { isAdmin } from '@/lib/auth-utils'
+import { isAdmin, isAdminOrManager } from '@/lib/auth-utils'
 import { getCustomerCompanyId } from '@/lib/customer-company'
 import { get, getByKey, teamMembers, teams, tickets } from '@/lib/fsdb'
 import { getTicketDetail } from '@/lib/ticket-detail'
@@ -53,6 +53,7 @@ export default async function TicketDetailPage({
 
   const data = await getTicketDetail(ticketId, {
     screenshotUserId: userId,
+    includeBilling: isAdminOrManager(role),
     ...(role === 'customer'
       ? { customerPortal: { userId, companyId: await getCustomerCompanyId(userId) } }
       : {}),

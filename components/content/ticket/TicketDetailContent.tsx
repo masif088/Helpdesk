@@ -1139,6 +1139,10 @@ export default function TicketDetailContent({
                 assignees: d.assigneeIds,
                 short_note: d.shortNote.trim() || null,
             }
+            if (isAdminOrManager(currentUser.role ?? undefined)) {
+                body.hourly_rate = d.hourlyRate
+                body.rate_currency = d.hourlyRate != null ? d.rateCurrency : null
+            }
             if (useProjectBoard) {
                 body.project_status_id = d.projectStatusId
             } else {
@@ -1219,6 +1223,9 @@ export default function TicketDetailContent({
                     due_date: d.dueDate,
                     team_id: d.teamId,
                     short_note: d.shortNote.trim() || null,
+                    ...(isAdminOrManager(currentUser.role ?? undefined)
+                        ? { hourly_rate: d.hourlyRate, rate_currency: d.hourlyRate != null ? d.rateCurrency : null }
+                        : {}),
                     assignees: d.assigneeIds.map((uid) => {
                         const u = fromLists.find((x) => x.id === uid)
                         return {
@@ -1767,6 +1774,7 @@ export default function TicketDetailContent({
                                             tagOptions={allTags}
                                             selectedTagIds={selectedTagIds}
                                             canEditCompanyAndTags
+                                            canEditBilling={isAdminOrManager(currentUser.role ?? undefined)}
                                             teamOptions={teamOptionsForTicket}
                                             selectedTeamId={displayTicket.team_id ?? null}
                                             canEditAssignees

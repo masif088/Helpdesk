@@ -15,6 +15,8 @@ type ActiveTrackerRow = {
   id: string
   ticket_id: number
   start_time: string
+  /** Job type of the session; reused when a paused tracker is resumed. */
+  job_type?: string | null
   ticket?: { id: number; title: string }
 }
 
@@ -119,7 +121,7 @@ export default function ActiveTimeTrackerNavButton() {
       const data = await apiFetch<ActiveTrackerRow>(`/api/tickets/${paused.row.ticket_id}/time-tracker`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'start' }),
+        body: JSON.stringify({ action: 'start', job_type: paused.row.job_type ?? null }),
       })
       setPausedTrackers((prev) => prev.filter((p) => p.row.id !== paused.row.id))
       setActiveTrackers((prev) => [...prev, data])

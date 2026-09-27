@@ -6,13 +6,10 @@ import {
   EditOutlined,
   PlusOutlined,
   ReloadOutlined,
-  ToolOutlined,
 } from '@ant-design/icons'
 import {
-  Alert,
   Button,
   Card,
-  Descriptions,
   Form,
   Input,
   InputNumber,
@@ -21,7 +18,6 @@ import {
   Modal,
   Popconfirm,
   Space,
-  Spin,
   Switch,
   Table,
   Tag,
@@ -31,7 +27,6 @@ import type { ColumnsType } from 'antd/es/table'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
-import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
@@ -39,23 +34,12 @@ import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
 const { Content } = Layout
 const { Title, Text } = Typography
 
-type Diagnostics = {
-  ok: boolean
-  current_user: string | null
-  session_user?: string | null
-  owner: string | null
-  schema_usage_public: boolean
-  select_job_types: boolean
-  row_count: number | null
-  rls_enabled: boolean | null
-  messages: string[]
-}
-
 interface JobTypeRow {
   slug: string
   title: string
   sort_order: number
   is_active: boolean
+  billable: boolean
   created_at: string | null
 }
 
@@ -72,15 +56,6 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
-async function fetchDiagnostics(): Promise<Diagnostics> {
-  const res = await fetch('/api/settings/job-types-catalog', { credentials: 'include' })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error((data as { error?: string }).error || res.statusText)
-  const d = (data as { diagnostics?: Diagnostics }).diagnostics
-  if (!d) throw new Error('No diagnostics payload')
-  return d
-}
-
 function slugFromTitle(title: string): string {
   return title
     .toLowerCase()
@@ -92,29 +67,12 @@ function slugFromTitle(title: string): string {
 
 export default function JobTypesCatalogAdminContent({ user: currentUser }: JobTypesCatalogAdminContentProps) {
   const [collapsed, setCollapsed] = useState(false)
-  const [diagLoading, setDiagLoading] = useState(true)
   const [listLoading, setListLoading] = useState(true)
-  const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null)
   const [rows, setRows] = useState<JobTypeRow[]>([])
-  const [repairing, setRepairing] = useState(false)
-  const [recreating, setRecreating] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<JobTypeRow | null>(null)
   const [saving, setSaving] = useState(false)
   const [form] = Form.useForm()
-
-  const reloadDiagnostics = useCallback(async () => {
-    setDiagLoading(true)
-    try {
-      const d = await fetchDiagnostics()
-      setDiagnostics(d)
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : 'Failed to load diagnostics')
-      setDiagnostics(null)
-    } finally {
-      setDiagLoading(false)
-    }
-  }, [])
 
   const fetchList = useCallback(async () => {
     setListLoading(true)
@@ -130,66 +88,8 @@ export default function JobTypesCatalogAdminContent({ user: currentUser }: JobTy
   }, [])
 
   useEffect(() => {
-    reloadDiagnostics()
     fetchList()
-  }, [reloadDiagnostics, fetchList])
-
-  const runRepair = async () => {
-    setRepairing(true)
-    try {
-      const res = await fetch('/api/settings/job-types-catalog', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'repair_permissions' }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (data?.diagnostics) setDiagnostics(data.diagnostics as Diagnostics)
-      if (!res.ok) {
-        message.error((data as { error?: string }).error || 'Repair failed')
-        return
-      }
-      message.success('PUBLIC grants refreshed for schema usage and SELECT on job_types.')
-      void fetchList()
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : 'Repair failed')
-    } finally {
-      setRepairing(false)
-    }
-  }
-
-  const runRecreate = () => {
-    Modal.confirm({
-      title: 'Recreate job_types table?',
-      content:
-        'This drops public.job_types (CASCADE), recreates seed rows, and re-attaches FK on ticket_time_tracker. Any extra rows or custom edits in job_types will be removed. Existing tracker rows pointing at unknown job_type slugs are set to "other". Continue?',
-      okText: 'Recreate',
-      okType: 'danger',
-      onOk: async () => {
-        setRecreating(true)
-        try {
-          const res = await fetch('/api/settings/job-types-catalog', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'recreate_catalog' }),
-          })
-          const data = await res.json().catch(() => ({}))
-          if (data?.diagnostics) setDiagnostics(data.diagnostics as Diagnostics)
-          if (!res.ok) {
-            message.error((data as { error?: string }).error || 'Recreate failed')
-            return
-          }
-          message.success('job_types recreated and FK restored.')
-          void fetchList()
-        } catch (e) {
-          message.error(e instanceof Error ? e.message : 'Recreate failed')
-        } finally {
-          setRecreating(false)
-        }
-      },
-    })
-  }
+  }, [fetchList])
 
   const openCreate = () => {
     setEditing(null)
@@ -200,6 +100,7 @@ export default function JobTypesCatalogAdminContent({ user: currentUser }: JobTy
       sort_order:
         rows.length > 0 ? Math.max(...rows.map((r) => r.sort_order), 0) + 10 : 10,
       is_active: true,
+      billable: true,
     })
     setModalOpen(true)
   }
@@ -211,6 +112,7 @@ export default function JobTypesCatalogAdminContent({ user: currentUser }: JobTy
       title: record.title,
       sort_order: record.sort_order,
       is_active: record.is_active,
+      billable: record.billable,
     })
     setModalOpen(true)
   }
@@ -226,33 +128,29 @@ export default function JobTypesCatalogAdminContent({ user: currentUser }: JobTy
     try {
       const values = await form.validateFields()
       setSaving(true)
+      const body = {
+        title: values.title,
+        sort_order: values.sort_order,
+        is_active: values.is_active,
+        billable: values.billable,
+      }
       if (editing) {
         await apiFetch(`/api/settings/job-types/${encodeURIComponent(editing.slug)}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: values.title,
-            sort_order: values.sort_order,
-            is_active: values.is_active,
-          }),
+          body: JSON.stringify(body),
         })
         message.success('Job type updated')
       } else {
         await apiFetch('/api/settings/job-types', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            slug: values.slug,
-            title: values.title,
-            sort_order: values.sort_order,
-            is_active: values.is_active,
-          }),
+          body: JSON.stringify({ slug: values.slug, ...body }),
         })
         message.success('Job type created')
       }
       setModalOpen(false)
       fetchList()
-      reloadDiagnostics()
     } catch (e) {
       if ((e as { errorFields?: unknown })?.errorFields) return
       message.error(e instanceof Error ? e.message : 'Save failed')
@@ -264,9 +162,8 @@ export default function JobTypesCatalogAdminContent({ user: currentUser }: JobTy
   const handleDelete = async (record: JobTypeRow) => {
     try {
       await apiFetch(`/api/settings/job-types/${encodeURIComponent(record.slug)}`, { method: 'DELETE' })
-      message.success(`Deleted "${record.slug}"; time tracker rows were moved to "other".`)
+      message.success(`Deleted "${record.slug}"`)
       fetchList()
-      reloadDiagnostics()
     } catch (e) {
       message.error(e instanceof Error ? e.message : 'Delete failed')
     }
@@ -276,6 +173,12 @@ export default function JobTypesCatalogAdminContent({ user: currentUser }: JobTy
     { title: 'Slug', dataIndex: 'slug', width: 160, render: (s: string) => <Text code>{s}</Text> },
     { title: 'Title', dataIndex: 'title', ellipsis: true },
     { title: 'Sort', dataIndex: 'sort_order', width: 80 },
+    {
+      title: 'Billable',
+      dataIndex: 'billable',
+      width: 110,
+      render: (b: boolean) => (b ? <Tag color="blue">Billable</Tag> : <Tag>Non-billable</Tag>),
+    },
     {
       title: 'Active',
       dataIndex: 'is_active',
@@ -291,21 +194,15 @@ export default function JobTypesCatalogAdminContent({ user: currentUser }: JobTy
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>
             Edit
           </Button>
-          {record.slug === 'other' ? (
-            <Button type="link" size="small" disabled>
+          <Popconfirm
+            title={`Delete "${record.slug}"?`}
+            description="Only possible when no time entry uses it — otherwise deactivate it instead."
+            onConfirm={() => handleDelete(record)}
+          >
+            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
               Delete
             </Button>
-          ) : (
-            <Popconfirm
-              title={`Delete "${record.slug}"?`}
-              description='Time tracked with this category will switch to "other".'
-              onConfirm={() => handleDelete(record)}
-            >
-              <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-                Delete
-              </Button>
-            </Popconfirm>
-          )}
+          </Popconfirm>
         </Space>
       ),
     },
@@ -332,7 +229,10 @@ export default function JobTypesCatalogAdminContent({ user: currentUser }: JobTy
           </Link>
 
           <Title level={2}>Job types</Title>
-       
+          <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+            What the time was spent on. Every time entry needs one; billable job types count toward the hours billed to the client.
+          </Text>
+
           <Card title="Job types" style={{ marginBottom: 24 }}>
             <Space style={{ marginBottom: 16 }} wrap>
               <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
@@ -380,19 +280,20 @@ export default function JobTypesCatalogAdminContent({ user: currentUser }: JobTy
                 <Form.Item label="Sort order" name="sort_order" rules={[{ required: true }]}>
                   <InputNumber min={0} style={{ width: '100%' }} />
                 </Form.Item>
-                <Form.Item label="Active" name="is_active" valuePropName="checked">
-                  <Switch disabled={editing?.slug === 'other'} checkedChildren="On" unCheckedChildren="Off" />
+                <Form.Item
+                  label="Billable"
+                  name="billable"
+                  valuePropName="checked"
+                  extra="Billable time is charged to the client at the ticket's hourly rate."
+                >
+                  <Switch checkedChildren="Billable" unCheckedChildren="Non-billable" />
                 </Form.Item>
-                {editing?.slug === 'other' ? (
-                  <Text type="secondary" style={{ display: 'block' }}>
-                    The &quot;other&quot; slug must remain active as a fallback and cannot be deleted.
-                  </Text>
-                ) : null}
+                <Form.Item label="Active" name="is_active" valuePropName="checked">
+                  <Switch checkedChildren="On" unCheckedChildren="Off" />
+                </Form.Item>
               </Form>
             </Modal>
           </Card>
-
-       
         </Content>
       </AdminMainColumn>
     </Layout>

@@ -44,6 +44,8 @@ export interface TicketDetailOptions {
   customerPortal?: { userId: string; companyId: string | null }
   /** Filter screenshots by user (both admin and customer show only current user's) */
   screenshotUserId?: string
+  /** Include hourly billing rate (admin / manager only). */
+  includeBilling?: boolean
 }
 
 type CommentRowJoined = {
@@ -278,6 +280,9 @@ export async function getTicketDetail(ticketId: number, options?: TicketDetailOp
     company_id: t.companyId,
     project_id: t.projectId ?? null,
     project_status_id: t.projectStatusId ?? null,
+    ...(options?.includeBilling
+      ? { hourly_rate: t.hourlyRate ?? null, rate_currency: t.rateCurrency ?? null }
+      : {}),
     project: ticketRow.project
       ? { id: ticketRow.project.id, title: ticketRow.project.title }
       : null,

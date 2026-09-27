@@ -49,6 +49,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import DateDisplay from '@/components/common/DateDisplay'
+import { DEFAULT_RATE_CURRENCY, RATE_CURRENCIES } from '@/lib/billing-rate'
 
 import CommentAiSummaryTrigger from './CommentAiSummaryTrigger'
 import CommentComposer from './CommentComposer'
@@ -164,6 +165,9 @@ export interface SidebarAttributesDraft {
   assigneeIds: string[]
   /** Local short note text; persisted with Save changes */
   shortNote: string
+  /** Hourly billing rate (only edited when canEditBilling) */
+  hourlyRate: number | null
+  rateCurrency: string | null
 }
 
 function snapshotSidebarDraft(params: {
@@ -195,6 +199,8 @@ function snapshotSidebarDraft(params: {
     teamId: selectedTeamId ?? null,
     assigneeIds,
     shortNote: typeof shortNoteProp === 'string' ? shortNoteProp : '',
+    hourlyRate: typeof ticketData?.hourly_rate === 'number' ? ticketData.hourly_rate : null,
+    rateCurrency: ticketData?.rate_currency ?? null,
   }
 }
 
@@ -229,6 +235,8 @@ interface TabGeneralProps {
   selectedTagIds: string[]
   /** When false, company and tags are read-only (customer view) */
   canEditCompanyAndTags?: boolean
+  /** Admin / manager: show and edit the hourly billing rate */
+  canEditBilling?: boolean
   teamOptions: { id: string; name: string }[]
   selectedTeamId: string | null
   canEditAssignees?: boolean
@@ -315,6 +323,7 @@ export default function TabGeneral({
   tagOptions,
   selectedTagIds,
   canEditCompanyAndTags = true,
+  canEditBilling = false,
   teamOptions,
   selectedTeamId,
   canEditAssignees = true,
@@ -1112,6 +1121,37 @@ export default function TabGeneral({
                 style={{ width: '100%' }} disabled={sidebarAttributesSaving}
               />
             </div>
+
+            {/* Hourly rate (billing) */}
+            {canEditBilling ? (
+              <div>
+                <Text style={LBL}>Hourly rate</Text>
+                <Space.Compact style={{ width: '100%' }}>
+                  <Select
+                    value={sidebarDraft.rateCurrency ?? DEFAULT_RATE_CURRENCY}
+                    onChange={(c) => setSidebarDraft((d) => ({ ...d, rateCurrency: c }))}
+                    options={RATE_CURRENCIES.map((c) => ({ value: c, label: c }))}
+                    style={{ width: 90 }}
+                    disabled={sidebarAttributesSaving}
+                  />
+                  <InputNumber
+                    value={sidebarDraft.hourlyRate ?? undefined}
+                    onChange={(v) =>
+                      setSidebarDraft((d) => ({
+                        ...d,
+                        hourlyRate: typeof v === 'number' ? v : null,
+                        rateCurrency: d.rateCurrency ?? DEFAULT_RATE_CURRENCY,
+                      }))
+                    }
+                    min={0}
+                    step={(sidebarDraft.rateCurrency ?? DEFAULT_RATE_CURRENCY) === 'IDR' ? 1000 : 1}
+                    placeholder="per hour"
+                    style={{ width: '100%' }}
+                    disabled={sidebarAttributesSaving}
+                  />
+                </Space.Compact>
+              </div>
+            ) : null}
 
             {/* Team */}
             <div>

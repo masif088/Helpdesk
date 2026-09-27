@@ -15,6 +15,7 @@ import 'dotenv/config'
 import { createAppUser, findUserByEmail } from '../lib/app-users'
 import { isFirebaseAdminConfigured } from '../lib/firebase/admin'
 import { count, insertMany, jobTypes, removeWhere, ticketStatuses, ticketTypes } from '../lib/fsdb'
+import { DEFAULT_JOB_TYPES } from '../lib/job-types-defaults'
 
 const STATUSES = [
   { slug: 'open', title: 'Open', customerTitle: 'Ticket received', description: 'Ticket has been received and is in the queue.', color: '#F1C232', showInKanban: true, sortOrder: 1 },
@@ -55,17 +56,7 @@ async function seedTicketTypes() {
 
 async function seedJobTypes() {
   if ((await count(jobTypes)) > 0) return
-  await insertMany(jobTypes, [
-    { slug: 'development', title: 'Development', sortOrder: 10 },
-    { slug: 'ticket_work', title: 'Ticket Work', sortOrder: 10 },
-    { slug: 'revision', title: 'Revision', sortOrder: 10 },
-    { slug: 'meeting', title: 'Meeting', sortOrder: 20 },
-    { slug: 'support', title: 'Support / customer care', sortOrder: 30 },
-    { slug: 'review', title: 'Review / QA', sortOrder: 50 },
-    { slug: 'research', title: 'Research / investigation', sortOrder: 70 },
-    { slug: 'admin', title: 'Admin / internal', sortOrder: 80 },
-    { slug: 'other', title: 'Other', sortOrder: 999 },
-  ])
+  await insertMany(jobTypes, DEFAULT_JOB_TYPES.map((j) => ({ ...j })))
   console.log('Created job_types')
 }
 

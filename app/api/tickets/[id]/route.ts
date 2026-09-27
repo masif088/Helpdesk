@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { canDeleteTickets } from '@/lib/auth-utils'
+import { canDeleteTickets, isAdminOrManager } from '@/lib/auth-utils'
 import { runAutomationRules } from '@/lib/automation-engine'
+import { parseHourlyRateBody } from '@/lib/billing-rate'
 import { assertCustomerMayAccessTicket } from '@/lib/customer-ticket-access'
 import { diffNewAssignees,notifyTicketUsers } from '@/lib/firebase/ticket-notifications-server'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
@@ -381,6 +382,16 @@ export async function PATCH(
     contact_user_id,
   } = body
 
+  const rateUpdate = parseHourlyRateBody(body)
+  if (rateUpdate !== undefined) {
+    if (!isAdminOrManager(role)) {
+      return NextResponse.json({ error: 'Only admins and managers can set the hourly rate' }, { status: 403 })
+    }
+    if ('error' in rateUpdate) {
+      return NextResponse.json({ error: rateUpdate.error }, { status: 400 })
+    }
+  }
+
   if (actorRole === 'customer' && type_id !== undefined) {
     const typeCheck = await assertCustomerMayUseTicketType(type_id ?? null)
     if (!typeCheck.ok) {
@@ -520,6 +531,7 @@ export async function PATCH(
       }),
     ...(companyIdUpdate !== undefined && { companyId: companyIdUpdate }),
     ...(due_date !== undefined && { dueDate: due_date ? new Date(due_date) : null }),
+    ...(rateUpdate !== undefined && !('error' in rateUpdate) && rateUpdate),
     ...(ticketTypeUpdate !== undefined && { ticketType: ticketTypeUpdate }),
     ...(ticketTypeUpdate === 'trash' && { priority: null }),
     ...(clearContactDueToCompanyChange

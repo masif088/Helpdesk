@@ -23,6 +23,7 @@ function serializeRow(r: typeof jobTypes.$inferSelect) {
     title: r.title,
     sort_order: r.sortOrder,
     is_active: r.isActive,
+    billable: r.billable !== false,
     created_at: r.createdAt ? new Date(r.createdAt).toISOString() : null,
   }
 }
@@ -74,6 +75,7 @@ export async function POST(request: Request) {
   const sortOrder = parseJobTypeSortOrder(body.sort_order, sortFallback)
   const isActive =
     body.is_active === undefined || body.is_active === null ? true : Boolean(body.is_active)
+  const billable = body.billable === undefined || body.billable === null ? true : Boolean(body.billable)
 
   try {
     const row = await insert(jobTypes, {
@@ -81,6 +83,7 @@ export async function POST(request: Request) {
       title,
       sortOrder,
       isActive,
+      billable,
     })
 
     await logSettingsCreated({

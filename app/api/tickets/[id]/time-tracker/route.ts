@@ -44,6 +44,13 @@ async function normalizeJobTypeFromBodyOptional(
   return s
 }
 
+/** Job type is mandatory for new time entries (start / manual). */
+async function normalizeJobTypeFromBodyRequired(body: Record<string, unknown>): Promise<string> {
+  const v = await normalizeJobTypeFromBodyOptional(body)
+  if (v == null) throw new Error('Job type is required')
+  return v
+}
+
 function mapTrackerRow(
   t: typeof ticketTimeTracker.$inferSelect,
   user: typeof users.$inferSelect | null = null,
@@ -156,9 +163,9 @@ export async function POST(
   const action = body.action // 'start' | 'stop'
 
   if (action === 'start') {
-    let jobTypeVal: string | null | undefined
+    let jobTypeVal: string
     try {
-      jobTypeVal = await normalizeJobTypeFromBodyOptional(body)
+      jobTypeVal = await normalizeJobTypeFromBodyRequired(body)
     } catch (e) {
       return NextResponse.json({ error: (e as Error).message }, { status: 400 })
     }
@@ -166,10 +173,8 @@ export async function POST(
       ticketId: ticketId,
       userId: session.user.id,
       trackerType: 'timer',
+      jobType: jobTypeVal,
       startTime: new Date(),
-    }
-    if (jobTypeVal !== undefined) {
-      values.jobType = jobTypeVal
     }
     const row = await insert(ticketTimeTracker, values)
 
@@ -213,9 +218,9 @@ export async function POST(
       targetUserId = uid
     }
 
-    let jobTypeVal: string | null | undefined
+    let jobTypeVal: string
     try {
-      jobTypeVal = await normalizeJobTypeFromBodyOptional(body)
+      jobTypeVal = await normalizeJobTypeFromBodyRequired(body)
     } catch (e) {
       return NextResponse.json({ error: (e as Error).message }, { status: 400 })
     }
@@ -223,13 +228,11 @@ export async function POST(
       ticketId,
       userId: targetUserId,
       trackerType: 'manual',
+      jobType: jobTypeVal,
       startTime,
       stopTime,
       durationSeconds: capped,
       durationAdjustment: capped,
-    }
-    if (jobTypeVal !== undefined) {
-      manualValues.jobType = jobTypeVal
     }
     const row = await insert(ticketTimeTracker, manualValues)
 

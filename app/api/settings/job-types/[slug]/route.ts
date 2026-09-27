@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
-import { get, jobTypes, remove, ticketTimeTracker, update, updateWhere } from '@/lib/fsdb'
+import { findOneBy, get, jobTypes, remove, ticketTimeTracker, update } from '@/lib/fsdb'
 import { normalizeJobTypeTitle, parseJobTypeSortOrder } from '@/lib/job-types-admin'
 import { logSettingsDeleted, logSettingsUpdated } from '@/lib/settings-activity-log'
 
-const JOB_TYPE_LOG_KEYS = ['title', 'sort_order', 'is_active']
+const JOB_TYPE_LOG_KEYS = ['title', 'sort_order', 'is_active', 'billable']
 
 function assertAdmin(role: string | undefined) {
   if (!isAdmin(role)) {
@@ -21,11 +21,12 @@ function serializeRow(r: typeof jobTypes.$inferSelect) {
     title: r.title,
     sort_order: r.sortOrder,
     is_active: r.isActive,
+    billable: r.billable !== false,
     created_at: r.createdAt ? new Date(r.createdAt).toISOString() : null,
   }
 }
 
-/** PATCH — update title, sort_order, is_active (slug is path key, not renamed here) */
+/** PATCH — update title, sort_order, is_active, billable (slug is path key, not renamed here) */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -53,7 +54,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const updates: Partial<{ title: string; sortOrder: number; isActive: boolean }> = {}
+  const updates: Partial<{ title: string; sortOrder: number; isActive: boolean; billable: boolean }> = {}
 
   if (body.title !== undefined) {
     const title = normalizeJobTypeTitle(body.title)
@@ -66,10 +67,10 @@ export async function PATCH(
     updates.sortOrder = parseJobTypeSortOrder(body.sort_order, existing.sortOrder)
   }
   if (body.is_active !== undefined) {
-    if (slug === 'other' && body.is_active === false) {
-      return NextResponse.json({ error: 'Cannot deactivate the fallback job type "other".' }, { status: 400 })
-    }
     updates.isActive = Boolean(body.is_active)
+  }
+  if (body.billable !== undefined) {
+    updates.billable = Boolean(body.billable)
   }
 
   if (Object.keys(updates).length === 0) {
@@ -86,6 +87,7 @@ export async function PATCH(
     title: r.title,
     sort_order: r.sortOrder,
     is_active: r.isActive,
+    billable: r.billable !== false,
   })
   await logSettingsUpdated({
     session,
@@ -100,10 +102,7 @@ export async function PATCH(
   return NextResponse.json(serializeRow(updated))
 }
 
-/**
- * DELETE — remove row; tracker rows referencing this slug are pointed at “other”.
- * Slug “other” cannot be deleted.
- */
+/** DELETE — only when no time entry uses this job type (otherwise deactivate it). */
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -119,17 +118,19 @@ export async function DELETE(
   const { slug: slugParam } = await params
   const slug = decodeURIComponent(slugParam)
 
-  if (slug === 'other') {
-    return NextResponse.json({ error: 'Cannot delete the fallback job type "other".' }, { status: 400 })
-  }
-
   const exists = await get(jobTypes, slug)
   if (!exists) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
+  if (await findOneBy(ticketTimeTracker, { jobType: slug })) {
+    return NextResponse.json(
+      { error: 'This job type is used by time entries. Deactivate it instead of deleting.' },
+      { status: 409 }
+    )
+  }
+
   try {
-    await updateWhere(ticketTimeTracker, [['jobType', '==', slug]], { jobType: 'other' })
     await remove(jobTypes, slug)
     await logSettingsDeleted({
       session,
