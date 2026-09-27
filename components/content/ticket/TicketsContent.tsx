@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import FilterSidebar from '@/components/ticket/list/FilterSidebar'
+import FilterSidebar, { FILTER_PANEL_WIDTH } from '@/components/ticket/list/FilterSidebar'
 import TicketFormModal from '@/components/ticket/list/TicketFormModal'
 import TicketsCardView from '@/components/ticket/list/TicketsCardView'
 import TicketsHeader from '@/components/ticket/list/TicketsHeader'
@@ -159,7 +159,7 @@ export default function TicketsContent({ user: currentUser }: TicketsContentProp
         collapsed={collapsed}
         user={currentUser}
         style={{
-          marginRight: filterSidebarCollapsed ? 75 : 280,
+          marginRight: filterSidebarCollapsed ? 0 : FILTER_PANEL_WIDTH + 12,
           transition: 'margin-left 0.2s, margin-right 0.2s',
           // borderRadius: '16px 0 0 16px',
           overflow: 'hidden',
@@ -181,6 +181,9 @@ export default function TicketsContent({ user: currentUser }: TicketsContentProp
             ticketsPageLimit={ticketsPageLimit}
             onTicketsPageLimitChange={setTicketsPageLimit}
             onRefresh={refetchTickets}
+            filtersOpen={!filterSidebarCollapsed}
+            onToggleFilters={() => setFilterSidebarCollapsed(!filterSidebarCollapsed)}
+            hasActiveFilters={hasActiveFilters}
           />
 
           {!isCustomer && filterTicketType === 'spam' && (

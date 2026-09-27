@@ -1,10 +1,11 @@
 'use client'
 
-import { Badge, Button, DatePicker, Form, Input, Layout, message,Modal, Select, Space, Tooltip, Typography } from 'antd'
+import { BookOutlined, CloseOutlined, FilterOutlined } from '@ant-design/icons'
+import { Badge, Button, DatePicker, Form, Input, message, Modal, Select, Space, Tooltip, Typography } from 'antd'
 import { useState } from 'react'
 
-const { Sider } = Layout
-import { BookOutlined,FilterOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
+/** Floating filter panel width (TicketsContent reserves FILTER_PANEL_WIDTH + 2 × 12px gap when open). */
+export const FILTER_PANEL_WIDTH = 300
 import type { Dayjs } from 'dayjs'
 
 import { ticketStatusDisplayLabel } from '@/lib/ticket-status-kanban'
@@ -82,44 +83,44 @@ export default function FilterSidebar({
   const [savePresetOpen, setSavePresetOpen] = useState(false)
   const [savePresetForm] = Form.useForm<{ name: string }>()
 
+  // Closed: not rendered — the "Filters" button in the tickets header opens it.
+  if (collapsed) return null
+
   return (
-    <Sider
-      trigger={null}
-      collapsible
-      collapsed={collapsed}
-      collapsedWidth={75}
-      width={280}
+    <aside
+      className="app-panel"
+      aria-label="Ticket filters"
       style={{
-        overflow: 'auto',
-        height: '100vh',
         position: 'fixed',
-        right: 0,
-        top: 0,
-        bottom: 0,
-        background: '#001529',
+        right: 12,
+        top: 12,
+        bottom: 12,
+        width: FILTER_PANEL_WIDTH,
+        zIndex: 150,
+        overflowY: 'auto',
       }}
     >
       <div
         style={{
           height: 64,
+          flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'space-between',
-          padding: collapsed ? '0 16px' : '0 12px 0 20px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          justifyContent: 'space-between',
+          padding: '0 12px 0 20px',
+          borderBottom: '1px solid rgba(148, 163, 184, 0.14)',
         }}
       >
-        {!collapsed && (
-          <span style={{ color: '#fff', fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <FilterOutlined />
-            Filters
-          </span>
-        )}
+        <span style={{ color: '#fff', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <FilterOutlined />
+          Filters
+        </span>
         <Button
           type="text"
-          icon={collapsed ? <LeftOutlined /> : <RightOutlined />}
-          onClick={() => onCollapsedChange(!collapsed)}
-          style={{ color: 'rgba(255,255,255,0.85)', fontSize: 16 }}
+          icon={<CloseOutlined />}
+          aria-label="Close filters"
+          onClick={() => onCollapsedChange(true)}
+          style={{ color: 'rgba(226, 232, 240, 0.85)', fontSize: 16 }}
         />
       </div>
       {!collapsed && (
@@ -326,6 +327,6 @@ export default function FilterSidebar({
           </Text>
         </Form>
       </Modal>
-    </Sider>
+    </aside>
   )
 }

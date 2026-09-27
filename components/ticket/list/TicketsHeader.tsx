@@ -1,7 +1,7 @@
 'use client'
 
-import { AppstoreOutlined, IdcardOutlined, PlusOutlined, ReloadOutlined, SearchOutlined, SettingOutlined, TeamOutlined, UnorderedListOutlined } from '@ant-design/icons'
-import { Button, ConfigProvider, Flex, Input, Popover, Segmented, Select, Space, Switch, theme, Tooltip, Typography } from 'antd'
+import { AppstoreOutlined, FilterOutlined, IdcardOutlined, PlusOutlined, ReloadOutlined, SearchOutlined, SettingOutlined, TeamOutlined, UnorderedListOutlined } from '@ant-design/icons'
+import { Badge, Button, ConfigProvider, Flex, Input, Popover, Segmented, Select, Space, Switch, theme, Tooltip, Typography } from 'antd'
 import { useState } from 'react'
 
 import { TICKETS_PAGE_LIMIT_OPTIONS, type TicketsPageLimit } from '@/lib/tickets-list-query'
@@ -23,6 +23,10 @@ interface TicketsHeaderProps {
   ticketsPageLimit?: TicketsPageLimit
   onTicketsPageLimitChange?: (v: TicketsPageLimit) => void
   onRefresh?: () => void
+  /** Filter panel toggle (panel is hidden when closed) */
+  filtersOpen?: boolean
+  onToggleFilters?: () => void
+  hasActiveFilters?: boolean
 }
 
 const SEARCH_FIELD_OPTIONS = [
@@ -46,6 +50,9 @@ export default function TicketsHeader({
   ticketsPageLimit = 50,
   onTicketsPageLimitChange,
   onRefresh,
+  filtersOpen = false,
+  onToggleFilters,
+  hasActiveFilters = false,
 }: TicketsHeaderProps) {
   const { token } = theme.useToken()
   const searchPending = loading && !!filterSearch.trim()
@@ -166,9 +173,24 @@ export default function TicketsHeader({
                 </Tooltip>
               )}
             </Flex>
-            <Button type="primary" icon={<PlusOutlined />} onClick={onCreateClick} loading={loading}>
-              Add Ticket
-            </Button>
+            <Flex gap={8} align="center">
+              {onToggleFilters && (
+                <Badge dot={hasActiveFilters && !filtersOpen} offset={[-4, 4]}>
+                  <Button
+                    icon={<FilterOutlined />}
+                    type={filtersOpen ? 'primary' : 'default'}
+                    ghost={filtersOpen}
+                    onClick={onToggleFilters}
+                    aria-pressed={filtersOpen}
+                  >
+                    Filters
+                  </Button>
+                </Badge>
+              )}
+              <Button type="primary" icon={<PlusOutlined />} onClick={onCreateClick} loading={loading}>
+                Add Ticket
+              </Button>
+            </Flex>
           </Flex>
         )}
 
