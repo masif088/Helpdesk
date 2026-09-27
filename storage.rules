@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// Files are uploaded and deleted only by the server (Admin SDK bypasses these rules).
+// Public read keeps stored download URLs working in the portal, emails and Slack.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

@@ -7,8 +7,6 @@
  * (`fs/promises`) that cannot be bundled for the browser.
  */
 
-import { getPublicUrl as getProviderPublicUrl } from '@/lib/storage-public-url'
-
 export async function uploadFile(
   file: File,
   path: string
@@ -134,8 +132,4 @@ export async function deleteFile(path: string): Promise<boolean> {
     console.error('Failed to delete file:', error)
     return false
   }
-}
-
-export function getPublicUrl(path: string): string {
-  return getProviderPublicUrl(path)
 }

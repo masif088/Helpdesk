@@ -1,5 +1,5 @@
 /**
- * Upload file to iDrive e2 storage (migrated from Supabase Storage).
+ * Upload file to storage (Firebase Storage, or local filesystem with STORAGE_PROVIDER=local).
  * Client components can POST FormData with 'file' and 'path'.
  */
 import { NextResponse } from 'next/server'

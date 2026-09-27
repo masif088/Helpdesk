@@ -1,7 +1,7 @@
 /**
  * Serve files stored locally (STORAGE_PROVIDER=local). Mirrors the public-read
- * behavior of iDrive's bucket — no auth check, since uploaded URLs are meant
- * to be shareable the same way iDrive public URLs are.
+ * behavior of Firebase Storage URLs — no auth check, since uploaded URLs are meant
+ * to be shareable.
  */
 import { NextResponse } from 'next/server'
 

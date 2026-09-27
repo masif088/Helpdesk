@@ -35,7 +35,7 @@ import {
 import { isInboxAutoUserActivationEmailEnabled } from '@/lib/inbox-user-activation'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
 import { sendRequesterTicketCreatedEmail } from '@/lib/requester-new-ticket-email'
-import { uploadBuffer } from '@/lib/storage-idrive'
+import { uploadBuffer } from '@/lib/storage-provider'
 import { logTicketActivity } from '@/lib/ticket-activity-log'
 import { DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
 import { assignCompanySupportTicketRank } from '@/lib/ticket-company-priority-order'

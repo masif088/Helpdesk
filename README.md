@@ -12,7 +12,7 @@ Helpdesk & ticketing platform built with Next.js 16 App Router, Cloud Firestore 
 | Database | Cloud Firestore via Firebase Admin SDK (`lib/fsdb`) |
 | Auth | Firebase Authentication — email/password, session cookie |
 | Email | Gmail OAuth2 (`googleapis`) |
-| Storage | iDrive e2 (S3-compatible) / local |
+| Storage | Firebase Storage / local |
 | Realtime | Firebase (presence + notifications) |
 | AI | OpenAI Platform or Codex proxy (switchable) |
 
@@ -64,16 +64,15 @@ CODEX_MODEL="gpt-5.4"
 ### Storage
 
 ```env
-STORAGE_PROVIDER=local   # local | idrive
+STORAGE_PROVIDER=firebase   # firebase (default) | local
 
-# Only required when STORAGE_PROVIDER=idrive
-IDRIVE_E2_ENDPOINT="https://..."
-IDRIVE_E2_ACCESS_KEY="..."
-IDRIVE_E2_SECRET_KEY="..."
-IDRIVE_E2_BUCKET="your-bucket"
-IDRIVE_E2_REGION="us-east-1"
-IDRIVE_E2_PUBLIC_URL="https://public-url/bucket"
+# Optional: bucket name, defaults to NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+# FIREBASE_STORAGE_BUCKET="my-project.firebasestorage.app"
 ```
+
+Uploads go to **Firebase Storage** through the Admin SDK (same service account as Firestore). Files are served
+from the Firebase download URL; `storage.rules` allows public read and blocks client writes — deploy it with
+`npm run firebase:deploy-rules`. `local` stores files under `./storage-data` and serves them via `/api/storage/file`.
 
 ### Firebase (Auth, Firestore, Realtime)
 
@@ -140,7 +139,7 @@ added in `schema.ts` and default to `null` on old documents.
 - **Search:** tickets, comments, users and companies store keyword arrays (`kwTitle`, `kwDescription`,
   `kwComment`, `searchKeywords`) — search matches whole words and word prefixes.
 - **Indexes & rules:** `firestore.indexes.json` and `firestore.rules`. Deploy with
-  `npm run firebase:deploy-firestore`. A query whose composite index is missing still works (it falls back to
+  `npm run firebase:deploy-rules`. A query whose composite index is missing still works (it falls back to
   in-memory filtering) and logs a `[fsdb] … missing composite index` warning with the link to create it.
 
 ### First setup
@@ -246,7 +245,7 @@ git push origin main
 
 GitHub push triggers CI/CD automatically — build + restart on the server.
 
-When `firestore.indexes.json` or `firestore.rules` change, deploy them with `npm run firebase:deploy-firestore`.
+When `firestore.indexes.json`, `firestore.rules` or `storage.rules` change, deploy them with `npm run firebase:deploy-rules`.
 
 ---
 

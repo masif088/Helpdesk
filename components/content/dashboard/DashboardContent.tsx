@@ -13,7 +13,7 @@ import {
 import { App, Button, Card, Col, Empty,Layout, List, Row, Space, Statistic, Typography } from 'antd'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import DashboardAnnouncementsSection from '@/components/dashboard/DashboardAnnouncementsSection'
 import DashboardHourlyActivityCard from '@/components/dashboard/DashboardHourlyActivityCard'
@@ -84,42 +84,8 @@ export default function DashboardContent({ user, stats }: DashboardContentProps)
     }>
   >([])
   const [loadingTrackers, setLoadingTrackers] = useState(false)
-  const [idriveTestLoading, setIdriveTestLoading] = useState(false)
-  const [idriveTestResult, setIdriveTestResult] = useState<{ ok: boolean; url?: string; error?: string } | null>(null)
 
-  const idriveTestInputRef = useRef<HTMLInputElement>(null)
 
-  const handleIdriveTest = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    e.target.value = ''
-    setIdriveTestResult(null)
-    setIdriveTestLoading(true)
-    try {
-      const path = `connection-test/test-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-      const formData = new FormData()
-      formData.set('file', file)
-      formData.set('path', path)
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setIdriveTestResult({ ok: false, error: (data as { error?: string }).error || res.statusText })
-        return
-      }
-      setIdriveTestResult({ ok: true, url: (data as { url?: string }).url })
-      message.success('iDrive connection OK')
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Upload failed'
-      setIdriveTestResult({ ok: false, error: msg })
-      message.error(msg)
-    } finally {
-      setIdriveTestLoading(false)
-    }
-  }
   const [allSessionsForStats, setAllSessionsForStats] = useState<StoppedTimeSession[]>([])
   const router = useRouter()
 

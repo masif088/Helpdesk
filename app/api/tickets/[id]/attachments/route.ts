@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { find, ticketAttachments } from '@/lib/fsdb'
-import { getPublicUrl } from '@/lib/storage-idrive'
+import { getPublicUrl } from '@/lib/storage-provider'
 
 /** GET /api/tickets/[id]/attachments */
 export async function GET(

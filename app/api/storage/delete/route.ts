@@ -1,11 +1,11 @@
 /**
- * Delete file from iDrive e2 storage.
- * POST body: { path: string } - path = object key (e.g. CompanyName/123/attachments/xxx.pdf)
+ * Delete a draft upload from storage.
+ * POST body: { path: string } - path = object key (e.g. CompanyName/draft/xxx.pdf) or its public URL
  */
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { deleteObject } from '@/lib/storage-provider'
+import { deleteObject, keyFromPublicUrl } from '@/lib/storage-provider'
 
 export async function POST(request: Request) {
   const session = await auth()
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       { status: 400 }
     )
   }
-  path = path.trim()
+  path = keyFromPublicUrl(path.trim())
   if (!path) {
     return NextResponse.json(
       { error: 'Empty path', success: false },
@@ -35,15 +35,6 @@ export async function POST(request: Request) {
       { status: 403 }
     )
   }
-  // Strip bucket prefix or full URL if accidentally passed (iDrive-specific; no-op for local provider)
-  const bucket = process.env.IDRIVE_E2_BUCKET || 'dtlabs'
-  if (path.startsWith(`${bucket}/`)) path = path.slice(bucket.length + 1)
-  if (path.startsWith('/')) path = path.slice(1)
-  const publicUrl = process.env.IDRIVE_E2_PUBLIC_URL
-  if (publicUrl && path.startsWith(publicUrl)) {
-    path = path.slice(publicUrl.length).replace(/^\//, '')
-  }
-
   const result = await deleteObject(path)
   if (result.ok) {
     return NextResponse.json({ success: true })

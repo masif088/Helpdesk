@@ -1,5 +1,5 @@
 /**
- * Local filesystem storage (for VPS via `next start` + PM2, customers without iDrive).
+ * Local filesystem storage (for VPS via `next start` + PM2, without Firebase Storage).
  *
  * Files are stored in ./storage-data (outside /public, gitignored) and
  * served via /api/storage/file/[...path].

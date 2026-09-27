@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { apiTokens, findOneBy, get, remove, screenshots, update } from '@/lib/fsdb'
-import { deleteObject } from '@/lib/storage-idrive'
+import { deleteObject } from '@/lib/storage-provider'
 
 function validateToken(request: Request) {
   const authHeader = request.headers.get('Authorization')

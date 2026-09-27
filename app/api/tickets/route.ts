@@ -34,7 +34,7 @@ import {
 } from '@/lib/fsdb'
 import { sendRequesterTicketCreatedEmail } from '@/lib/requester-new-ticket-email'
 import { notifySlackTicketEvent } from '@/lib/slack-ticket-notify'
-import { getPublicUrl } from '@/lib/storage-idrive'
+import { getPublicUrl } from '@/lib/storage-provider'
 import { logTicketActivity } from '@/lib/ticket-activity-log'
 import { coerceTicketType, DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
 import {

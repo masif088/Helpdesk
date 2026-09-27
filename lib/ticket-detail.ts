@@ -28,7 +28,7 @@ import {
   users,
   type UsersRow,
 } from '@/lib/fsdb'
-import { getPublicUrl } from '@/lib/storage-idrive'
+import { getPublicUrl } from '@/lib/storage-provider'
 import { mapChecklistItemToDto } from '@/lib/ticket-checklist-map'
 import { coerceTicketType } from '@/lib/ticket-classification'
 

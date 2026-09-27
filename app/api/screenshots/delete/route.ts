@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { get, remove, screenshots } from '@/lib/fsdb'
-import { deleteObject } from '@/lib/storage-idrive'
+import { deleteObject } from '@/lib/storage-provider'
 
 /** POST /api/screenshots/delete - Delete screenshot (for web app with session) */
 export async function POST(request: Request) {

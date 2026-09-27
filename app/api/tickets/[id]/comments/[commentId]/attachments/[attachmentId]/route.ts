@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
 import { commentAttachments, get, remove, ticketComments } from '@/lib/fsdb'
-import { deleteObject } from '@/lib/storage-idrive'
+import { deleteObject } from '@/lib/storage-provider'
 import type { TicketActorRole } from '@/lib/ticket-activity-log'
 import { logTicketActivity } from '@/lib/ticket-activity-log'
 

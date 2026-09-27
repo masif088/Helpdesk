@@ -14,7 +14,7 @@ import {
   update,
   users,
 } from '@/lib/fsdb'
-import { getPublicUrl,uploadBuffer } from '@/lib/storage-idrive'
+import { getPublicUrl,uploadBuffer } from '@/lib/storage-provider'
 
 const SCREENSHOTS_FOLDER = 'screenshots'
 

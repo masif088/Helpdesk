@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
 import { emailIntegrations, emailMessages, findBy, findOneBy, get, insert, sortRows, tickets, update } from '@/lib/fsdb'
-import { getObjectBuffer } from '@/lib/storage-idrive'
+import { getObjectBuffer } from '@/lib/storage-provider'
 
 const MIME_BY_EXT: Record<string, string> = {
   pdf: 'application/pdf',

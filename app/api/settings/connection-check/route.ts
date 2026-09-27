@@ -1,10 +1,11 @@
-import { HeadBucketCommand, S3Client } from '@aws-sdk/client-s3'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
 import { getFirebaseAdminApp, isFirebaseAdminConfigured } from '@/lib/firebase/admin'
 import { count, users } from '@/lib/fsdb'
+import { checkBucket } from '@/lib/storage-firebase'
+import { getStorageProvider } from '@/lib/storage-provider'
 
 export type ConnectionCheckResult = {
   key: string
@@ -24,29 +25,19 @@ async function checkDatabase(): Promise<ConnectionCheckResult> {
   }
 }
 
-async function checkIdrive(): Promise<ConnectionCheckResult> {
-  const endpoint = process.env.IDRIVE_E2_ENDPOINT
-  const accessKey = process.env.IDRIVE_E2_ACCESS_KEY
-  const secretKey = process.env.IDRIVE_E2_SECRET_KEY
-  const bucket = process.env.IDRIVE_E2_BUCKET || 'dtlabs'
-
-  if (!endpoint || !accessKey || !secretKey) {
-    return { key: 'idrive', label: 'iDrive e2 Storage (S3)', status: 'not_configured', message: 'IDRIVE_E2_ENDPOINT / ACCESS_KEY / SECRET_KEY not set' }
+async function checkStorage(): Promise<ConnectionCheckResult> {
+  if (getStorageProvider() === 'local') {
+    return { key: 'storage', label: 'File Storage', status: 'ok', message: 'Local filesystem (STORAGE_PROVIDER=local)' }
   }
-
   const t0 = Date.now()
-  try {
-    const client = new S3Client({
-      endpoint,
-      region: 'us-east-1',
-      credentials: { accessKeyId: accessKey, secretAccessKey: secretKey },
-      forcePathStyle: true,
-    })
-    await client.send(new HeadBucketCommand({ Bucket: bucket }))
-    return { key: 'idrive', label: 'iDrive e2 Storage (S3)', status: 'ok', message: `Bucket "${bucket}" reachable`, latencyMs: Date.now() - t0 }
-  } catch (e) {
-    return { key: 'idrive', label: 'iDrive e2 Storage (S3)', status: 'error', message: e instanceof Error ? e.message : 'Failed' }
+  const r = await checkBucket()
+  if (!r.bucket) {
+    return { key: 'storage', label: 'Firebase Storage', status: 'not_configured', message: 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET / Firebase Admin not set' }
   }
+  if (!r.ok) {
+    return { key: 'storage', label: 'Firebase Storage', status: 'error', message: r.error || 'Failed' }
+  }
+  return { key: 'storage', label: 'Firebase Storage', status: 'ok', message: `Bucket "${r.bucket}" reachable`, latencyMs: Date.now() - t0 }
 }
 
 async function checkFirebase(): Promise<ConnectionCheckResult> {
@@ -122,7 +113,7 @@ export async function GET() {
 
   const results = await Promise.all([
     checkDatabase(),
-    checkIdrive(),
+    checkStorage(),
     checkFirebase(),
     checkGoogleEmail(),
     checkAi(),
