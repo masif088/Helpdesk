@@ -2,7 +2,7 @@
 
 import { CheckSquareOutlined, DollarOutlined, EditOutlined, GlobalOutlined, InfoCircleOutlined, PlayCircleOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons'
 import { Button, Card, Col, Divider, Form, Input, InputNumber, Layout, message, Modal, Row, Select, Space, Switch, Tabs, Tag, Typography } from 'antd'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 import BackLink from '@/components/common/BackLink'
@@ -64,6 +64,7 @@ export default function CompanyDetailContent({
   currentUserRole,
 }: CompanyDetailContentProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const canEdit = (() => { const r = (currentUserRole ?? '').toLowerCase(); return r === 'admin' || r === 'manager' })()
   /** Admin / manager (not the customer portal): may see and set the default hourly rate */
   const canEditBilling = canEdit && variant !== 'customer'
@@ -653,7 +654,7 @@ export default function CompanyDetailContent({
                 return item ? item.children : null
               })()
             ) : (
-              <Tabs items={tabItems} className="company-tabs" />
+              <Tabs items={tabItems} className="company-tabs" defaultActiveKey={searchParams.get('tab') ?? undefined} />
             )}
 
             {/* Website Modal */}

@@ -1204,6 +1204,13 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
 .ticket-row-card__select { display: flex; align-items: center; padding-left: 14px; }
 .ticket-row-card.is-selected { box-shadow: 0 0 0 2px var(--brand-primary); }
 
+/* Reports → Billing: billable hours per month */
+.report-months { display: flex; align-items: flex-end; gap: 10px; height: 170px; padding: 16px 16px 8px; overflow-x: auto; }
+.report-months__col { flex: 1 0 44px; max-width: 90px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.report-months__bar { width: 100%; border-radius: 8px 8px 4px 4px; background: linear-gradient(180deg, #14B8A6, #0F9D8A); }
+.report-months__value { font-size: 11px; font-weight: 600; color: var(--kanban-card-title); }
+.report-months__label { font-size: 11px; color: var(--kanban-card-muted); }
+
 /* Settings → Connection status (checks) */
 .conn-banner {
   display: flex;

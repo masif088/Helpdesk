@@ -6,6 +6,7 @@ import {
   ContactsOutlined,
   DashboardOutlined,
   DeleteOutlined,
+  DollarOutlined,
   DoubleLeftOutlined,
   DoubleRightOutlined,
   InboxOutlined,
@@ -28,6 +29,7 @@ import {
   canAccessSettingsHub,
   canAccessTickets,
   canAccessUsers,
+  isAdminOrManager,
   isSettingsHrefPathname,
 } from '@/lib/auth-utils'
 import { BRANDING } from '@/lib/branding'
@@ -89,6 +91,7 @@ function selectedKeysForPathname(pathname: string | null, ticketsSearch: string)
   if (pathname === '/reference' || pathname.startsWith('/reference/')) return ['/reference']
   if (pathname === '/companies' || pathname.startsWith('/companies/')) return ['/companies']
   if (pathname === '/contacts' || pathname.startsWith('/contacts/')) return ['/contacts']
+  if (pathname === '/reports/billing' || pathname.startsWith('/reports/billing/')) return ['/reports/billing']
   if (isSettingsHrefPathname(pathname)) return ['/settings']
   const topLevel = ['/dashboard']
   const top = topLevel.find((k) => pathname === k || (k !== '/dashboard' && pathname.startsWith(`${k}/`)))
@@ -183,6 +186,9 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
       if (canAccessCompanies(role)) clients.push({ key: '/companies', label: 'Companies', icon: <BankOutlined /> })
       if (canAccessUsers(role)) clients.push({ key: '/contacts', label: 'Contacts', icon: <ContactsOutlined /> })
       if (clients.length) out.splice(2, 0, { title: 'Clients', items: clients })
+    }
+    if (!isCustomer && isAdminOrManager(role)) {
+      out.push({ title: 'Reports', items: [{ key: '/reports/billing', label: 'Billing', icon: <DollarOutlined /> }] })
     }
     if (!isCustomer && canAccessSettingsHub(role)) {
       out.push({ title: 'Admin', items: [{ key: '/settings', label: 'Settings', icon: <SettingOutlined /> }] })

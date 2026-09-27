@@ -51,6 +51,7 @@ export const config = {
     '/my-company/:path*',
     '/profile/:path*',
     '/reference/:path*',
+    '/reports/:path*',
     '/screenshots/:path*',
     '/ticket-activity/:path*',
   ],
