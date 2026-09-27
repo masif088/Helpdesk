@@ -1,7 +1,7 @@
 'use client'
 
 import { ClockCircleOutlined, DeleteOutlined, EditOutlined, FieldTimeOutlined, FlagOutlined, MoreOutlined, RobotOutlined, SyncOutlined } from '@ant-design/icons'
-import { Button, Dropdown, Modal, Tooltip } from 'antd'
+import { Button, Checkbox, Dropdown, Modal, Tooltip } from 'antd'
 import dayjs from 'dayjs'
 import { useRouter } from 'next/navigation'
 
@@ -53,6 +53,10 @@ interface CardViewCardProps {
   trackerStat?: TicketTrackerStat
   /** Start / stop my timer (staff only) */
   timer?: TicketTimerProps
+  /** Bulk selection (folder pages) */
+  selectable?: boolean
+  selected?: boolean
+  onToggleSelect?: (id: number, checked: boolean) => void
 }
 
 /** Card view row: status accent on the left, title + meta, chips and menu on the right. */
@@ -66,6 +70,9 @@ export default function CardViewCard({
   onFilterByStatus,
   onFilterByTag,
   onFilterByCompany,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
   trackerStat,
   timer,
 }: CardViewCardProps) {
@@ -80,7 +87,12 @@ export default function CardViewCard({
   const ticketUrl = `/tickets/${ticket.id}`
 
   return (
-    <article className="ticket-row-card" style={{ ['--row-accent' as string]: statusColor }}>
+    <article className={`ticket-row-card${selected ? ' is-selected' : ''}`} style={{ ['--row-accent' as string]: statusColor }}>
+      {selectable ? (
+        <span className="ticket-row-card__select">
+          <Checkbox checked={!!selected} onChange={(e) => onToggleSelect?.(ticket.id, e.target.checked)} aria-label={`Select ticket #${ticket.id}`} />
+        </span>
+      ) : null}
       <a
         href={ticketUrl}
         className="ticket-row-card__main"

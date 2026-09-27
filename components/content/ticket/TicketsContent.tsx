@@ -1,5 +1,6 @@
 'use client'
 
+import { DeleteOutlined, UndoOutlined, WarningOutlined } from '@ant-design/icons'
 import { Alert, Layout, message, Spin } from 'antd'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef } from 'react'
@@ -8,7 +9,7 @@ import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import FilterSidebar, { FILTER_PANEL_WIDTH } from '@/components/ticket/list/FilterSidebar'
 import TicketFormModal from '@/components/ticket/list/TicketFormModal'
-import TicketsCardView from '@/components/ticket/list/TicketsCardView'
+import TicketsCardView, { type CardBulkAction } from '@/components/ticket/list/TicketsCardView'
 import TicketsHeader from '@/components/ticket/list/TicketsHeader'
 import TicketsKanbanView from '@/components/ticket/list/TicketsKanbanView'
 import TicketsListView from '@/components/ticket/list/TicketsListView'
@@ -133,6 +134,89 @@ export default function TicketsContent({ user: currentUser }: TicketsContentProp
     refetchTickets,
   } = useTicketsData(currentUser.id, isCustomer, canDeleteTicket)
 
+  const isAdminUser = (currentUser.role ?? '').toLowerCase() === 'admin'
+
+  const restoreFromTrash = async (ids: number[]) => {
+    const results = await Promise.allSettled(
+      ids.map((id) =>
+        fetch(`/api/tickets/${id}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticket_type: 'support' }),
+        }).then((r) => {
+          if (!r.ok) throw new Error()
+        })
+      )
+    )
+    const failed = results.filter((r) => r.status === 'rejected').length
+    if (failed) message.error(`${failed} ticket(s) could not be restored`)
+    else message.success(`Restored ${ids.length} ticket(s) to All tickets`)
+    refetchTickets()
+  }
+
+  const deletePermanently = async (ids: number[]) => {
+    try {
+      const res = await fetch('/api/tickets/purge', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Delete failed')
+      const skipped = (data.skipped ?? []).length
+      message.success(`Deleted ${data.deleted?.length ?? 0} ticket(s) permanently${skipped ? ` · ${skipped} skipped` : ''}`)
+    } catch (e) {
+      message.error((e as Error).message)
+    } finally {
+      refetchTickets()
+    }
+  }
+
+  /** Bulk actions on folder pages (card view): Inbox, Notifications, Spam, Trash */
+  const folderBulkActions: CardBulkAction[] | undefined = (() => {
+    if (isCustomer) return undefined
+    const toTrash: CardBulkAction | null = canDeleteTicket
+      ? {
+          key: 'trash',
+          label: 'Move to trash',
+          icon: <DeleteOutlined />,
+          confirm: 'Move {n} ticket(s) to Trash? You can restore them from Trash.',
+          run: handleBulkMoveToTrash,
+        }
+      : null
+    const toSpam: CardBulkAction = {
+      key: 'spam',
+      label: 'Mark as spam',
+      icon: <WarningOutlined />,
+      confirm: 'Move {n} ticket(s) to Spam?',
+      run: handleBulkMoveToSpam,
+    }
+    if (filterTicketType === 'trash') {
+      return [
+        { key: 'restore', label: 'Restore', icon: <UndoOutlined />, confirm: 'Restore {n} ticket(s) to All tickets?', run: restoreFromTrash },
+        ...(isAdminUser
+          ? [
+              {
+                key: 'purge',
+                label: 'Delete permanently',
+                icon: <DeleteOutlined />,
+                danger: true,
+                confirm:
+                  'Permanently delete {n} ticket(s) with their comments, attachments and history? This cannot be undone.',
+                run: deletePermanently,
+              },
+            ]
+          : []),
+      ]
+    }
+    if (filterTicketType === 'notification') return [toTrash].filter(Boolean) as CardBulkAction[]
+    if (filterTicketType === 'spam') return [toTrash].filter(Boolean) as CardBulkAction[]
+    if (filterScope === 'inbox') return [toSpam, toTrash].filter(Boolean) as CardBulkAction[]
+    return undefined
+  })()
+
   const handleCloseTicket = async (id: number) => {
     try {
       await fetch(`/api/tickets/${id}`, {
@@ -243,6 +327,7 @@ export default function TicketsContent({ user: currentUser }: TicketsContentProp
               onFilterByStatus={filterByStatusFromChip}
               onFilterByTag={filterByTagFromChip}
               onFilterByCompany={filterByCompanyFromChip}
+              bulkActions={folderBulkActions}
             />
           ) : viewMode === 'list' ? (
             <TicketsListView

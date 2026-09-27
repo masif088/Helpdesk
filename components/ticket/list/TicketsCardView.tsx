@@ -1,6 +1,7 @@
 'use client'
 
-import { Col, Empty, Pagination, Row } from 'antd'
+import { App, Button, Checkbox, Col, Empty, Pagination, Row } from 'antd'
+import type { ReactNode } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { TicketTrackerStat } from '@/app/api/tickets/ticket-time-stats/route'
@@ -29,6 +30,18 @@ interface TicketsCardViewProps {
   onFilterByStatus?: (statusSlug: string) => void
   onFilterByTag?: (tagId: string) => void
   onFilterByCompany?: (companyId: string) => void
+  /** Folder pages: actions for the selected tickets (shows checkboxes when set) */
+  bulkActions?: CardBulkAction[]
+}
+
+export type CardBulkAction = {
+  key: string
+  label: string
+  icon?: ReactNode
+  danger?: boolean
+  /** Confirmation text; {n} is replaced with the number of selected tickets */
+  confirm: string
+  run: (ids: number[]) => Promise<void>
 }
 
 const DEFAULT_PAGE_SIZE = 15
@@ -54,7 +67,40 @@ export default function TicketsCardView({
   onFilterByStatus,
   onFilterByTag,
   onFilterByCompany,
+  bulkActions,
 }: TicketsCardViewProps) {
+  const { modal } = App.useApp()
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const bulkOn = !isCustomer && !!bulkActions?.length
+  // Drop selections that left the list (moved, deleted, filtered out)
+  useEffect(() => {
+    setSelected((prev) => {
+      const present = new Set(tickets.map((t) => t.id))
+      const next = new Set([...prev].filter((id) => present.has(id)))
+      return next.size === prev.size ? prev : next
+    })
+  }, [tickets])
+  const toggle = (id: number, checked: boolean) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  const runAction = (a: CardBulkAction) => {
+    const ids = [...selected]
+    if (!ids.length) return
+    modal.confirm({
+      title: a.label,
+      content: a.confirm.replace('{n}', String(ids.length)),
+      okText: a.label,
+      okButtonProps: a.danger ? { danger: true } : undefined,
+      onOk: async () => {
+        await a.run(ids)
+        setSelected(new Set())
+      },
+    })
+  }
   const saved = readSessionPage()
   const [page, setPage] = useState(saved.page)
   const [pageSize, setPageSize] = useState(saved.pageSize)
@@ -103,8 +149,49 @@ export default function TicketsCardView({
     )
   }
 
+  const pageIds = paged.map((t) => t.id)
+  const pageSelected = pageIds.filter((id) => selected.has(id)).length
+
   return (
     <div style={{ width: '100%' }}>
+      {bulkOn ? (
+        <div className="bulk-bar">
+          <Checkbox
+            checked={pageSelected > 0 && pageSelected === pageIds.length}
+            indeterminate={pageSelected > 0 && pageSelected < pageIds.length}
+            onChange={(e) =>
+              setSelected((prev) => {
+                const next = new Set(prev)
+                for (const id of pageIds) {
+                  if (e.target.checked) next.add(id)
+                  else next.delete(id)
+                }
+                return next
+              })
+            }
+          >
+            {selected.size > 0 ? `${selected.size} selected` : 'Select page'}
+          </Checkbox>
+          {selected.size > 0 ? (
+            <>
+              {sortedTickets.length > selected.size ? (
+                <Button type="link" size="small" onClick={() => setSelected(new Set(sortedTickets.map((t) => t.id)))}>
+                  Select all {sortedTickets.length}
+                </Button>
+              ) : null}
+              <Button type="link" size="small" onClick={() => setSelected(new Set())}>
+                Clear
+              </Button>
+              <span style={{ flex: 1 }} />
+              {bulkActions!.map((a) => (
+                <Button key={a.key} icon={a.icon} danger={a.danger} type={a.danger ? 'primary' : 'default'} onClick={() => runAction(a)}>
+                  {a.label}
+                </Button>
+              ))}
+            </>
+          ) : null}
+        </div>
+      ) : null}
       <Row gutter={24} style={{ paddingRight: 24, paddingLeft: 24, rowGap: 0 }}>
         {paged.map((ticket) => (
           <Col span={24} style={{ marginBottom: 10 }} key={ticket.id}>
@@ -120,6 +207,9 @@ export default function TicketsCardView({
               onFilterByCompany={onFilterByCompany}
               trackerStat={ticketStatsMap.get(ticket.id)}
               timer={timerFor(ticket.id)}
+              selectable={bulkOn}
+              selected={selected.has(ticket.id)}
+              onToggleSelect={toggle}
             />
           </Col>
         ))}
