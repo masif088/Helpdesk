@@ -87,7 +87,6 @@ function selectedKeysForPathname(pathname: string | null, ticketsSearch: string)
   if (pathname === '/reference' || pathname.startsWith('/reference/')) return ['/reference']
   if (pathname === '/companies' || pathname.startsWith('/companies/')) return ['/companies']
   if (pathname === '/contacts' || pathname.startsWith('/contacts/')) return ['/contacts']
-  if (pathname === '/projects' || pathname.startsWith('/projects/')) return ['/projects']
   if (isSettingsHrefPathname(pathname)) return ['/settings']
   const topLevel = ['/dashboard']
   const top = topLevel.find((k) => pathname === k || (k !== '/dashboard' && pathname.startsWith(`${k}/`)))

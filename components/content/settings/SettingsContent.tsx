@@ -1,29 +1,6 @@
 'use client'
 
-import {
-  ApartmentOutlined,
-  ApiOutlined,
-  AppstoreOutlined,
-  ArrowRightOutlined,
-  BgColorsOutlined,
-  CarryOutOutlined,
-  FieldTimeOutlined,
-  IdcardOutlined,
-  MailOutlined,
-  MessageOutlined,
-  PushpinOutlined,
-  ReadOutlined,
-  RobotOutlined,
-  SafetyCertificateOutlined,
-  ScheduleOutlined,
-  SearchOutlined,
-  SlackOutlined,
-  SoundOutlined,
-  SyncOutlined,
-  TagsOutlined,
-  TeamOutlined,
-  ThunderboltOutlined,
-} from '@ant-design/icons'
+import { ApartmentOutlined, ApiOutlined, AppstoreOutlined, ArrowRightOutlined, BgColorsOutlined, CarryOutOutlined, FieldTimeOutlined, IdcardOutlined, MailOutlined, MessageOutlined, PushpinOutlined, ReadOutlined, RobotOutlined, ScheduleOutlined, SearchOutlined, SlackOutlined, SoundOutlined, SyncOutlined, TagsOutlined, TeamOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { Input, Layout, Typography } from 'antd'
 import type { CSSProperties, ReactNode } from 'react'
 import { useMemo, useState } from 'react'
@@ -31,22 +8,7 @@ import { useMemo, useState } from 'react'
 import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import {
-  canAccessAiSettings,
-  canAccessAutomationRules,
-  canAccessChecklistTemplates,
-  canAccessEmailIntegration,
-  canAccessKnowledgeBase,
-  canAccessMessageTemplates,
-  canAccessRecurringTickets,
-  canAccessSlackNotifications,
-  canAccessTeams,
-  canAccessTicketAttributes,
-  canAccessUsers,
-  canManageDashboardAnnouncements,
-  canManageGlobalAnnouncement,
-  isAdmin,
-} from '@/lib/auth-utils'
+import { canAccessAiSettings, canAccessAutomationRules, canAccessChecklistTemplates, canAccessEmailIntegration, canAccessKnowledgeBase, canAccessMessageTemplates, canAccessRecurringTickets, canAccessSlackNotifications, canAccessTeams, canAccessTicketAttributes, canAccessUsers, canManageDashboardAnnouncements, canManageGlobalAnnouncement, isAdmin } from '@/lib/auth-utils'
 
 const { Content } = Layout
 const { Title, Text } = Typography
@@ -71,7 +33,6 @@ type SettingGroup = {
   items: SettingItem[]
 }
 
-const always = () => true
 
 const GROUPS: SettingGroup[] = [
   {
@@ -115,13 +76,12 @@ const GROUPS: SettingGroup[] = [
   {
     key: 'people',
     title: 'People & access',
-    description: 'Internal accounts and what they can do',
+    description: 'Internal accounts and teams',
     icon: <TeamOutlined />,
     tone: '#0EA5E9',
     items: [
       { title: 'Users', description: 'Admins, managers and staff accounts', href: '/settings/users', icon: <IdcardOutlined />, keywords: 'staff admin manager account', show: canAccessUsers },
       { title: 'Teams', description: 'Groups that tickets are assigned to', href: '/settings/teams', icon: <TeamOutlined />, keywords: 'group member', show: canAccessTeams },
-      { title: 'Feature access', description: 'Which role can use which feature', href: '/settings/feature-access', icon: <SafetyCertificateOutlined />, keywords: 'role permission', show: always },
     ],
   },
   {

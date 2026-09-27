@@ -50,7 +50,6 @@ export const config = {
     '/crawl-sessions/:path*',
     '/my-company/:path*',
     '/profile/:path*',
-    '/projects/:path*',
     '/reference/:path*',
     '/screenshots/:path*',
     '/ticket-activity/:path*',

@@ -3,7 +3,7 @@
 import 'react-quill-new/dist/quill.snow.css'
 
 import { BankOutlined, DeleteOutlined, EditOutlined, FileMarkdownOutlined, FolderOutlined, LeftOutlined, PrinterOutlined, ProfileOutlined, RightOutlined, WarningOutlined } from '@ant-design/icons'
-import { Button, Card, Flex, Form, Grid, Input, Layout, message, Select, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { Button, Card, Flex, Form, Grid, Input, Layout, message, Tabs, Tag, Tooltip, Typography } from 'antd'
 
 const { useBreakpoint } = Grid
 import { useRouter } from 'next/navigation'
@@ -28,7 +28,6 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
 import dayjs from 'dayjs'
 
 import BackLink from '@/components/common/BackLink'
-import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import { TabActivity, TabChecklist, TabGeneral, TabTimeTracker } from '@/components/ticket/detail'
@@ -1559,14 +1558,7 @@ export default function TicketDetailContent({
                                         </span>
                                     </Title>
                                     {displayTicket.project?.id ? (
-                                        <Tag icon={<FolderOutlined />}>
-                                            <SpaNavLink
-                                                href={`/projects/${displayTicket.project.id}`}
-                                                style={{ color: 'inherit' }}
-                                            >
-                                                {displayTicket.project.title}
-                                            </SpaNavLink>
-                                        </Tag>
+                                        <Tag icon={<FolderOutlined />}>{displayTicket.project.title}</Tag>
                                     ) : null}
                                     {isCustomer && (
                                         <Flex gap={8} wrap="wrap" align="center">
