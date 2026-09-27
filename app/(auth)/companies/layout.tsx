@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { canAccessCompanies } from '@/lib/auth-utils'
 
-export default async function SettingsCompaniesLayout({
+export default async function CompaniesLayout({
   children,
 }: {
   children: React.ReactNode

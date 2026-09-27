@@ -503,7 +503,7 @@ export default function CompanyDetailContent({
                 <Button
                   type="default"
                   icon={<ArrowLeftOutlined />}
-                  onClick={() => router.push('/settings/companies')}
+                  onClick={() => router.push('/companies')}
                 >
                   Back to list
                 </Button>

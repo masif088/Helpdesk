@@ -1,7 +1,9 @@
 'use client'
 
 import {
+  BankOutlined,
   CheckSquareOutlined,
+  ContactsOutlined,
   DashboardOutlined,
   DeleteOutlined,
   DoubleLeftOutlined,
@@ -19,8 +21,10 @@ import { SpaNavLink } from '@/components/common/SpaNavLink'
 import { adminNavbarAccountMenuItems } from '@/components/layout/adminNavbarAccountMenu'
 import { useSession } from '@/lib/auth-client'
 import {
+  canAccessCompanies,
   canAccessSettingsHub,
   canAccessTickets,
+  canAccessUsers,
   isSettingsHrefPathname,
 } from '@/lib/auth-utils'
 import { BRANDING } from '@/lib/branding'
@@ -64,6 +68,8 @@ function selectedKeysForPathname(pathname: string | null, ticketsSearch: string)
     return ['/tickets']
   }
   if (pathname === '/reference' || pathname.startsWith('/reference/')) return ['/reference']
+  if (pathname === '/companies' || pathname.startsWith('/companies/')) return ['/companies']
+  if (pathname === '/customers' || pathname.startsWith('/customers/')) return ['/customers']
   if (pathname === '/projects' || pathname.startsWith('/projects/')) return ['/projects']
   if (isSettingsHrefPathname(pathname)) return ['/settings']
   const topLevel = ['/dashboard']
@@ -112,6 +118,12 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
       })
       out.push({ title: 'Knowledge', items: [{ key: '/reference', label: 'Reference', icon: <ReadOutlined /> }] })
     }
+    if (!isCustomer) {
+      const clients: NavItem[] = []
+      if (canAccessCompanies(role)) clients.push({ key: '/companies', label: 'Companies', icon: <BankOutlined /> })
+      if (canAccessUsers(role)) clients.push({ key: '/customers', label: 'Customers', icon: <ContactsOutlined /> })
+      if (clients.length) out.splice(2, 0, { title: 'Clients', items: clients })
+    }
     if (!isCustomer && canAccessSettingsHub(role)) {
       out.push({ title: 'Admin', items: [{ key: '/settings', label: 'Settings', icon: <SettingOutlined /> }] })
     }
@@ -142,7 +154,16 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
       <div className="app-sidebar__brand">
         {appLogoUrl && !collapsed ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={appLogoUrl} alt={appName} style={{ height: 30, maxWidth: '100%', objectFit: 'contain' }} />
+          <img
+            src={appLogoUrl}
+            alt={appName}
+            style={{ height: 30, maxWidth: '100%', objectFit: 'contain' }}
+            onError={() => setAppLogoUrl(null)}
+            // The image may already have failed before hydration attached onError.
+            ref={(el) => {
+              if (el && el.complete && el.naturalWidth === 0) setAppLogoUrl(null)
+            }}
+          />
         ) : (
           <>
             <span className="app-sidebar__mark" aria-hidden>

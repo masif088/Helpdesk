@@ -1431,7 +1431,7 @@ export default function CrawlSessionDetailContent({ user: currentUser, crawlSess
               {crawlSession.company_websites?.company_id && (
                 <Button
                   icon={<ArrowLeftOutlined />}
-                  onClick={() => router.push(`/settings/companies/${crawlSession.company_websites.company_id}`)}
+                  onClick={() => router.push(`/companies/${crawlSession.company_websites.company_id}`)}
                 >
                   Back to Company
                 </Button>

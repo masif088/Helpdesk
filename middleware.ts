@@ -45,6 +45,8 @@ export const config = {
     '/tickets/:path*',
     '/settings/:path*',
     '/change-password',
+    '/companies/:path*',
+    '/customers/:path*',
     '/crawl-sessions/:path*',
     '/my-company/:path*',
     '/profile/:path*',

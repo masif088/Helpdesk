@@ -21,7 +21,7 @@ export default async function SettingsCompanyDetailPage({
 
   const companyData = await getCompanyDetail(id, { includeBilling: isAdminOrManager(currentUserRole) })
   if (!companyData) {
-    redirect('/settings/companies')
+    redirect('/companies')
   }
 
   return (

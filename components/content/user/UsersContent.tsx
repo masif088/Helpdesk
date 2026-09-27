@@ -30,7 +30,6 @@ import {
   Select,
   Space,
   Switch,
-  Tabs,
   Tag,
   Tooltip,
   Typography,
@@ -41,6 +40,7 @@ import { type Key,useEffect, useMemo, useState } from 'react'
 
 import { createUser } from '@/app/actions/users'
 import AppTable from '@/components/common/AppTable'
+import { Chip, StatusPill } from '@/components/ticket/list/TicketChips'
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
 import { USER_DEPARTMENTS, USER_POSITIONS } from '@/lib/user-work-dropdowns'
 import { uploadAvatar } from '@/utils/storage'
@@ -70,6 +70,22 @@ type UserAudienceTab = 'customer' | 'non_customer'
 
 interface UsersContentProps {
   user: { id: string; email?: string | null; name?: string | null; role?: string }
+  /** 'customer' → /customers (portal users); 'staff' → Settings → Users (internal accounts) */
+  audience?: 'customer' | 'staff'
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  active: '#16A34A',
+  inactive: '#94A3B8',
+  suspended: '#DC2626',
+  pending: '#F59E0B',
+}
+const ROLE_COLORS: Record<string, string> = {
+  admin: '#DC2626',
+  manager: '#2563EB',
+  staff: '#0F9D8A',
+  user: '#0F9D8A',
+  customer: '#0E7490',
 }
 
 interface UserRecord {
@@ -95,7 +111,7 @@ interface UserRecord {
   is_email_verified: boolean | null
 }
 
-export default function UsersContent({ user: currentUser }: UsersContentProps) {
+export default function UsersContent({ user: currentUser, audience = 'staff' }: UsersContentProps) {
   const router = useRouter()
   const isCustomer = ((currentUser as { role?: string }).role ?? '').toLowerCase() === 'customer'
   const isAdmin = ((currentUser as { role?: string }).role ?? '').toLowerCase() === 'admin'
@@ -108,7 +124,8 @@ export default function UsersContent({ user: currentUser }: UsersContentProps) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [searchText, setSearchText] = useState('')
-  const [audienceTab, setAudienceTab] = useState<UserAudienceTab>('non_customer')
+  const audienceTab: UserAudienceTab = audience === 'customer' ? 'customer' : 'non_customer'
+  const detailHref = (id: string) => (audience === 'customer' ? `/customers/${id}` : `/settings/users/${id}`)
   const [filterStatus, setFilterStatus] = useState<string | undefined>(undefined)
   const [filterRole, setFilterRole] = useState<string | undefined>(undefined)
   const [form] = Form.useForm()
@@ -193,7 +210,7 @@ export default function UsersContent({ user: currentUser }: UsersContentProps) {
     setAvatarUrl(null)
     form.resetFields()
     form.setFieldsValue({
-      role: 'staff',
+      role: audienceTab === 'customer' ? 'customer' : 'staff',
       status: 'active',
       timezone: 'UTC',
       locale: 'en',
@@ -516,18 +533,15 @@ export default function UsersContent({ user: currentUser }: UsersContentProps) {
       sorter: (a, b) => (a.full_name || '').localeCompare(b.full_name || ''),
       sortDirections: ['ascend', 'descend'],
       render: (_, record) => (
-        <Space align="start">
-          <Avatar icon={<UserOutlined />} src={record.avatar_url} />
-          <SpaNavLink
-            href={`/settings/users/${record.id}`}
-            style={{ textDecoration: 'none', color: 'inherit' }}
-          >
-            <div>
-              <div style={{ fontWeight: 500 }}>{record.full_name || 'N/A'}</div>
-              <div style={{ fontSize: 12, color: '#999' }}>{record.email}</div>
-            </div>
-          </SpaNavLink>
-        </Space>
+        <SpaNavLink href={detailHref(record.id)} className="people-cell">
+          <Avatar size={34} src={record.avatar_url} className="people-cell__avatar">
+            {(record.full_name || record.email || '?').trim().charAt(0).toUpperCase()}
+          </Avatar>
+          <span className="people-cell__text">
+            <span className="people-cell__name">{record.full_name || 'N/A'}</span>
+            <span className="people-cell__sub">{record.email}</span>
+          </span>
+        </SpaNavLink>
       ),
     },
     {
@@ -537,14 +551,7 @@ export default function UsersContent({ user: currentUser }: UsersContentProps) {
       sorter: (a, b) => a.role.localeCompare(b.role),
       sortDirections: ['ascend', 'descend'],
       render: (role: string) => {
-        const colorMap: Record<string, string> = {
-          admin: 'red',
-          manager: 'blue',
-          user: 'green',
-          customer: 'purple',
-          guest: 'default',
-        }
-        return <Tag color={colorMap[role] || 'default'}>{role.toUpperCase()}</Tag>
+        return <Chip color={ROLE_COLORS[role] ?? null}>{role.charAt(0).toUpperCase() + role.slice(1)}</Chip>
       },
     },
     {
@@ -553,7 +560,7 @@ export default function UsersContent({ user: currentUser }: UsersContentProps) {
       width: 140,
       sorter: (a, b) => (a.company?.name || '').localeCompare(b.company?.name || ''),
       sortDirections: ['ascend', 'descend'],
-      render: (_, r) => (<>{r.company?.name ?? 'N/A'}</>),
+      render: (_, r) => (r.company?.name ? <Chip>{r.company.name}</Chip> : <span className="people-muted">—</span>),
     },
     {
       title: 'Status',
@@ -562,13 +569,7 @@ export default function UsersContent({ user: currentUser }: UsersContentProps) {
       sorter: (a, b) => a.status.localeCompare(b.status),
       sortDirections: ['ascend', 'descend'],
       render: (status: string) => {
-        const colorMap: Record<string, string> = {
-          active: 'green',
-          inactive: 'default',
-          suspended: 'red',
-          pending: 'orange',
-        }
-        return <Tag color={colorMap[status] || 'default'}>{status.toUpperCase()}</Tag>
+        return <StatusPill color={STATUS_COLORS[status] ?? '#94A3B8'} title={status.charAt(0).toUpperCase() + status.slice(1)} />
       },
     },
     {
@@ -618,13 +619,13 @@ export default function UsersContent({ user: currentUser }: UsersContentProps) {
             <Button
               type="default"
               icon={<EyeOutlined />}
-              href={`/settings/users/${record.id}`}
+              href={detailHref(record.id)}
               aria-label="View user details"
               onClick={(e) => {
                 if (shouldOpenHrefInNewTab(e)) return
                 if (e.button !== 0) return
                 e.preventDefault()
-                router.push(`/settings/users/${record.id}`)
+                router.push(detailHref(record.id))
               }}
             />
           </Tooltip>
@@ -686,15 +687,25 @@ export default function UsersContent({ user: currentUser }: UsersContentProps) {
 
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content className="settings-page" style={{ padding: 24, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
-          <div style={{ marginBottom: 24 }}>
-            <Title level={2} className="settings-section-heading" style={{ margin: 0 }}>
-              Users
-            </Title>
-            <Text style={{ color: 'var(--settings-hub-tile-desc)' }}>
-              {isCustomer
-                ? 'People who belong to your organization and can sign in to the portal'
-                : 'Manage login accounts, roles, status, and which company a user belongs to'}
-            </Text>
+          <div className="page-head">
+            <div>
+              <Title level={2} className="page-head__title">
+                {isCustomer ? 'Users' : audienceTab === 'customer' ? 'Customers' : 'Users'}
+              </Title>
+              <Text className="page-head__sub">
+                {isCustomer
+                  ? 'People who belong to your organization and can sign in to the portal'
+                  : audienceTab === 'customer'
+                    ? 'Client contacts who sign in to the portal, grouped by their company'
+                    : 'Internal accounts — admins, managers and staff'}
+              </Text>
+            </div>
+            <div className="page-head__actions">
+              <span className="page-head__count">{filteredUsers.length} shown</span>
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+                {audienceTab === 'customer' && !isCustomer ? 'Add customer' : 'Add user'}
+              </Button>
+            </div>
           </div>
 
           {isCustomer ?? (
@@ -718,8 +729,7 @@ export default function UsersContent({ user: currentUser }: UsersContentProps) {
                 onClose={() => setResetEmailAlert(null)}
               />
             )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
-              
+            <div className="page-toolbar">
               <Space wrap>
                 <Input
                   placeholder={
@@ -767,38 +777,9 @@ export default function UsersContent({ user: currentUser }: UsersContentProps) {
                     <Option value="staff">Staff</Option>
                   </Select>
                 )}
-                <Button
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={handleCreate}
-                >
-                  Add User
-                </Button>
               </Space>
             </div>
 
-            {!isCustomer && (
-              <Tabs
-                type="card"
-                activeKey={audienceTab}
-                onChange={(k) => {
-                  setAudienceTab(k as UserAudienceTab)
-                  setPagination((p) => ({ ...p, current: 1 }))
-                  setSelectedRowKeys([])
-                }}
-                items={[
-                  {
-                    key: 'customer',
-                    label: <span title="Portal / company-scoped login">Customer ({customerCount})</span>,
-                  },
-                  {
-                    key: 'non_customer',
-                    label: <span title="Admin, manager, staff — internal roles">Agents & staff ({nonCustomerCount})</span>,
-                  },
-                ]}
-                style={{ marginBottom: 16 }}
-              />
-            )}
 
             {selectedRowKeys.length > 0 && (
               <div
@@ -873,6 +854,7 @@ export default function UsersContent({ user: currentUser }: UsersContentProps) {
             )}
 
             <div
+              className="ticket-surface"
               style={{
                 width: '100%',
                 maxWidth: '100%',
@@ -881,6 +863,7 @@ export default function UsersContent({ user: currentUser }: UsersContentProps) {
               }}
             >
               <AppTable<UserRecord>
+                className="ticket-table"
                 columns={columns}
                 dataSource={filteredUsers}
                 rowKey="id"

@@ -1,7 +1,7 @@
 'use client'
 
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
-import { Button, Card, Col, Form, Input, InputNumber, Layout, message, Modal, Popconfirm, Row, Select, Space, Switch, Tag, Tooltip, Typography } from 'antd'
+import { Button, Card, Col, Form, Input, InputNumber, Layout, message, Modal, Popconfirm, Row, Select, Space, Switch, Tooltip, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo,useState } from 'react'
@@ -9,10 +9,11 @@ import { useEffect, useMemo,useState } from 'react'
 import AppTable from '@/components/common/AppTable'
 import DateDisplay from '@/components/common/DateDisplay'
 import { tagPreviewFillHex } from '@/components/common/KanbanTagPreview'
+import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import { Chip, StatusPill } from '@/components/ticket/list/TicketChips'
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
-import { kanbanTagStyle } from '@/lib/kanban-tag-chip-style'
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...options, credentials: 'include' })
@@ -24,7 +25,7 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 const { Content } = Layout
-const { Title } = Typography
+const { Title, Text } = Typography
 const { Option } = Select
 
 interface CompaniesContentProps {
@@ -290,7 +291,15 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       sorter: (a, b) => (a.name || '').localeCompare(b.name || ''),
       sortDirections: ['ascend', 'descend'],
       render: (name: string, record: CompanyRecord) => (
-        <Tag style={kanbanTagStyle({ fillHex: tagPreviewFillHex(record.color) })}>{name}</Tag>
+        <SpaNavLink href={`/companies/${record.id}`} className="people-cell">
+          <span className="rr-company__mark" style={{ background: tagPreviewFillHex(record.color) }} aria-hidden>
+            {(name || '?').trim().charAt(0).toUpperCase()}
+          </span>
+          <span className="people-cell__text">
+            <span className="people-cell__name">{name}</span>
+            {record.email ? <span className="people-cell__sub">{record.email}</span> : null}
+          </span>
+        </SpaNavLink>
       ),
     },
     {
@@ -302,7 +311,7 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       sorter: (a, b) => Number(a.is_customer ?? false) - Number(b.is_customer ?? false),
       sortDirections: ['ascend', 'descend'],
       render: (is_customer: boolean | undefined) => (
-        <Tag color={is_customer ? 'blue' : 'default'}>{is_customer ? 'Yes' : 'No'}</Tag>
+        <StatusPill color={is_customer ? '#0F9D8A' : '#94A3B8'} title={is_customer ? 'Customer' : 'Internal'} />
       ),
     },
     {
@@ -313,9 +322,9 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
         if (!team) return '—'
         return (
           <Space size={4}>
-            <Tag color="blue">{team.name}</Tag>
+            <Chip>{team.name}</Chip>
             {team.member_count != null && (
-              <Tag color="default" style={{ fontSize: 11 }}>{team.member_count} member{team.member_count !== 1 ? 's' : ''}</Tag>
+              <span className="people-muted">{team.member_count} member{team.member_count !== 1 ? 's' : ''}</span>
             )}
           </Space>
         )
@@ -326,7 +335,7 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       key: 'active_manager_id',
       render: (_: unknown, record: CompanyRecord) => {
         const mgr = managerOptions.find((m) => m.id === record.active_manager_id)
-        return mgr ? <Tag color="purple">{mgr.full_name || mgr.email}</Tag> : '—'
+        return mgr ? <span className="people-strong">{mgr.full_name || mgr.email}</span> : <span className="people-muted">—</span>
       },
     },
     {
@@ -335,7 +344,7 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       width: 110,
       align: 'center',
       render: (_: unknown, record: CompanyRecord) =>
-        (record.active_time ?? 0) > 0 ? `${record.active_time}H` : '—',
+        (record.active_time ?? 0) > 0 ? <Chip color="#0F9D8A">{record.active_time}h</Chip> : <span className="people-muted">—</span>,
     },
     {
       title: 'Last ticket update',
@@ -358,17 +367,17 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       title: 'Actions',
       key: 'actions',
       render: (_, record) => (
-        <Space>
-          <Tooltip title="View Details">
+        <Space size={4}>
+          <Tooltip title="View details">
             <Button
-              type="default"
+              type="text"
               icon={<EyeOutlined />}
-              onClick={() => router.push(`/settings/companies/${record.id}`)}
+              onClick={() => router.push(`/companies/${record.id}`)}
             />
           </Tooltip>
           <Tooltip title="Edit">
             <Button
-              type="primary"
+              type="text"
               icon={<EditOutlined />}
               onClick={() => handleEdit(record)}
             />
@@ -381,7 +390,7 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
             cancelText="No"
           >
             <Tooltip title="Delete">
-              <Button type="primary" danger icon={<DeleteOutlined />} />
+              <Button type="text" danger icon={<DeleteOutlined />} />
             </Tooltip>
           </Popconfirm>
         </Space>
@@ -395,44 +404,34 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content style={{ padding: '24px', background: 'var(--layout-bg)', minHeight: '100vh' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
-              <Title level={2} style={{ margin: 0 }}>Companies Management</Title>
-              <Space wrap>
-                <Input
-                  placeholder="Search by name or email..."
-                  prefix={<SearchOutlined />}
-                  allowClear
-                  value={searchText}
-                  onChange={(e) => {
-                    setSearchText(e.target.value)
-                    setPagination((p) => ({ ...p, current: 1 }))
-                  }}
-                  style={{ width: 260 }}
-                />
-                {/* <Select
-                  placeholder="Filter Is Customer"
-                  allowClear
-                  value={filterIsCustomer}
-                  onChange={(v) => {
-                    setFilterIsCustomer(v)
-                    setPagination((p) => ({ ...p, current: 1 }))
-                  }}
-                  style={{ width: 160 }}
-                >
-                  <Option value={true}>Customer</Option>
-                  <Option value={false}>Non-customer</Option>
-                </Select> */}
-                <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={handleCreate}
-              >
-                Add Company
-              </Button>
-              </Space>
+            <div className="page-head">
+              <div>
+                <Title level={2} className="page-head__title">Companies</Title>
+                <Text className="page-head__sub">Client organizations, their team, manager and plan hours</Text>
+              </div>
+              <div className="page-head__actions">
+                <span className="page-head__count">{filteredCompanies.length} shown</span>
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+                  Add company
+                </Button>
+              </div>
             </div>
-
+            <div className="page-toolbar">
+              <Input
+                placeholder="Search by name or email..."
+                prefix={<SearchOutlined />}
+                allowClear
+                value={searchText}
+                onChange={(e) => {
+                  setSearchText(e.target.value)
+                  setPagination((p) => ({ ...p, current: 1 }))
+                }}
+                style={{ width: 280 }}
+              />
+            </div>
+            <div className="ticket-surface">
             <AppTable
+              className="ticket-table"
               columns={columns}
               dataSource={filteredCompanies}
               rowKey="id"
@@ -449,6 +448,7 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
                 onChange: (page, pageSize) => setPagination({ current: page, pageSize }),
               }}
             />
+            </div>
 
           <Modal
             title={editingCompany ? 'Edit Company' : 'Create Company'}

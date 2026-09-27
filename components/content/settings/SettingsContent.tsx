@@ -2,7 +2,6 @@
 
 import {
   AppstoreOutlined,
-  BankOutlined,
   BellOutlined,
   CalendarOutlined,
   CheckSquareOutlined,
@@ -31,7 +30,6 @@ import {
   canAccessAiSettings,
   canAccessAutomationRules,
   canAccessChecklistTemplates,
-  canAccessCompanies,
   canAccessEmailIntegration,
   canAccessKnowledgeBase,
   canAccessMessageTemplates,
@@ -256,26 +254,16 @@ export default function SettingsContent({ user: currentUser }: SettingsContentPr
           )}
 
           {/* ── People & Access ───────────────────────────────────── */}
-          {(canAccessUsers(role) || canAccessCompanies(role) || canAccessTeams(role)) && (
+          {(canAccessUsers(role) || canAccessTeams(role)) && (
             <Section heading="People & Access">
               <Row gutter={[16, 16]}>
                 {canAccessUsers(role) && (
                   <Col xs={24} sm={12} md={8}>
                     <HubTile
                       title="Users"
-                      description="Login accounts, roles, and company assignment"
+                      description="Internal accounts: admins, managers and staff"
                       href="/settings/users"
                       icon={<UserOutlined />}
-                    />
-                  </Col>
-                )}
-                {canAccessCompanies(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Companies"
-                      description="Organizations, portal members, and company data"
-                      href="/settings/companies"
-                      icon={<BankOutlined />}
                     />
                   </Col>
                 )}

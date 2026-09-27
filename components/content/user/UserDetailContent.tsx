@@ -495,7 +495,7 @@ export default function UserDetailContent({ user: currentUser, userData: initial
             <Space style={{ marginBottom: 24 }} wrap>
               <Button
                 icon={<ArrowLeftOutlined />}
-                onClick={() => router.push(isOwnProfile ? '/dashboard' : '/settings/users')}
+                onClick={() => router.push(isOwnProfile ? '/dashboard' : userData.role === 'customer' ? '/customers' : '/settings/users')}
               >
                 {isOwnProfile ? 'Back to dashboard' : 'Back to Users'}
               </Button>
@@ -738,7 +738,7 @@ export default function UserDetailContent({ user: currentUser, userData: initial
                             <Space>
                               <BankOutlined />
                               <SpaNavLink
-                                href={`/settings/companies/${userData.company?.id ?? userData.company_id}`}
+                                href={`/companies/${userData.company?.id ?? userData.company_id}`}
                                 style={{ fontWeight: 500 }}
                               >
                                 {userData.company?.name ?? 'Open company'}

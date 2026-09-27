@@ -29,8 +29,9 @@ const nextConfig: NextConfig = {
       ]),
       { source: "/users", destination: "/settings/users", permanent: true },
       { source: "/users/:path*", destination: "/settings/users/:path*", permanent: true },
-      { source: "/companies", destination: "/settings/companies", permanent: true },
-      { source: "/companies/:path*", destination: "/settings/companies/:path*", permanent: true },
+      // Companies moved out of Settings (now a top-level page in the sidebar)
+      { source: "/settings/companies", destination: "/companies", permanent: true },
+      { source: "/settings/companies/:path*", destination: "/companies/:path*", permanent: true },
       { source: "/teams", destination: "/settings/teams", permanent: true },
       { source: "/teams/:path*", destination: "/settings/teams/:path*", permanent: true },
     ]
