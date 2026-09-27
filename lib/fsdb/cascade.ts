@@ -46,7 +46,6 @@ export async function deleteTicketCascade(ticketId: number): Promise<S.TicketsRo
 export async function deleteCompanyCascade(companyId: string): Promise<S.CompaniesRow | null> {
   await Promise.all([
     removeWhere(S.companyUsers, [['companyId', '==', companyId]]),
-    removeWhere(S.companyDailyActiveAssignments, [['companyId', '==', companyId]]),
   ])
   return remove(S.companies, companyId)
 }

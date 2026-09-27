@@ -59,7 +59,7 @@ export function canAccessChecklistTemplates(role: string | undefined): boolean {
   return isAdminOrManager(role)
 }
 
-/** Teams settings: Admin & Manager (view list/detail & reports; Manager cannot create teams) */
+/** Teams settings: Admin & Manager (view list/detail; Manager cannot create teams) */
 export function canAccessTeams(role: string | undefined): boolean {
   return isAdminOrManager(role)
 }
@@ -84,11 +84,6 @@ export function canAccessKnowledgeBase(role: string | undefined): boolean {
   return isAdmin(role)
 }
 
-/** Company Log (`company_daily_active_assignments`) in Settings → General: Admin & Manager */
-export function canAccessCompanyLog(role: string | undefined): boolean {
-  return isAdminOrManager(role)
-}
-
 /** Global running-text announcement (Settings): Admin only */
 export function canManageGlobalAnnouncement(role: string | undefined): boolean {
   return isAdmin(role)
@@ -97,11 +92,6 @@ export function canManageGlobalAnnouncement(role: string | undefined): boolean {
 /** Dashboard announcements (role-targeted, Settings): Admin only */
 export function canManageDashboardAnnouncements(role: string | undefined): boolean {
   return isAdmin(role)
-}
-
-/** Customer (company) time & ticket summary report: Admin & Manager */
-export function canAccessCustomerTimeReport(role: string | undefined): boolean {
-  return isAdminOrManager(role)
 }
 
 /** Projects (checklist / activities): internal users only */
@@ -147,7 +137,6 @@ export function canAccessSettingsHub(role: string | undefined): boolean {
     canAccessUsers(role) ||
     canAccessCompanies(role) ||
     canAccessTeams(role) ||
-    canAccessCompanyLog(role) ||
     canAccessAiSettings(role) ||
     canAccessRecurringTickets(role) ||
     canAccessChecklistTemplates(role)

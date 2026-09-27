@@ -1,5 +1,4 @@
 export { default as TabCompanyAttributes } from './TabCompanyAttributes'
-export { default as TabCompanyLog } from './TabCompanyLog'
 export { default as TabCrawling } from './TabCrawling'
 export { default as TabInfo } from './TabInfo'
 export { default as TabTickets } from './TabTickets'

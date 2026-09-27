@@ -351,20 +351,6 @@
       ]
     },
     {
-      "collectionGroup": "company_daily_active_assignments",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "companyId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "snapshotDate",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "company_attributes",
       "queryScope": "COLLECTION",
       "fields": [

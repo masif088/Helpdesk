@@ -9,14 +9,13 @@ Auth uses `Authorization: Bearer <secret>` read from `.env`.
 |---|---|---|
 | `POST /api/email/sync-inbox` | Every 2 minutes | Sync email inbox (Gmail/IMAP), create tickets from incoming mail |
 | `POST /api/cron/process-recurring-tickets` | Every 1 minute | Create tickets automatically from recurring rules that are due |
-| `POST /api/cron/company-daily-active` | Every day at 00:05 UTC | Daily snapshot of active ticket counts per company |
 
 ## Secret / Auth
 
 All cron endpoints use the same secret:
 
 ```
-env var: SYNC_INBOX_CRON_SECRET  (also used by COMPANY_DAILY_ACTIVE_CRON_SECRET)
+env var: SYNC_INBOX_CRON_SECRET
 header:  Authorization: Bearer <value>
 ```
 
@@ -43,10 +42,6 @@ Current crontab:
 * * * * * curl -s -X POST https://ticket.deskteam360.com/api/cron/process-recurring-tickets \
   -H "Authorization: Bearer <SYNC_INBOX_CRON_SECRET>" > /var/log/dt-labs-recurring.log 2>&1
 
-# Company daily active snapshot — every day at 00:05 UTC
-5 0 * * * curl -s -X POST https://ticket.deskteam360.com/api/cron/company-daily-active \
-  -H "Authorization: Bearer <SYNC_INBOX_CRON_SECRET>" > /var/log/dt-labs-company-daily.log 2>&1
-
 ```
 
 ## Log Files
@@ -56,7 +51,6 @@ Each cron's output is stored on the server:
 ```
 /var/log/dt-labs-sync-inbox.log       — latest email sync result
 /var/log/dt-labs-recurring.log        — latest recurring ticket process result
-/var/log/dt-labs-company-daily.log    — latest daily snapshot result
 ```
 
 Check the latest logs:

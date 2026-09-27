@@ -6,7 +6,6 @@ import {
   BellOutlined,
   CalendarOutlined,
   CheckSquareOutlined,
-  ClockCircleOutlined,
   FileTextOutlined,
   GlobalOutlined,
   InfoCircleOutlined,
@@ -33,8 +32,6 @@ import {
   canAccessAutomationRules,
   canAccessChecklistTemplates,
   canAccessCompanies,
-  canAccessCompanyLog,
-  canAccessCustomerTimeReport,
   canAccessEmailIntegration,
   canAccessKnowledgeBase,
   canAccessMessageTemplates,
@@ -314,34 +311,6 @@ export default function SettingsContent({ user: currentUser }: SettingsContentPr
             </Section>
           )}
 
-          {/* ── Reports ───────────────────────────────────────────── */}
-          {(canAccessCustomerTimeReport(role) ||
-            canAccessCompanyLog(role)) && (
-            <Section heading="Reports">
-              <Row gutter={[16, 16]}>
-                {canAccessCustomerTimeReport(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Time Report"
-                      description="Detailed tracked time log across all tickets"
-                      href="/reports"
-                      icon={<ClockCircleOutlined />}
-                    />
-                  </Col>
-                )}
-                {canAccessCompanyLog(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Company Log"
-                      description="Daily snapshots of active team, manager, and time per company"
-                      href="/settings/company-log"
-                      icon={<FileTextOutlined />}
-                    />
-                  </Col>
-                )}
-              </Row>
-            </Section>
-          )}
 
           {/* ── Content ───────────────────────────────────────────── */}
           {(canAccessKnowledgeBase(role) ||

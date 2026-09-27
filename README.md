@@ -112,7 +112,6 @@ NEXT_PUBLIC_FIREBASE_API_KEY=fake-api-key
 
 ```env
 SYNC_INBOX_CRON_SECRET="your-secret-here"
-COMPANY_DAILY_ACTIVE_CRON_SECRET="your-secret-here"   # falls back to SYNC_INBOX_CRON_SECRET
 ```
 
 ### App
@@ -159,7 +158,6 @@ Auth uses `Authorization: Bearer <secret>` from `.env`.
 |---|---|---|
 | `POST /api/email/sync-inbox` | Every 2 min | Sync Gmail inbox → create tickets from incoming email |
 | `POST /api/cron/process-recurring-tickets` | Every 1 min | Create tickets from due recurring rules |
-| `POST /api/cron/company-daily-active` | Daily 00:05 UTC | Snapshot daily active assignment per company |
 
 ### Crontab entries
 
@@ -171,10 +169,6 @@ Auth uses `Authorization: Bearer <secret>` from `.env`.
 # Process recurring tickets — every minute
 * * * * * curl -s -X POST https://ticket.deskteam360.com/api/cron/process-recurring-tickets \
   -H "Authorization: Bearer <SYNC_INBOX_CRON_SECRET>" > /var/log/dt-labs-recurring.log 2>&1
-
-# Company daily active snapshot — every day at 00:05 UTC
-5 0 * * * curl -s -X POST https://ticket.deskteam360.com/api/cron/company-daily-active \
-  -H "Authorization: Bearer <SYNC_INBOX_CRON_SECRET>" > /var/log/dt-labs-company-daily.log 2>&1
 
 ```
 
