@@ -1,31 +1,15 @@
 'use client'
 
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
-import {
-  Button,
-  Card,
-  Checkbox,
-  Flex,
-  Form,
-  Input,
-  InputNumber,
-  Layout,
-  message,
-  Modal,
-  Popconfirm,
-  Select,
-  Space,
-  Switch,
-  Table,
-  Tag,
-  Typography,
-} from 'antd'
+import { PlusOutlined, SendOutlined } from '@ant-design/icons'
+import { Button, Checkbox, Collapse, Flex, Form, Input, Layout, message, Modal, Select, Space, Switch, Table, Tooltip, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useCallback, useEffect, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import SettingsBackLink from '@/components/settings/SettingsBackLink'
+import RowActions from '@/components/settings/RowActions'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import { Chip, StatusPill } from '@/components/ticket/list/TicketChips'
 
 const { Content } = Layout
 const { Title, Text, Paragraph } = Typography
@@ -75,7 +59,7 @@ function filterFromApi(f: Record<string, unknown> | undefined) {
 }
 
 export default function SlackNotificationRulesContent({ user }: SlackNotificationRulesContentProps) {
-  const [collapsed, setCollapsed] = useState(true)
+  const [collapsed, setCollapsed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [rules, setRules] = useState<RuleRow[]>([])
   const [modalOpen, setModalOpen] = useState(false)
@@ -315,40 +299,48 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
     }
   }
 
+  const [testing, setTesting] = useState<string | null>(null)
+  const sendTest = async (row: RuleRow) => {
+    setTesting(row.id)
+    try {
+      const res = await fetch(`/api/slack-notification-rules/${row.id}/test`, { method: 'POST', credentials: 'include' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Test failed')
+      message.success('Test message sent — check the Slack channel')
+    } catch (e) {
+      message.error((e as Error).message)
+    } finally {
+      setTesting(null)
+    }
+  }
+
   const columns: ColumnsType<RuleRow> = [
     {
-      title: 'Name',
-      dataIndex: 'name',
+      title: 'Rule',
       key: 'name',
-      render: (n: string) => n || <Text type="secondary">—</Text>,
-    },
-    {
-      title: 'Webhook',
-      dataIndex: 'webhook_url_masked',
-      key: 'webhook_url_masked',
-      render: (m: string) => <Text code>{m}</Text>,
+      render: (_, row) => (
+        <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <span className="cell-strong">{row.name || 'Untitled rule'}</span>
+          <span className="cell-muted" style={{ fontSize: 11 }}>{row.webhook_url_masked}</span>
+        </span>
+      ),
     },
     {
       title: 'Events',
       key: 'events',
       render: (_, row) => {
         const f = filterFromApi(row.filter)
-        return (
-          <Space size={4} wrap>
-            {f.on_ticket_created ? <Tag color="blue">Created</Tag> : null}
-            {f.on_status_changed ? <Tag color="purple">Status</Tag> : null}
-            {f.on_client_reply ? <Tag color="orange">Client reply</Tag> : null}
-            {f.on_tag_added ? <Tag color="cyan">Tag added</Tag> : null}
-            {f.slack_note?.trim() ? <Tag>Note</Tag> : null}
-            {!f.on_ticket_created && !f.on_status_changed && !f.on_client_reply && !f.on_tag_added && !f.slack_note?.trim() ? (
-              <Text type="secondary">—</Text>
-            ) : null}
-          </Space>
-        )
+        const chips = [
+          f.on_ticket_created ? <Chip key="c" color="#0F9D8A">Created</Chip> : null,
+          f.on_status_changed ? <Chip key="s" color="#6366F1">Status</Chip> : null,
+          f.on_client_reply ? <Chip key="r" color="#D97706">Client reply</Chip> : null,
+          f.on_tag_added ? <Chip key="t" color="#0EA5E9">Tag added</Chip> : null,
+        ].filter(Boolean)
+        return chips.length ? <Space size={4} wrap>{chips}</Space> : <span className="cell-muted">—</span>
       },
     },
     {
-      title: 'Filters',
+      title: 'Only for',
       key: 'filters',
       render: (_, row) => {
         const f = filterFromApi(row.filter)
@@ -358,35 +350,32 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
         if (f.type_ids.length) parts.push(`${f.type_ids.length} type`)
         if (f.to_status_slugs.length) parts.push(`${f.to_status_slugs.length} new status`)
         if (f.account_manager_ids.length) parts.push(`${f.account_manager_ids.length} manager(s)`)
-        return parts.length > 0 ? (
-          <Text type="secondary">{parts.join(' · ')}</Text>
-        ) : (
-          <Text type="secondary">All tickets</Text>
-        )
+        return <span className="cell-muted">{parts.length > 0 ? parts.join(' · ') : 'All tickets'}</span>
       },
     },
     {
-      title: 'On',
+      title: 'State',
       dataIndex: 'is_enabled',
       key: 'is_enabled',
-      width: 72,
-      render: (on: boolean) => (on ? <Tag color="green">Yes</Tag> : <Tag>No</Tag>),
+      width: 110,
+      render: (on: boolean) => (on ? <StatusPill color="#16A34A" title="On" /> : <StatusPill color="#94A3B8" title="Off" />),
     },
     {
       title: '',
       key: 'actions',
       width: 120,
+      align: 'right',
       render: (_, row) => (
-        <Space>
-          <Button type="primary" icon={<EditOutlined />} onClick={() => openEdit(row)}>
-            Edit
-          </Button>
-          <Popconfirm title="Delete this rule?" onConfirm={() => remove(row.id)}>
-            <Button type="primary" danger icon={<DeleteOutlined />}>
-              Delete
-            </Button>
-          </Popconfirm>
-        </Space>
+        <RowActions
+          extra={
+            <Tooltip title="Send a test message to this channel">
+              <Button type="text" size="small" icon={<SendOutlined />} loading={testing === row.id} onClick={() => void sendTest(row)} aria-label="Send test" />
+            </Tooltip>
+          }
+          onEdit={() => openEdit(row)}
+          onDelete={() => remove(row.id)}
+          deleteTitle="Delete this rule?"
+        />
       ),
     },
   ]
@@ -395,37 +384,44 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
     <Layout style={{ minHeight: '100vh' }}>
       <AdminSidebar user={{ ...user, role: user.role ?? undefined }} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={{ id: user.id, role: user.role ?? undefined }}>
-        <Content style={{ padding: 24 }}>
-          <SettingsBackLink />
-          <div style={{ marginBottom: 24 }}>
-            <Title level={2} style={{ margin: 0 }}>
-              Slack notifications
-            </Title>
-            <Text type="secondary">
-              Post to a Slack channel (Incoming Webhook) when a ticket matches your filters and events.
-            </Text>
-          </div>
-
-            <Paragraph type="secondary" style={{ marginBottom: 16 }}>
-              In Slack: <Text strong>App</Text> → choose your workspace → <Text strong>Incoming Webhooks</Text> → add to a
-              channel → copy the URL that starts with <Text code>https://hooks.slack.com/services/</Text>. One URL = one
-              channel. Leave all team / company / type / tag / new-status filters empty so every ticket that
-              matches the selected events is included. When you use more than one of those filters, they combine with{' '}
-              <Text strong>AND</Text> (ticket must match all of them); inside one field, multiple values are{' '}
-              <Text strong>OR</Text> (e.g. any of the selected companies).
-            </Paragraph>
-            <div style={{ marginBottom: 16 }}>
+        <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
+          <SettingsPageHeader
+            title="Slack"
+            description="Post ticket alerts to Slack channels (Incoming Webhooks) when a ticket matches a rule."
+            count={`${rules.length} rules`}
+            actions={
               <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                 Add rule
               </Button>
-            </div>
-            <Table<RuleRow>
-              rowKey="id"
-              loading={loading}
-              columns={columns}
-              dataSource={rules}
-              pagination={false}
-            />
+            }
+          />
+          <Collapse
+            ghost
+            className="slack-help"
+            items={[
+              {
+                key: 'help',
+                label: 'How to get a webhook URL, and how filters combine',
+                children: (
+                  <ol className="jobs-steps" style={{ margin: '0 0 0 18px' }}>
+                    <li>
+                      In Slack: <strong>Apps</strong> → <strong>Incoming Webhooks</strong> → add to a channel, then copy the URL that starts with{' '}
+                      <code>https://hooks.slack.com/services/</code>. One URL = one channel.
+                    </li>
+                    <li>Leave every filter empty to get all tickets that match the selected events.</li>
+                    <li>
+                      Different filters combine with <strong>AND</strong> (the ticket must match all); several values inside one filter are{' '}
+                      <strong>OR</strong> (any of the selected companies, for example).
+                    </li>
+                    <li>Use the paper-plane button on a rule to send a test message.</li>
+                  </ol>
+                ),
+              },
+            ]}
+          />
+          <div className="ticket-surface ticket-table">
+            <Table<RuleRow> rowKey="id" loading={loading} columns={columns} dataSource={rules} pagination={false} locale={{ emptyText: 'No Slack rules yet' }} />
+          </div>
         </Content>
       </AdminMainColumn>
 

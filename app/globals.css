@@ -1182,6 +1182,10 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
 .email-connected__address { font-size: 18px; font-weight: 700; color: var(--kanban-card-title); overflow-wrap: anywhere; }
 .email-connected__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 
+/* Settings → Slack: collapsible help above the table */
+.slack-help.ant-collapse { margin-bottom: 12px; background: var(--kanban-card-bg); border: 1px solid var(--kanban-card-border); border-radius: 14px; }
+.slack-help .ant-collapse-header { color: var(--kanban-card-title) !important; font-weight: 600; }
+
 /* Settings → Connection status (checks) */
 .conn-banner {
   display: flex;

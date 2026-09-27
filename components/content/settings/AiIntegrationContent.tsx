@@ -1,44 +1,18 @@
 'use client'
 
-import {
-  ApiOutlined,
-  ArrowLeftOutlined,
-  CheckCircleOutlined,
-  DatabaseOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  PlusOutlined,
-  PoweroffOutlined,
-  RobotOutlined,
-} from '@ant-design/icons'
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  Form,
-  Input,
-  Layout,
-  message,
-  Modal,
-  Popconfirm,
-  Select,
-  Space,
-  Table,
-  Tag,
-  Tooltip,
-  Typography,
-} from 'antd'
-import Link from 'next/link'
+import { ApiOutlined, PlusOutlined, PoweroffOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import { Button, Card, Form, Input, Layout, message, Modal, Select, Table, Tag, Typography } from 'antd'
+import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import SettingsBackLink from '@/components/settings/SettingsBackLink'
+import RowActions from '@/components/settings/RowActions'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import { Chip, StatusPill } from '@/components/ticket/list/TicketChips'
 import type { AiChatPublicConfig } from '@/lib/ai-chat-config'
 
 const { Content } = Layout
-const { Title, Text } = Typography
 
 interface AiSettingRow {
   id: string
@@ -167,82 +141,78 @@ export default function AiIntegrationContent({ user: currentUser, config }: Prop
     }
   }
 
-  const columns = [
+  const [testing, setTesting] = useState(false)
+  const testConnection = async () => {
+    setTesting(true)
+    try {
+      const res = await fetch('/api/ai-settings/test', { method: 'POST', credentials: 'include' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Connection failed')
+      const note = data.modelAvailable === false ? ` — model "${data.model}" was not in the provider's model list` : ''
+      messageApi[data.modelAvailable === false ? 'warning' : 'success'](`Connected to ${data.provider} in ${data.latencyMs} ms${note}`)
+    } catch (e) {
+      messageApi.error((e as Error).message)
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  const columns: ColumnsType<AiSettingRow> = [
     {
-      title: 'Name',
+      title: 'Configuration',
       dataIndex: 'name',
       key: 'name',
       render: (name: string, row: AiSettingRow) => (
-        <Space>
-          <Text strong>{name}</Text>
-          {row.isActive && <Badge status="success" text={<Text type="success" style={{ fontSize: 12 }}>Active</Text>} />}
-        </Space>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span className="cell-strong">{name}</span>
+          {row.isActive ? <StatusPill color="#16A34A" title="Active" /> : null}
+        </span>
       ),
     },
     {
       title: 'Provider',
       dataIndex: 'provider',
       key: 'provider',
-      render: (p: string) => (
-        <Tag color={p === 'codex' ? 'purple' : 'blue'} icon={<RobotOutlined />}>
-          {p === 'codex' ? 'Codex' : 'OpenAI'}
-        </Tag>
-      ),
+      width: 140,
+      render: (p: string) => <Chip color={p === 'codex' ? '#8B5CF6' : '#0F9D8A'}>{p === 'codex' ? 'Codex' : 'OpenAI'}</Chip>,
     },
     {
       title: 'Model',
       key: 'model',
+      width: 180,
       render: (_: unknown, row: AiSettingRow) => {
         const model = row.provider === 'codex' ? row.codexModel : row.openaiModel
-        return <Text code>{model || <Text type="secondary">default</Text>}</Text>
+        return <span className={model ? 'cell-strong' : 'cell-muted'}>{model || 'default'}</span>
       },
     },
     {
-      title: 'API Key',
+      title: 'API key',
       key: 'apiKey',
+      width: 130,
       render: (_: unknown, row: AiSettingRow) => {
         const key = row.provider === 'codex' ? row.codexApiKey : row.openaiApiKey
-        return key ? <Tag color="success" icon={<CheckCircleOutlined />}>Configured</Tag> : <Tag color="default">Not set</Tag>
+        return key ? <StatusPill color="#16A34A" title="Set" /> : <StatusPill color="#94A3B8" title="Not set" />
       },
     },
     {
-      title: 'Actions',
+      title: '',
       key: 'actions',
+      width: 170,
+      align: 'right',
       render: (_: unknown, row: AiSettingRow) => (
-        <Space>
-          {!row.isActive && (
-            <Tooltip title="Activate this configuration">
-              <Button
-                size="small"
-                type="primary"
-                icon={<PoweroffOutlined />}
-                loading={activating === row.id}
-                onClick={() => handleActivate(row.id)}
-              >
+        <RowActions
+          extra={
+            !row.isActive ? (
+              <Button size="small" icon={<PoweroffOutlined />} loading={activating === row.id} onClick={() => handleActivate(row.id)}>
                 Activate
               </Button>
-            </Tooltip>
-          )}
-          <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(row)}>
-            Edit
-          </Button>
-          <Popconfirm
-            title="Delete this configuration?"
-            description={row.isActive ? 'Cannot delete active configuration.' : 'This action cannot be undone.'}
-            disabled={row.isActive}
-            onConfirm={() => handleDelete(row.id)}
-            okText="Delete"
-            okButtonProps={{ danger: true }}
-          >
-            <Button
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-              loading={deleting === row.id}
-              disabled={row.isActive}
-            />
-          </Popconfirm>
-        </Space>
+            ) : null
+          }
+          onEdit={() => openEdit(row)}
+          onDelete={() => handleDelete(row.id)}
+          deleteTitle="Delete this configuration?"
+          deleteDisabledReason={row.isActive ? 'Activate another configuration before deleting this one' : undefined}
+        />
       ),
     },
   ]
@@ -255,60 +225,70 @@ export default function AiIntegrationContent({ user: currentUser, config }: Prop
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
-          <SettingsBackLink />
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div>
-              <Title level={3} className="settings-section-heading" style={{ margin: '0 0 2px' }}>
-                AI Settings
-              </Title>
-              <Text type="secondary">
-                Save multiple configurations and activate whichever one you need — no restart required.
-              </Text>
-            </div>
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-              Add configuration
-            </Button>
-          </div>
-
-          {rows.length === 0 && !loading && (
-            <Alert
-              type="info"
-              showIcon
-              message="No saved configurations"
-              description="AI is currently using environment variables. Add a configuration above to switch to DB-managed settings."
-              style={{ marginBottom: 16 }}
-            />
-          )}
-
-          <Table
-            dataSource={rows}
-            columns={columns}
-            rowKey="id"
-            loading={loading}
-            pagination={false}
-            rowClassName={(row) => row.isActive ? 'ant-table-row-selected' : ''}
-            style={{ marginBottom: 16 }}
+          <SettingsPageHeader
+            title="AI"
+            description="Provider and model for ticket summaries and reply drafts. Save several configurations and switch between them without a restart."
+            actions={
+              <>
+                <Button icon={<ThunderboltOutlined />} loading={testing} onClick={() => void testConnection()}>
+                  Test connection
+                </Button>
+                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                  Add configuration
+                </Button>
+              </>
+            }
           />
 
-          {/* Active config summary */}
-          <Card size="small" title={<><ApiOutlined /> Active configuration</>}>
-            {activeRow ? (
-              <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                <div><Text type="secondary">Name: </Text><Text strong>{activeRow.name}</Text></div>
-                <div><Text type="secondary">Provider: </Text><Tag color={activeRow.provider === 'codex' ? 'purple' : 'blue'} icon={<RobotOutlined />}>{activeRow.provider}</Tag></div>
-                <div><Text type="secondary">Model: </Text><Text code>{(activeRow.provider === 'codex' ? activeRow.codexModel : activeRow.openaiModel) || 'default'}</Text></div>
-                <div><Text type="secondary">Source: </Text><Tag icon={<DatabaseOutlined />}>Database</Tag></div>
-              </Space>
-            ) : (
-              <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                <div><Text type="secondary">Provider: </Text><Tag color={activeConfig.provider === 'codex' ? 'purple' : 'blue'} icon={<RobotOutlined />}>{activeConfig.provider}</Tag></div>
-                <div><Text type="secondary">Model: </Text><Text code>{activeConfig.model}</Text></div>
-                <div><Text type="secondary">API Key: </Text>{activeConfig.apiKeyConfigured ? <Tag color="success">Configured</Tag> : <Tag color="error">Not set</Tag>}</div>
-                <div><Text type="secondary">Source: </Text><Tag>📄 .env file</Tag></div>
-              </Space>
-            )}
-          </Card>
+          <div className="email-layout">
+            <section className="ticket-surface billing-section">
+              <header className="billing-section__head">
+                <span>
+                  <ApiOutlined /> In use now
+                </span>
+                {activeRow ? <StatusPill color="#0F9D8A" title="Saved configuration" /> : <StatusPill color="#64748B" title="Server env" />}
+              </header>
+              <div className="info-grid">
+                <div className="info-field">
+                  <div className="info-field__label">Provider</div>
+                  <div className="info-field__value">{(activeRow?.provider ?? activeConfig.provider) === 'codex' ? 'Codex (OpenAI-compatible)' : 'OpenAI'}</div>
+                </div>
+                <div className="info-field">
+                  <div className="info-field__label">Model</div>
+                  <div className="info-field__value">
+                    {(activeRow ? (activeRow.provider === 'codex' ? activeRow.codexModel : activeRow.openaiModel) : activeConfig.model) || 'default'}
+                  </div>
+                </div>
+                <div className="info-field">
+                  <div className="info-field__label">API key</div>
+                  <div className="info-field__value">
+                    {(activeRow ? !!(activeRow.provider === 'codex' ? activeRow.codexApiKey : activeRow.openaiApiKey) : activeConfig.apiKeyConfigured) ? (
+                      <StatusPill color="#16A34A" title="Set" />
+                    ) : (
+                      <StatusPill color="#DC2626" title="Not set — AI features are off" />
+                    )}
+                  </div>
+                </div>
+                <div className="info-field">
+                  <div className="info-field__label">Source</div>
+                  <div className="info-field__value cell-muted">
+                    {activeRow ? `Configuration "${activeRow.name}"` : 'Server environment variables (OPENAI_API_KEY, …) — add a configuration to manage it here'}
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div className="ticket-surface ticket-table">
+            <Table<AiSettingRow>
+              dataSource={rows}
+              columns={columns}
+              rowKey="id"
+              loading={loading}
+              pagination={false}
+              locale={{ emptyText: 'No saved configurations — the server environment is used' }}
+            />
+          </div>
         </Content>
       </AdminMainColumn>
 

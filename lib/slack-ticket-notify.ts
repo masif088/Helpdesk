@@ -1,16 +1,4 @@
-import {
-  companies,
-  find,
-  findBy,
-  findOneBy,
-  get,
-  slackTicketNotificationRules,
-  teams,
-  tickets,
-  ticketTags,
-  ticketTypes,
-  users,
-} from '@/lib/fsdb'
+import { companies, find, findBy, get, slackTicketNotificationRules, teams, tickets, ticketTags, ticketTypes, users } from '@/lib/fsdb'
 
 export type SlackTicketNotifyEvent = 'ticket_created' | 'status_changed' | 'client_reply' | 'tag_added'
 
@@ -234,6 +222,11 @@ async function postWebhook(url: string, text: string): Promise<void> {
     const body = await res.text().catch(() => '')
     throw new Error(`Slack webhook ${res.status}: ${body.slice(0, 200)}`)
   }
+}
+
+/** Settings → Slack "Send test": throws with Slack's answer when the webhook rejects it. */
+export async function sendSlackTestMessage(url: string, text: string): Promise<void> {
+  await postWebhook(url, text)
 }
 
 /**
