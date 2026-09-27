@@ -4,11 +4,11 @@ import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
 import { find, findBy, teamMembers, teams } from '@/lib/fsdb'
 import { DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
-import { isInboxTicket, loadAssignedTicketIds, loadMyTicketIds } from '@/lib/ticket-inbox'
+import { isInboxTicket, isMyTicket, loadAssignedTicketIds, loadMyTicketScope } from '@/lib/ticket-inbox'
 import { loadTicketCandidates } from '@/lib/ticket-list-query'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
-/** GET /api/tickets/scope-counts — sidebar badges: open unassigned tickets (Inbox) and my open tickets. Staff only. */
+/** GET /api/tickets/scope-counts — sidebar badges: open unassigned tickets (Inbox) and my open tickets (assigned to me or my teams). Staff only. */
 export async function GET() {
   const session = await auth()
   const user = session?.user
@@ -19,7 +19,7 @@ export async function GET() {
   const [candidates, assigned, mine] = await Promise.all([
     loadTicketCandidates({ ticketType: DEFAULT_TICKET_TYPE }),
     loadAssignedTicketIds(),
-    loadMyTicketIds(user.id),
+    loadMyTicketScope(user.id),
   ])
 
   // Same team visibility as the ticket list
@@ -38,7 +38,7 @@ export async function GET() {
   for (const t of candidates) {
     if (!visible(t.teamId)) continue
     if (isInboxTicket(t, assigned)) inbox++
-    if (mine.has(t.id) && !isClosedLikeTicketStatus(t.status)) myOpen++
+    if (isMyTicket(t, mine) && !isClosedLikeTicketStatus(t.status)) myOpen++
   }
   return NextResponse.json({ inbox, mine: myOpen })
 }

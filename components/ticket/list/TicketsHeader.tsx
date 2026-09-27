@@ -111,7 +111,7 @@ export default function TicketsHeader({
         </Typography.Title>
         {!inJunkFolder && filterScope === 'mine' ? (
           <Typography.Text type="secondary" style={{ marginTop: -8 }}>
-            Open tickets assigned to you.
+            Tickets assigned to you or to your teams.
           </Typography.Text>
         ) : null}
 

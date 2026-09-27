@@ -24,10 +24,19 @@ export async function loadAssignedTicketIds(): Promise<Set<number>> {
   return new Set(rows.map((r) => r.ticketId))
 }
 
-/** Ticket ids assigned to one user. */
-export async function loadMyTicketIds(userId: string): Promise<Set<number>> {
-  const rows = await findBy(ticketAssignees, { userId })
-  return new Set(rows.map((r) => r.ticketId))
+/** "My tickets" = assigned to me, or belonging to a team I am a member of. */
+export type MyTicketScope = { ticketIds: Set<number>; teamIds: Set<string> }
+
+export async function loadMyTicketScope(userId: string): Promise<MyTicketScope> {
+  const [assignments, memberships] = await Promise.all([findBy(ticketAssignees, { userId }), findBy(teamMembers, { userId })])
+  return {
+    ticketIds: new Set(assignments.map((r) => r.ticketId)),
+    teamIds: new Set(memberships.map((m) => m.teamId)),
+  }
+}
+
+export function isMyTicket(t: Pick<TicketsRow, 'id' | 'teamId'>, mine: MyTicketScope): boolean {
+  return mine.ticketIds.has(t.id) || (!!t.teamId && mine.teamIds.has(t.teamId))
 }
 
 export function isInboxTicket(t: Pick<TicketsRow, 'id' | 'status' | 'ticketType'>, assigned: Set<number>): boolean {

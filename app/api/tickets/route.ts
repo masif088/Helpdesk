@@ -47,7 +47,7 @@ import {
   assertTicketContactUserAllowed,
   getEffectiveCompanyIdForUser,
 } from '@/lib/ticket-contact-user'
-import { isInboxTicket, isTicketScope, loadAssignedTicketIds, loadMyTicketIds, notifyNewUnassignedTicket } from '@/lib/ticket-inbox'
+import { isInboxTicket, isMyTicket, isTicketScope, loadAssignedTicketIds, loadMyTicketScope, notifyNewUnassignedTicket } from '@/lib/ticket-inbox'
 import { loadTicketCandidates, searchTickets, sortTicketList } from '@/lib/ticket-list-query'
 import { sendNewTicketAgentNotificationEmail } from '@/lib/ticket-notification-emails'
 import { assertCustomerMayUseTicketType } from '@/lib/ticket-type-customer-access'
@@ -137,7 +137,7 @@ export async function GET(request: Request) {
       ? ticketTypeFilter
       : DEFAULT_TICKET_TYPE
 
-  /** Staff views on the support queue: inbox (unassigned, open) or mine (assigned to me). */
+  /** Staff views on the support queue: inbox (unassigned, open) or mine (assigned to me or to one of my teams). */
   const scopeParam = url.searchParams.get('scope')?.trim().toLowerCase()
   const scope = !isCustomerList && listTicketType === DEFAULT_TICKET_TYPE && isTicketScope(scopeParam) ? scopeParam : null
 
@@ -217,13 +217,13 @@ export async function GET(request: Request) {
 
   const [assignedIds, myIds] = await Promise.all([
     scope === 'inbox' ? loadAssignedTicketIds() : null,
-    scope === 'mine' ? loadMyTicketIds(userId) : null,
+    scope === 'mine' ? loadMyTicketScope(userId) : null,
   ])
 
   const filtered = candidates.filter((t) => {
     if (!allowed(t)) return false
     if (assignedIds && !isInboxTicket(t, assignedIds)) return false
-    if (myIds && !myIds.has(t.id)) return false
+    if (myIds && !isMyTicket(t, myIds)) return false
     if (t.ticketType !== listTicketType) return false
     if (!isCustomerList && companySet.size > 0 && (!t.companyId || !companySet.has(t.companyId))) return false
     if (statusSet.size > 0 && !statusSet.has(t.status)) return false
