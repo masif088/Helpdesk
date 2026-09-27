@@ -1145,6 +1145,9 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
   text-transform: uppercase;
   color: var(--brand-primary) !important;
 }
+/* Section titles start flush left (no short line before the title) */
+.settings-form .ant-divider-with-text-start::before { display: none; }
+.settings-form .ant-divider-with-text-start .ant-divider-inner-text { padding-inline-start: 0; }
 .settings-form__footer {
   display: flex;
   justify-content: flex-end;

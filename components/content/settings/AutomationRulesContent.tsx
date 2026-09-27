@@ -1,12 +1,11 @@
 'use client'
 
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons'
-import { Button, Form, Input, InputNumber, Layout, message, Modal, Select, Space, Switch, Table } from 'antd'
+import { Button, Input, Layout, message, Select, Table } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
-import ActionBuilder from '@/components/automation/ActionBuilder'
-import ConditionBuilder from '@/components/automation/ConditionBuilder'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import RowActions from '@/components/settings/RowActions'
@@ -44,28 +43,14 @@ interface AutomationRuleRecord {
   updated_at: string
 }
 
-function hasAtLeastOneAction(actions: AutomationActions | object): boolean {
-  if (!actions || typeof actions !== 'object') return false
-  return Object.values(actions).some((v) => {
-    if (v === undefined || v === null || v === '') return false
-    if (Array.isArray(v)) return v.length > 0
-    return true
-  })
-}
-
-const emptyConditions: OurConditionGroup = { operator: 'AND', conditions: [] }
-
 export default function AutomationRulesContent({ user: currentUser }: AutomationRulesContentProps) {
+  const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [rules, setRules] = useState<AutomationRuleRecord[]>([])
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(false)
   const [searchText, setSearchText] = useState('')
   const [filterCompany, setFilterCompany] = useState<string | null>(null)
-  const [modalVisible, setModalVisible] = useState(false)
-  const [editingRule, setEditingRule] = useState<AutomationRuleRecord | null>(null)
-  const [form] = Form.useForm()
-  const [submitting, setSubmitting] = useState(false)
 
   const fetchRules = async () => {
     setLoading(true)
@@ -93,38 +78,8 @@ export default function AutomationRulesContent({ user: currentUser }: Automation
     fetchCompanies()
   }, [])
 
-  const handleCreate = () => {
-    setEditingRule(null)
-    form.resetFields()
-    form.setFieldsValue({
-      event_type: 'ticket_created',
-      priority: 0,
-      status: true,
-      conditions: emptyConditions,
-      actions: {},
-    })
-    setModalVisible(true)
-  }
-
-  const handleEdit = (record: AutomationRuleRecord) => {
-    setEditingRule(record)
-    const cond = record.conditions as OurConditionGroup
-    const validCond =
-      cond && typeof cond === 'object' && 'operator' in cond && Array.isArray(cond.conditions)
-        ? cond
-        : emptyConditions
-    const act = record.actions as AutomationActions
-    form.setFieldsValue({
-      name: record.name,
-      event_type: record.event_type,
-      priority: record.priority,
-      company_id: record.company_id || undefined,
-      status: record.status,
-      conditions: validCond,
-      actions: act && typeof act === 'object' ? act : {},
-    })
-    setModalVisible(true)
-  }
+  const handleCreate = () => router.push('/settings/automation-rules/new')
+  const handleEdit = (record: AutomationRuleRecord) => router.push(`/settings/automation-rules/${record.id}/edit`)
 
   const handleDelete = async (id: number) => {
     try {
@@ -133,53 +88,6 @@ export default function AutomationRulesContent({ user: currentUser }: Automation
       fetchRules()
     } catch (error: unknown) {
       message.error((error as Error).message || 'Failed to delete rule')
-    }
-  }
-
-  const handleSubmit = async (values: Record<string, unknown>) => {
-    setSubmitting(true)
-    try {
-      const conditionsObj =
-        values.conditions && typeof values.conditions === 'object'
-          ? (values.conditions as object)
-          : {}
-      const actionsObj =
-        values.actions && typeof values.actions === 'object'
-          ? (values.actions as object)
-          : {}
-
-      const payload = {
-        name: values.name ? String(values.name).trim() : null,
-        event_type: String(values.event_type || 'ticket_created'),
-        conditions: conditionsObj,
-        actions: actionsObj,
-        priority: Number(values.priority) ?? 0,
-        company_id: values.company_id || null,
-        status: values.status !== false,
-      }
-
-      if (editingRule) {
-        await apiFetch(`/api/automation-rules/${editingRule.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-        message.success('Rule updated')
-      } else {
-        await apiFetch('/api/automation-rules', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-        message.success('Rule created')
-      }
-      setModalVisible(false)
-      form.resetFields()
-      fetchRules()
-    } catch (error: unknown) {
-      message.error((error as Error).message || 'Failed to save rule')
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -304,116 +212,6 @@ export default function AutomationRulesContent({ user: currentUser }: Automation
             />
           </div>
 
-          <Modal
-            title={editingRule ? 'Edit rule' : 'Add rule'}
-            open={modalVisible}
-            onCancel={() => {
-              setModalVisible(false)
-              form.resetFields()
-            }}
-            footer={null}
-            width={820}
-          >
-            <Form form={form} layout="vertical" onFinish={handleSubmit}>
-              <Form.Item name="name" label="Name (optional)">
-                <Input placeholder="e.g. Refund to Billing" />
-              </Form.Item>
-
-              <Space style={{ width: '100%', marginBottom: 16 }} wrap>
-                <Form.Item
-                  name="event_type"
-                  label="When"
-                  rules={[{ required: true }]}
-                  style={{ marginBottom: 0, minWidth: 180 }}
-                >
-                  <Select
-                    showSearch
-                    filterOption={(input, option) =>
-                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                    }
-                    options={[
-                      { value: 'ticket_created', label: 'Ticket created' },
-                      { value: 'ticket_updated', label: 'Ticket updated' },
-                      { value: 'ticket_reply_added', label: 'New reply (thread / email / client note)' },
-                      { value: 'ticket_note_added', label: 'New internal note' },
-                      { value: 'ticket_comment_added', label: 'New reply or note (any)' },
-                      { value: 'time_trigger', label: 'Time trigger (daily check)' },
-                    ]}
-                  />
-                </Form.Item>
-                <Form.Item name="priority" label="Priority" style={{ marginBottom: 0, minWidth: 100 }}>
-                  <InputNumber min={0} placeholder="0" style={{ width: '100%' }} />
-                </Form.Item>
-                <Form.Item name="company_id" label="Applies to" style={{ marginBottom: 0, minWidth: 180 }}>
-                  <Select
-                    allowClear
-                    showSearch
-                    filterOption={(input, option) =>
-                      (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                    }
-                    placeholder="All companies"
-                    options={companies.map((c) => ({ value: c.id, label: c.name }))}
-                  />
-                </Form.Item>
-                <Form.Item name="status" label="Active" valuePropName="checked" style={{ marginBottom: 0 }}>
-                  <Switch />
-                </Form.Item>
-              </Space>
-
-              <Form.Item noStyle shouldUpdate={(a, b) => a.event_type !== b.event_type}>
-                {({ getFieldValue }) =>
-                  getFieldValue('event_type') === 'time_trigger' ? (
-                    <div className="billing-note" style={{ marginBottom: 16 }}>
-                      Checked once a day (06:00) for open support tickets idle for at least a day. Use the condition
-                      “Days since last updated”. Each rule fires once per ticket until the ticket is updated again.
-                    </div>
-                  ) : null
-                }
-              </Form.Item>
-
-              <Form.Item
-                validateTrigger="onSubmit"
-                name="conditions"
-                label="Conditions"
-                rules={[
-                  { required: true, message: 'Add at least one condition' },
-                  {
-                    validator: (_, v: OurConditionGroup) => {
-                      if (!v?.conditions?.length) return Promise.reject(new Error('Add at least one condition'))
-                      return Promise.resolve()
-                    },
-                  },
-                ]}
-              >
-                  {/** Do not emit empty onChange — it would overwrite Form.Item so conditions are not saved */}
-                  <ConditionBuilder />
-                </Form.Item>
-
-              <Form.Item
-                validateTrigger="onSubmit"
-                name="actions"
-                label="Actions"
-                rules={[
-                  { required: true, message: 'Select at least one action' },
-                  {
-                    validator: (_, v: AutomationActions) =>
-                      hasAtLeastOneAction(v) ? Promise.resolve() : Promise.reject(new Error('Select at least one action')),
-                  },
-                ]}
-              >
-                <ActionBuilder />
-              </Form.Item>
-
-              <div className="modal-footer-row">
-                <Button onClick={() => setModalVisible(false)} disabled={submitting}>
-                  Cancel
-                </Button>
-                <Button type="primary" htmlType="submit" loading={submitting}>
-                  {editingRule ? 'Save rule' : 'Create rule'}
-                </Button>
-              </div>
-            </Form>
-          </Modal>
         </Content>
       </AdminMainColumn>
     </Layout>

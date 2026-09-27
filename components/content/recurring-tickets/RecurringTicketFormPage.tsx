@@ -296,7 +296,7 @@ export default function RecurringTicketFormPage({ initialValues }: Props) {
                 </div>
               </Form.Item>
 
-              <Divider titlePlacement="start" orientationMargin={0}>
+              <Divider titlePlacement="start">
                 <Text type="secondary" style={{ fontSize: 12 }}>Schedule</Text>
               </Divider>
 
@@ -360,7 +360,7 @@ export default function RecurringTicketFormPage({ initialValues }: Props) {
                 </Col>
               </Row>
 
-              <Divider titlePlacement="start" orientationMargin={0}>
+              <Divider titlePlacement="start">
                 <Text type="secondary" style={{ fontSize: 12 }}>Ticket Assignment</Text>
               </Divider>
 
@@ -411,7 +411,7 @@ export default function RecurringTicketFormPage({ initialValues }: Props) {
                 </Col>
               </Row>
 
-              <Divider titlePlacement="start" orientationMargin={0}>
+              <Divider titlePlacement="start">
                 <Text type="secondary" style={{ fontSize: 12 }}>Ticket Settings</Text>
               </Divider>
 
