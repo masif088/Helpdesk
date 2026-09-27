@@ -1,0 +1,4 @@
+/** Logo mark (same drawing as public/brand/favicon.svg) as a data URI, for generated PNG icons / share image. */
+const MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#14B8A6"/><stop offset="1" stop-color="#0F9D8A"/></linearGradient></defs><rect width="48" height="48" rx="12" fill="url(#g)"/><path d="M17 12h14a7 7 0 0 1 7 7v7a7 7 0 0 1-7 7H21l-6 5v-5.4A7 7 0 0 1 10 26v-7a7 7 0 0 1 7-7z" fill="#FFFFFF"/><path d="M18.5 22.5l4 4 7.5-8" fill="none" stroke="#0F9D8A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="37" cy="12" r="4.5" fill="#F59E0B" stroke="#FFFFFF" stroke-width="2"/></svg>`
+
+export const BRAND_MARK_DATA_URI = `data:image/svg+xml;base64,${Buffer.from(MARK_SVG).toString('base64')}`

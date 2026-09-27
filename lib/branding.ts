@@ -5,7 +5,7 @@
  *   NEXT_PUBLIC_APP_TITLE        browser tab / share title (default: the app name)
  *   NEXT_PUBLIC_APP_DESCRIPTION  meta + share description
  *   NEXT_PUBLIC_APP_LOGO         logo image
- *   NEXT_PUBLIC_APP_FAVICON      favicon (default /favicon.ico)
+ *   NEXT_PUBLIC_APP_FAVICON      favicon (default: generated icon with the app initial, /brand-icon/32)
  *
  * Logo / favicon: a relative path ("logo.png", "/brand/logo.svg") is served from `public/`;
  * a full URL ("https://…", e.g. Firebase Storage or another site) is used as-is.
@@ -29,6 +29,6 @@ export const BRANDING = {
   title: env(process.env.NEXT_PUBLIC_APP_TITLE) ?? name,
   description: env(process.env.NEXT_PUBLIC_APP_DESCRIPTION) ?? `${name} — ticketing and client support`,
   logo: resolveAssetUrl(process.env.NEXT_PUBLIC_APP_LOGO),
-  favicon: resolveAssetUrl(process.env.NEXT_PUBLIC_APP_FAVICON) ?? '/favicon.ico',
+  favicon: resolveAssetUrl(process.env.NEXT_PUBLIC_APP_FAVICON) ?? '/brand-icon/32',
   siteUrl: env(process.env.NEXT_PUBLIC_SITE_URL),
 } as const

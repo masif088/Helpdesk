@@ -132,7 +132,7 @@ NEXT_PUBLIC_APP_NAME="Helpdesk"                 # sidebar, top navbar, emails, p
 NEXT_PUBLIC_APP_TITLE="Helpdesk — Client Support" # browser tab + share title (default: app name)
 NEXT_PUBLIC_APP_DESCRIPTION="Ticketing and client support"
 NEXT_PUBLIC_APP_LOGO="brand/logo.svg"           # relative → public/brand/logo.svg; or a full https:// URL
-NEXT_PUBLIC_APP_FAVICON="brand/favicon.png"     # relative → public/…; or a full URL (default /favicon.ico)
+NEXT_PUBLIC_APP_FAVICON="brand/favicon.png"     # relative → public/…; or a full URL (default: generated icon with the app initial)
 TICKETS_LOOKUP_CATALOG_REVALIDATE_SECONDS=3600
 ```
 

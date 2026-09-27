@@ -25,10 +25,10 @@ env:
   - variable: NEXT_PUBLIC_APP_DESCRIPTION
     value: Ticketing and client support
   # Relative path → served from public/; full URL → used as-is
-  # - variable: NEXT_PUBLIC_APP_LOGO
-  #   value: brand/logo.svg
-  # - variable: NEXT_PUBLIC_APP_FAVICON
-  #   value: brand/favicon.png
+  - variable: NEXT_PUBLIC_APP_LOGO
+    value: brand/logo.svg
+  - variable: NEXT_PUBLIC_APP_FAVICON
+    value: brand/favicon.svg
 
   # ── Firebase web config (public) ──────────────────────────────────────
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY

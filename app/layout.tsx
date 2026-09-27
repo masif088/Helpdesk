@@ -33,24 +33,26 @@ export async function generateMetadata(): Promise<Metadata> {
   const appName = settings.app_name || BRANDING.name
   const title = process.env.NEXT_PUBLIC_APP_TITLE?.trim() || appName
   const description = BRANDING.description
-  const logoUrl = settings.app_logo_url || BRANDING.logo || '/og-image.png'
+  /** Share image: a configured raster logo, else the generated one (scrapers such as Facebook / WhatsApp ignore SVG) */
+  const configuredLogo = settings.app_logo_url || BRANDING.logo
+  const logoUrl = configuredLogo && !/\.svg(\?|$)/i.test(configuredLogo) ? configuredLogo : '/brand-og'
   const favicon = settings.app_favicon_url || BRANDING.favicon
   return {
     ...(BRANDING.siteUrl ? { metadataBase: new URL(BRANDING.siteUrl) } : {}),
     title: { default: title, template: `%s | ${appName}` },
     description,
     applicationName: appName,
-    icons: { icon: [{ url: favicon }], shortcut: [{ url: favicon }] },
+    icons: { icon: [{ url: favicon }], shortcut: [{ url: favicon }], apple: [{ url: '/brand-icon/180' }] },
     openGraph: {
       title,
       description,
       ...(BRANDING.siteUrl ? { url: BRANDING.siteUrl } : {}),
       siteName: appName,
-      images: [{ url: logoUrl, alt: title }],
+      images: [{ url: logoUrl, alt: title, ...(logoUrl === '/brand-og' ? { width: 1200, height: 630 } : {}) }],
       type: 'website',
     },
     twitter: {
-      card: 'summary',
+      card: 'summary_large_image',
       title,
       description,
       images: [logoUrl],
