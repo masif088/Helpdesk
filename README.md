@@ -34,9 +34,16 @@ NEXT_PUBLIC_SITE_URL="https://yourdomain.com"
 Configured via **Settings → Email Integration** in the app UI. OAuth tokens are stored in the `email_integrations` table. The env vars below are required for the OAuth flow:
 
 ```env
-GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_ID="....apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET="..."
+# Shared secret for scheduled jobs (email sync, recurring tickets); Cloud Scheduler sends it as a Bearer token
+SYNC_INBOX_CRON_SECRET="..."
 ```
+
+Create the OAuth client in Google Cloud Console → APIs & Services → Credentials → *OAuth client ID*
+(type *Web application*), enable the **Gmail API**, and add this authorized redirect URI:
+`<NEXT_PUBLIC_SITE_URL>/api/email/google/callback` (e.g. `http://localhost:3000/api/email/google/callback` for local).
+Then connect the mailbox in Settings → Email Integration.
 
 ### AI (Summarize & Reply)
 
@@ -158,51 +165,18 @@ npm run db:seed          # statuses, types, job types + first admin (SEED_ADMIN_
 
 ---
 
-## Cron Jobs
+## Scheduled jobs (Cloud Scheduler)
 
-All cron jobs run on the Lightsail server (`ubuntu@3.23.67.169`) via `crontab`.
-Auth uses `Authorization: Bearer <secret>` from `.env`.
+Firebase App Hosting has no crontab: **Google Cloud Scheduler** calls the job endpoints over HTTP with
+`Authorization: Bearer <SYNC_INBOX_CRON_SECRET>`.
 
 | Endpoint | Schedule | Purpose |
 |---|---|---|
-| `POST /api/email/sync-inbox` | Every 2 min | Sync Gmail inbox → create tickets from incoming email |
-| `POST /api/cron/process-recurring-tickets` | Every 1 min | Create tickets from due recurring rules |
+| `POST /api/email/sync-inbox` | every 2 min | Sync Gmail inbox → create tickets from incoming email |
+| `POST /api/cron/process-recurring-tickets` | every 1 min | Create tickets from due recurring rules |
 
-### Crontab entries
-
-```cron
-# Email inbox sync — every 2 minutes
-*/2 * * * * curl -s -X POST https://ticket.deskteam360.com/api/email/sync-inbox \
-  -H "Authorization: Bearer <SYNC_INBOX_CRON_SECRET>" > /var/log/dt-labs-sync-inbox.log 2>&1
-
-# Process recurring tickets — every minute
-* * * * * curl -s -X POST https://ticket.deskteam360.com/api/cron/process-recurring-tickets \
-  -H "Authorization: Bearer <SYNC_INBOX_CRON_SECRET>" > /var/log/dt-labs-recurring.log 2>&1
-
-```
-
-### View / edit crontab on server
-
-```bash
-ssh -i "~/LightsailDefaultKey-us-east-2.pem" ubuntu@3.23.67.169
-crontab -l    # view
-crontab -e    # edit
-```
-
-### Check logs
-
-```bash
-tail -f /var/log/dt-labs-sync-inbox.log
-tail -f /var/log/dt-labs-recurring.log
-tail -f /var/log/dt-labs-company-daily.log
-```
-
-### Adding a new cron job
-
-1. Create endpoint at `app/api/cron/<name>/route.ts`
-2. Add auth check using `SYNC_INBOX_CRON_SECRET` (or create a new secret in `.env`)
-3. Register on server via `crontab -e`
-4. Add a log file path and update the table above
+Setup commands, logs and troubleshooting: [docs/cron-jobs.md](docs/cron-jobs.md).
+Deploy config (env values and Secret Manager secrets): [apphosting.yaml](apphosting.yaml).
 
 ---
 

@@ -1,29 +1,21 @@
 /**
  * POST /api/cron/process-recurring-tickets
- * Called every minute by the server cron job.
+ * Called every minute by Cloud Scheduler (see docs/cron-jobs.md).
  * Finds all active recurring rules whose nextRunAt <= now, creates the ticket,
  * logs the run, and schedules the next run.
  */
 import { NextRequest, NextResponse } from 'next/server'
 
 import { companyDefaultRate } from '@/lib/billing-rate-server'
+import { isCronRequest } from '@/lib/cron-auth'
 import { find, insert, insertIgnore, recurringTicketRuns, recurringTickets, ticketAssignees, tickets, update } from '@/lib/fsdb'
 import { sendRecurringTicketCreatedEmail } from '@/lib/recurring-ticket-email'
 import { computeNextRunAt, type Frequency } from '@/lib/recurring-ticket-schedule'
 import { applyRecurringTicketTemplate } from '@/lib/recurring-ticket-template'
 import { assignCompanySupportTicketRank, assignCreatorSupportTicketRank, parseCompanyTicketDesiredRank, resolveSupportQueueScope } from '@/lib/ticket-company-priority-order'
 
-function cronAuth(req: NextRequest): boolean {
-  const secret = process.env.SYNC_INBOX_CRON_SECRET
-  if (!secret) return false
-  const auth = req.headers.get('authorization')
-  const key = req.headers.get('x-api-key')
-  const token = auth?.startsWith('Bearer ') ? auth.slice(7) : key
-  return token === secret
-}
-
 export async function POST(req: NextRequest) {
-  if (!cronAuth(req)) {
+  if (!isCronRequest(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

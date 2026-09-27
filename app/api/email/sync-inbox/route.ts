@@ -8,6 +8,7 @@ import { loadAutomationTicketContext, runAutomationRules, runTicketCommentAutoma
 import { sendAutomationLog } from '@/lib/automation-log-webhook'
 import { companyDefaultRate } from '@/lib/billing-rate-server'
 import { looksAutomatedEmail } from '@/lib/contact-kind'
+import { isCronRequest } from '@/lib/cron-auth'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
 import {
   commentAttachments,
@@ -514,17 +515,13 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
     const clientId = process.env.GOOGLE_CLIENT_ID
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-    const cronSecret = process.env.SYNC_INBOX_CRON_SECRET
 
     if (!clientId || !clientSecret) {
       return NextResponse.json({ error: 'Email integration not configured' }, { status: 503 })
     }
 
-    // Cron/External: allow call with API key (no session required)
-    const authHeader = request.headers.get('authorization')
-    const apiKey = request.headers.get('x-api-key')
-    const cronKey = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : apiKey
-    const isCronCall = !!cronSecret && cronKey === cronSecret
+    // Scheduler (Cloud Scheduler / crontab): shared secret, no session required
+    const isCronCall = isCronRequest(request)
 
     let userId!: string
 

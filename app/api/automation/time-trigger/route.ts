@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { loadAutomationTicketContext, runAutomationRules } from '@/lib/automation-engine'
+import { cronSecret, isCronRequest } from '@/lib/cron-auth'
 import { automationRules, find, tickets } from '@/lib/fsdb'
 
-const CRON_SECRET = process.env.CRON_SECRET
-
 export async function POST(req: NextRequest) {
-  // Allow internal calls with CRON_SECRET header, or from localhost
-  const secret = req.headers.get('x-cron-secret')
-  const forwarded = req.headers.get('x-forwarded-for') ?? ''
-  const isLocal = forwarded === '' || forwarded.startsWith('127.') || forwarded.startsWith('::1')
-
-  if (CRON_SECRET && secret !== CRON_SECRET && !isLocal) {
+  // Scheduler secret required; without a configured secret only local dev may call it
+  const allowed = isCronRequest(req) || (!cronSecret() && process.env.NODE_ENV !== 'production')
+  if (!allowed) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

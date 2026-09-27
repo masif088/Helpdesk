@@ -1,0 +1,74 @@
+# Firebase App Hosting config — https://firebase.google.com/docs/app-hosting/configure
+#
+# Plain values: fill in below (they end up in the build, so only non-secret values here).
+# Secrets: stored in Cloud Secret Manager, create each one once with
+#   firebase apphosting:secrets:set <NAME>
+# and grant the backend access when the CLI asks (or: firebase apphosting:secrets:grantaccess <NAME> --backend <backend>).
+# Local development keeps using .env.local; this file is only read by App Hosting.
+
+runConfig:
+  cpu: 1
+  memoryMiB: 1024
+  minInstances: 0
+  maxInstances: 4
+  concurrency: 80
+
+env:
+  # ── App ────────────────────────────────────────────────────────────────
+  # Public URL of the app (links in emails + Gmail OAuth redirect: <url>/api/email/google/callback)
+  - variable: NEXT_PUBLIC_SITE_URL
+    value: https://REPLACE_ME.web.app
+  - variable: NEXT_PUBLIC_APP_NAME
+    value: Helpdesk
+  - variable: NEXT_PUBLIC_APP_TITLE
+    value: Helpdesk — Client Support
+  - variable: NEXT_PUBLIC_APP_DESCRIPTION
+    value: Client support and ticketing
+  # Relative path → served from public/; full URL → used as-is
+  # - variable: NEXT_PUBLIC_APP_LOGO
+  #   value: brand/logo.svg
+  # - variable: NEXT_PUBLIC_APP_FAVICON
+  #   value: brand/favicon.png
+
+  # ── Firebase web config (public) ──────────────────────────────────────
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: REPLACE_ME
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: REPLACE_ME.firebaseapp.com
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: REPLACE_ME
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: REPLACE_ME.firebasestorage.app
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: REPLACE_ME
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: REPLACE_ME
+
+  # ── Firebase Admin SDK (server only) ──────────────────────────────────
+  - variable: FIREBASE_PROJECT_ID
+    value: REPLACE_ME
+    availability: [RUNTIME]
+  - variable: FIREBASE_CLIENT_EMAIL
+    value: REPLACE_ME@REPLACE_ME.iam.gserviceaccount.com
+    availability: [RUNTIME]
+  - variable: FIREBASE_PRIVATE_KEY
+    secret: FIREBASE_PRIVATE_KEY
+    availability: [RUNTIME]
+
+  # ── Email (Gmail OAuth, Google Cloud Console → Credentials → OAuth client "Web application") ──
+  - variable: GOOGLE_CLIENT_ID
+    value: REPLACE_ME.apps.googleusercontent.com
+    availability: [RUNTIME]
+  - variable: GOOGLE_CLIENT_SECRET
+    secret: GOOGLE_CLIENT_SECRET
+    availability: [RUNTIME]
+
+  # ── Scheduled jobs (Cloud Scheduler sends it as "Authorization: Bearer <secret>") ──
+  - variable: SYNC_INBOX_CRON_SECRET
+    secret: SYNC_INBOX_CRON_SECRET
+    availability: [RUNTIME]
+
+  # ── Optional: AI fallback when Settings → AI Integration is empty ─────
+  # - variable: OPENAI_API_KEY
+  #   secret: OPENAI_API_KEY
+  #   availability: [RUNTIME]

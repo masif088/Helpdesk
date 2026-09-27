@@ -1,68 +1,104 @@
-# Cron Jobs — DeskTeam360
+# Scheduled jobs
 
-All cron jobs run on the Lightsail server (`ubuntu@3.23.67.169`) via `crontab`.
-Auth uses `Authorization: Bearer <secret>` read from `.env`.
-
-## Cron Job List
-
-| Endpoint | Schedule | Purpose |
-|---|---|---|
-| `POST /api/email/sync-inbox` | Every 2 minutes | Sync email inbox (Gmail/IMAP), create tickets from incoming mail |
-| `POST /api/cron/process-recurring-tickets` | Every 1 minute | Create tickets automatically from recurring rules that are due |
-
-## Secret / Auth
-
-All cron endpoints use the same secret:
+Firebase App Hosting has no crontab. Scheduled work is triggered by **Google Cloud Scheduler**, which
+sends an HTTP POST to the app on a schedule. Every job endpoint checks a shared secret:
 
 ```
-env var: SYNC_INBOX_CRON_SECRET
-header:  Authorization: Bearer <value>
+env var: SYNC_INBOX_CRON_SECRET   (CRON_SECRET is accepted as a legacy alias)
+header:  Authorization: Bearer <value>     (x-api-key / x-cron-secret also work)
 ```
 
-The secret is stored in `/var/www/dt-labs/.env` on the server.
+The check lives in `lib/cron-auth.ts`.
 
-## Crontab on Server
+## Jobs
 
-To view/edit active crons:
+| Job name | Endpoint | Schedule | Purpose |
+|---|---|---|---|
+| `sync-inbox` | `POST /api/email/sync-inbox` | every 2 minutes | Read new Gmail messages → create tickets / add replies |
+| `recurring-tickets` | `POST /api/cron/process-recurring-tickets` | every minute | Create tickets from recurring rules that are due |
+
+`POST /api/automation/time-trigger` (automation rules with a time trigger) uses the same secret but is
+**not scheduled**: it runs every matching rule on every call, so schedule it only once you have decided how
+often those rules may fire.
+
+Cloud Scheduler pricing: 3 jobs per billing account are free, then $0.10 per job per month.
+
+## One-time setup
+
+Replace `PROJECT_ID`, `APP_URL` (the App Hosting URL or your custom domain, no trailing slash) and the secret.
+Region: use the same region as the backend (the Firestore database is in `asia-southeast1`).
+
+1. Create the secret once (App Hosting reads it from Secret Manager, see `apphosting.yaml`):
 
 ```bash
-ssh -i "~/LightsailDefaultKey-us-east-2.pem" ubuntu@3.23.67.169
-crontab -l        # list
-crontab -e        # edit
+firebase apphosting:secrets:set SYNC_INBOX_CRON_SECRET --project PROJECT_ID
 ```
 
-Current crontab:
+   A good value: `openssl rand -hex 32`. Use the same value in the jobs below.
 
-```cron
-# Email inbox sync — every 2 minutes
-*/2 * * * * curl -s -X POST https://ticket.deskteam360.com/api/email/sync-inbox \
-  -H "Authorization: Bearer <SYNC_INBOX_CRON_SECRET>" > /var/log/dt-labs-sync-inbox.log 2>&1
-
-# Process recurring tickets — every minute
-* * * * * curl -s -X POST https://ticket.deskteam360.com/api/cron/process-recurring-tickets \
-  -H "Authorization: Bearer <SYNC_INBOX_CRON_SECRET>" > /var/log/dt-labs-recurring.log 2>&1
-
-```
-
-## Log Files
-
-Each cron's output is stored on the server:
-
-```
-/var/log/dt-labs-sync-inbox.log       — latest email sync result
-/var/log/dt-labs-recurring.log        — latest recurring ticket process result
-```
-
-Check the latest logs:
+2. Enable Cloud Scheduler:
 
 ```bash
-tail -f /var/log/dt-labs-recurring.log
-tail -f /var/log/dt-labs-sync-inbox.log
+gcloud services enable cloudscheduler.googleapis.com --project PROJECT_ID
 ```
 
-## Adding a New Cron
+3. Create the jobs:
 
-1. Create an endpoint at `app/api/cron/<name>/route.ts`
-2. Add an auth check using `SYNC_INBOX_CRON_SECRET` (or create a new secret in `.env`)
-3. Install it on the server via `crontab -e`
-4. Update the table in this document
+```bash
+gcloud scheduler jobs create http sync-inbox --project PROJECT_ID --location asia-southeast1 --schedule "*/2 * * * *" --time-zone "Asia/Jakarta" --http-method POST --uri "APP_URL/api/email/sync-inbox" --headers "Authorization=Bearer SECRET" --attempt-deadline 300s
+```
+
+```bash
+gcloud scheduler jobs create http recurring-tickets --project PROJECT_ID --location asia-southeast1 --schedule "* * * * *" --time-zone "Asia/Jakarta" --http-method POST --uri "APP_URL/api/cron/process-recurring-tickets" --headers "Authorization=Bearer SECRET" --attempt-deadline 120s
+```
+
+The same can be done in Google Cloud Console → Cloud Scheduler → Create job (target type HTTP, method POST,
+add the `Authorization` header).
+
+## Operate
+
+Run a job now (e.g. after deploying):
+
+```bash
+gcloud scheduler jobs run sync-inbox --project PROJECT_ID --location asia-southeast1
+```
+
+Pause / resume:
+
+```bash
+gcloud scheduler jobs pause sync-inbox --project PROJECT_ID --location asia-southeast1
+```
+
+```bash
+gcloud scheduler jobs resume sync-inbox --project PROJECT_ID --location asia-southeast1
+```
+
+Change the secret: update it with `firebase apphosting:secrets:set`, roll out the backend, then update each job:
+
+```bash
+gcloud scheduler jobs update http sync-inbox --project PROJECT_ID --location asia-southeast1 --update-headers "Authorization=Bearer NEW_SECRET"
+```
+
+Logs:
+- Job runs and HTTP status: Cloud Console → Cloud Scheduler → job → *View logs*.
+- What the endpoint did (tickets created, errors): Firebase console → App Hosting → backend → *Logs*.
+
+A `401` means the secret in the job does not match `SYNC_INBOX_CRON_SECRET`. A `503` from `sync-inbox`
+means Gmail is not connected yet (Settings → Email Integration) or `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+is missing.
+
+## Local development
+
+No scheduler runs locally. Trigger a job by hand:
+
+```bash
+curl -X POST http://localhost:3000/api/email/sync-inbox -H "Authorization: Bearer $SYNC_INBOX_CRON_SECRET"
+```
+
+Or use the **Sync inbox** button in Settings → Email Integration.
+
+## Adding a job
+
+1. Create the endpoint at `app/api/cron/<name>/route.ts` and start it with `if (!isCronRequest(req)) return 401`.
+2. Create a Cloud Scheduler job for it (step 3 above).
+3. Add it to the table in this document.
