@@ -31,7 +31,7 @@ export const SIDEBAR_RAIL_WIDTH = 72
 export const SIDEBAR_GAP = 12
 
 export function sidebarInset(collapsed: boolean): number {
-  return (collapsed ? SIDEBAR_RAIL_WIDTH : SIDEBAR_WIDTH) + SIDEBAR_GAP * 2
+  return (collapsed ? SIDEBAR_RAIL_WIDTH : SIDEBAR_WIDTH) + SIDEBAR_GAP
 }
 
 type NavItem = { key: string; label: string; icon: ReactNode }

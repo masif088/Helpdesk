@@ -274,8 +274,8 @@ export default function TicketSearchNavbar({
         gap: 8,
         padding: '0 10px 0 16px',
         /* Floating bar: same 12px inset + radius family as the sidebar; ends before the ticket side panels. */
-        margin: '12px 12px 0 0',
-        marginRight: 'calc(var(--attr-sidebar-width, 0px) + 12px)',
+        margin: '12px 24px 0 24px',
+        marginRight: 'calc(var(--attr-sidebar-width, 0px) + 24px)',
         transition: 'margin-right 0.2s',
         height: NAV_HEIGHT,
         minHeight: NAV_HEIGHT,

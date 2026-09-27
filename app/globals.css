@@ -615,11 +615,29 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
 .ticket-search-navbar::before {
   content: "";
   position: absolute;
-  left: -1px;
-  right: -13px;
+  left: -25px;
+  right: -25px;
   top: -14px;
   height: 13px;
   background: var(--layout-bg);
+}
+
+.ticket-header-bar::before {
+  content: "";
+  position: absolute;
+  left: -25px;
+  right: -25px;
+  top: -10px;
+  height: 9px;
+  background: var(--layout-bg);
+}
+/* Panel toggles sit after Trash, separated by a thin divider */
+.ticket-panel-toggles {
+  display: inline-flex;
+  gap: 6px;
+  padding-left: 10px;
+  margin-left: 2px;
+  border-left: 1px solid var(--ticket-nav-border);
 }
 
 /* Cards: softer border + shadow for the new look */

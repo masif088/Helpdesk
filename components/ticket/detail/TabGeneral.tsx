@@ -3,16 +3,15 @@
 import {
   ArrowLeftOutlined,
   ClockCircleOutlined,
+  CloseOutlined,
   CommentOutlined,
   DeleteOutlined,
   EditOutlined,
   ForwardFilled,
-  LeftOutlined,
   MessageOutlined,
   PaperClipOutlined,
   PlusOutlined,
   ProfileOutlined,
-  RightOutlined,
   RobotOutlined,
   SendOutlined,
   SyncOutlined,
@@ -309,6 +308,9 @@ interface TabGeneralProps {
   aiConfigured?: boolean
   rightCollapsed?: boolean
   onRightCollapsedChange?: (v: boolean) => void
+  /** Company Info panel closed (controlled from the ticket header toggle). */
+  companyCollapsed?: boolean
+  onCompanyCollapsedChange?: (v: boolean) => void
 }
 
 export default function TabGeneral({
@@ -383,6 +385,8 @@ export default function TabGeneral({
   aiConfigured = false,
   rightCollapsed: rightCollapsedProp,
   onRightCollapsedChange,
+  companyCollapsed: companyCollapsedProp,
+  onCompanyCollapsedChange,
 }: TabGeneralProps) {
   const canAccessTicketSummary = aiConfigured && ['admin', 'manager'].includes((currentUserRole ?? '').toLowerCase())
   const [rightCollapsedLocal, setRightCollapsedLocal] = useState(false)
@@ -392,21 +396,28 @@ export default function TabGeneral({
     setRightCollapsedLocal(next)
     onRightCollapsedChange?.(next)
   }
-  const [companyCollapsed, setCompanyCollapsed] = useState(false)
+  const [companyCollapsedLocal, setCompanyCollapsedLocal] = useState(true)
+  const companyCollapsed = companyCollapsedProp ?? companyCollapsedLocal
+  const setCompanyCollapsed = (v: boolean | ((prev: boolean) => boolean)) => {
+    const next = typeof v === 'function' ? v(companyCollapsed) : v
+    setCompanyCollapsedLocal(next)
+    onCompanyCollapsedChange?.(next)
+  }
   const screens = useBreakpoint()
   const isMobile = !screens.md
   const [drawerAttrOpen, setDrawerAttrOpen] = useState(false)
   const [drawerCompanyOpen, setDrawerCompanyOpen] = useState(false)
-  const ATTR_W = rightCollapsed ? 72 : 280
-  const COMP_W = companyCollapsed ? 72 : 220
-  /** Gap around the floating side panels (matches the left sidebar). */
+  /** Closed panels are not rendered; open ones float with the sidebar's 12px gap. */
+  const ATTR_W = rightCollapsed ? 0 : 280
+  const COMP_W = companyCollapsed ? 0 : 220
   const PANEL_GAP = 12
+  const openPanels = (ATTR_W ? 1 : 0) + (COMP_W ? 1 : 0)
 
   useEffect(() => {
-    const width = isMobile ? 0 : ATTR_W + COMP_W + PANEL_GAP * 2
+    const width = isMobile || openPanels === 0 ? 0 : ATTR_W + COMP_W + PANEL_GAP * openPanels
     document.documentElement.style.setProperty('--attr-sidebar-width', `${width}px`)
     return () => { document.documentElement.style.removeProperty('--attr-sidebar-width') }
-  }, [ATTR_W, COMP_W, isMobile])
+  }, [ATTR_W, COMP_W, isMobile, openPanels])
 
   const [sidebarDraft, setSidebarDraft] = useState<SidebarAttributesDraft>(() =>
     snapshotSidebarDraft({
@@ -946,10 +957,10 @@ export default function TabGeneral({
         )}
 
         {/* Attributes sidebar — left of company */}
-        {!isMobile && createPortal(<div className="app-panel" style={{
+        {!isMobile && !rightCollapsed && createPortal(<div className="app-panel" style={{
             width: ATTR_W,
             position: 'fixed',
-            right: COMP_W + PANEL_GAP * 2,
+            right: (COMP_W ? COMP_W + PANEL_GAP : 0) + PANEL_GAP,
             top: PANEL_GAP,
             bottom: PANEL_GAP,
             zIndex: 200,
@@ -972,8 +983,9 @@ export default function TabGeneral({
             )}
             <Button
               type="text"
-              icon={rightCollapsed ? <LeftOutlined /> : <RightOutlined />}
-              onClick={() => setRightCollapsed((v) => !v)}
+              icon={<CloseOutlined />}
+              aria-label="Close attributes"
+              onClick={() => setRightCollapsed(true)}
               style={{ color: 'rgba(255,255,255,0.85)', fontSize: 16 }}
             />
           </div>
@@ -1254,7 +1266,7 @@ export default function TabGeneral({
         </div>, document.body)}
 
         {/* Company Info sidebar — paling kanan, right: 0 */}
-        {!isMobile && createPortal(<div className="app-panel" style={{
+        {!isMobile && !companyCollapsed && createPortal(<div className="app-panel" style={{
             width: COMP_W,
             position: 'fixed',
             right: PANEL_GAP,
@@ -1281,8 +1293,9 @@ export default function TabGeneral({
             {companyCollapsed && <UserOutlined style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14 }} />}
             <Button
               type="text"
-              icon={companyCollapsed ? <LeftOutlined /> : <RightOutlined />}
-              onClick={() => setCompanyCollapsed(v => !v)}
+              icon={<CloseOutlined />}
+              aria-label="Close company info"
+              onClick={() => setCompanyCollapsed(true)}
               style={{ color: 'rgba(255,255,255,0.85)', fontSize: 16 }}
             />
           </div>

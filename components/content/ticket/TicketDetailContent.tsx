@@ -11,6 +11,7 @@ import {
     FolderOutlined,
     LeftOutlined,
     PrinterOutlined,
+    ProfileOutlined,
     RightOutlined,
     WarningOutlined,
     WarningTwoTone,
@@ -208,7 +209,25 @@ export default function TicketDetailContent({
     const router = useRouter()
     const screens = useBreakpoint()
     const isMobile = !screens.md
-    const [attrSidebarCollapsed, setAttrSidebarCollapsed] = useState(false)
+    /** Side panels start closed; the last choice is remembered in this browser. */
+    const [attrSidebarCollapsed, setAttrSidebarCollapsedState] = useState(true)
+    const [companySidebarCollapsed, setCompanySidebarCollapsedState] = useState(true)
+    useEffect(() => {
+        try {
+            setAttrSidebarCollapsedState(localStorage.getItem('ticket-panel-attributes') !== 'open')
+            setCompanySidebarCollapsedState(localStorage.getItem('ticket-panel-company') !== 'open')
+        } catch {
+            /* storage unavailable */
+        }
+    }, [])
+    const setAttrSidebarCollapsed = (v: boolean) => {
+        setAttrSidebarCollapsedState(v)
+        try { localStorage.setItem('ticket-panel-attributes', v ? 'closed' : 'open') } catch { /* ignore */ }
+    }
+    const setCompanySidebarCollapsed = (v: boolean) => {
+        setCompanySidebarCollapsedState(v)
+        try { localStorage.setItem('ticket-panel-company', v ? 'closed' : 'open') } catch { /* ignore */ }
+    }
     const [displayTicket, setDisplayTicket] = useState(ticketData)
     const liveSyncTicketIdRef = useRef<number | undefined>(ticketData?.id)
     liveSyncTicketIdRef.current = displayTicket?.id
@@ -1476,15 +1495,18 @@ export default function TicketDetailContent({
             <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
             <AdminMainColumn collapsed={collapsed} user={currentUser}>
                 <Content style={{ padding: '0', background: 'var(--layout-bg)', minHeight: 'calc(100vh - 56px)' }}>
-                    <div style={{
+                    <div className="ticket-header-bar" style={{
                         position: 'sticky',
-                        top: 0,
-                        zIndex: 100,
-                        background: 'var(--ant-color-bg-container, #fff)',
-                        borderBottom: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
-                        padding: isMobile ? '8px 12px' : '12px 24px',
-                        paddingRight: isMobile ? '12px' : 'calc(var(--attr-sidebar-width, 0px) + 24px)',
-                        transition: 'padding-right 0.2s',
+                        top: isMobile ? 0 : 76,
+                        zIndex: 99,
+                        background: 'var(--ticket-nav-bg)',
+                        border: '1px solid var(--ticket-nav-border)',
+                        borderRadius: isMobile ? 0 : 16,
+                        boxShadow: isMobile ? undefined : 'var(--card-shadow)',
+                        padding: isMobile ? '8px 12px' : '10px 16px',
+                        margin: isMobile ? 0 : '8px 24px 0 24px',
+                        marginRight: isMobile ? 0 : 'calc(var(--attr-sidebar-width, 0px) + 24px)',
+                        transition: 'margin-right 0.2s',
                     }}>
                         <Flex gap={16} align="center" wrap="wrap">
                             <Button
@@ -1665,6 +1687,24 @@ export default function TicketDetailContent({
                                             >
                                                 Trash
                                             </Button>
+                                            )}
+                                            {!isMobile && (
+                                                <span className="ticket-panel-toggles">
+                                                    <Tooltip title={attrSidebarCollapsed && companySidebarCollapsed ? 'Show attributes & company info' : 'Hide side panels'}>
+                                                        <Button
+                                                            icon={<ProfileOutlined />}
+                                                            type={attrSidebarCollapsed && companySidebarCollapsed ? 'default' : 'primary'}
+                                                            aria-pressed={!(attrSidebarCollapsed && companySidebarCollapsed)}
+                                                            onClick={() => {
+                                                                const open = attrSidebarCollapsed && companySidebarCollapsed
+                                                                setAttrSidebarCollapsed(!open)
+                                                                setCompanySidebarCollapsed(!open)
+                                                            }}
+                                                        >
+                                                            Details
+                                                        </Button>
+                                                    </Tooltip>
+                                                </span>
                                             )}
                                             
                                             {rowTicketType !== 'support' && (
@@ -1852,6 +1892,8 @@ export default function TicketDetailContent({
                                             aiConfigured={aiConfigured}
                                             rightCollapsed={attrSidebarCollapsed}
                                             onRightCollapsedChange={setAttrSidebarCollapsed}
+                                            companyCollapsed={companySidebarCollapsed}
+                                            onCompanyCollapsedChange={setCompanySidebarCollapsed}
                                         />
                                     ),
                                 },
