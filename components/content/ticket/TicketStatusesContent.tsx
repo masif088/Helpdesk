@@ -1,34 +1,19 @@
 'use client'
 
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
-import {
-  Button,
-  Card,
-  Form,
-  Input,
-  InputNumber,
-  Layout,
-  message,
-  Modal,
-  Popconfirm,
-  Space,
-  Switch,
-  Table,
-  Tag,
-  Typography,
-} from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
+import { Button, Form, Input, InputNumber, Layout, message, Modal, Space, Switch, Table } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { useEffect,useState } from 'react'
+import { useEffect, useState } from 'react'
 
-import { KanbanTagPreview, tagPreviewFillHex } from '@/components/common/KanbanTagPreview'
+import { KanbanTagPreview } from '@/components/common/KanbanTagPreview'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import SettingsBackLink from '@/components/settings/SettingsBackLink'
-import { kanbanTagStyle } from '@/lib/kanban-tag-chip-style'
+import RowActions from '@/components/settings/RowActions'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import { Chip, StatusPill } from '@/components/ticket/list/TicketChips'
 import { isLockedTicketStatusSlug } from '@/lib/ticket-status-locked-slugs'
 
 const { Content } = Layout
-const { Title } = Typography
 
 interface TicketStatusesContentProps {
   user: { id: string; email?: string | null; name?: string | null; user_metadata?: { full_name?: string | null } }
@@ -216,99 +201,68 @@ export default function TicketStatusesContent({ user: currentUser }: TicketStatu
 
   const columns: ColumnsType<TicketStatusRecord> = [
     {
-      title: 'Order',
+      title: '#',
       dataIndex: 'sort_order',
       key: 'sort_order',
-      width: 100,
+      width: 64,
       sorter: (a, b) => a.sort_order - b.sort_order,
+      render: (v: number) => <span className="cell-order">{v}</span>,
     },
     {
-      title: 'Title',
-      dataIndex: 'title',
+      title: 'Status',
       key: 'title',
+      width: 220,
+      render: (_, r) => (
+        <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+          <StatusPill color={r.color} title={r.title} />
+          <span className="cell-muted" style={{ fontSize: 11 }}>{r.slug}</span>
+        </span>
+      ),
     },
     {
-      title: 'Customer Title',
+      title: 'Customer sees',
       dataIndex: 'customer_title',
       key: 'customer_title',
-      render: (v: string) => v || '—',
+      width: 220,
+      render: (v: string) => (v ? <span className="cell-strong">{v}</span> : <span className="cell-muted">Same as title</span>),
     },
     {
       title: 'Description',
       dataIndex: 'description',
       key: 'description',
       ellipsis: true,
-      render: (v: string) => v || '—',
+      render: (v: string) => <span className="cell-muted">{v || '—'}</span>,
     },
     {
-      title: 'Preview',
-      dataIndex: 'color',
-      key: 'preview',
-      width: 200,
-      render: (_: string, record: TicketStatusRecord) => (
-        <Tag style={kanbanTagStyle({ fillHex: tagPreviewFillHex(record.color, '#1890ff') })}>
-          {record.title}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Show in Kanban',
+      title: 'Kanban',
       dataIndex: 'show_in_kanban',
       key: 'show_in_kanban',
-      width: 120,
-      render: (v: boolean) => (
-        <Tag color={v ? 'success' : 'error'} style={{ margin: 0 }}>
-          {v ? 'Yes' : 'No'}
-        </Tag>
-      ),
+      width: 100,
+      render: (v: boolean) => (v ? <Chip color="#0F9D8A">Column</Chip> : <span className="cell-muted">Hidden</span>),
     },
     {
-      title: 'Active',
-      dataIndex: 'is_active',
+      title: 'State',
       key: 'is_active',
-      width: 90,
-      render: (_: unknown, record: TicketStatusRecord) => {
-        const active = record.is_active !== false
-        return (
-          <Tag color={active ? 'success' : 'error'} style={{ margin: 0 }}>
-            {active ? 'Yes' : 'No'}
-          </Tag>
-        )
-      },
+      width: 110,
+      render: (_: unknown, r: TicketStatusRecord) =>
+        r.is_active !== false ? <StatusPill color="#16A34A" title="Active" /> : <StatusPill color="#94A3B8" title="Inactive" />,
     },
     {
-      title: 'Actions',
+      title: '',
       key: 'actions',
-      width: 216,
-      fixed: 'right' as const,
-      render: (_, record) => {
-        const canDelete =
-          record.is_deletable === true && !isLockedTicketStatusSlug(record.slug)
-        return (
-          <Space>
-            <Button type="primary"  icon={<EditOutlined />} onClick={() => handleEdit(record)}>
-              Edit
-            </Button>
-            {canDelete ? (
-              <Popconfirm
-                title="Delete this status?"
-                description="Tickets using this status will keep the value; consider reassigning them first."
-                onConfirm={() => void handleDelete(record.id)}
-                okText="Delete"
-                okButtonProps={{ danger: true }}
-              >
-                <Button type="primary" danger icon={<DeleteOutlined />}>
-                  Delete
-                </Button>
-              </Popconfirm>
-            ) : (
-              <Button type="primary" danger icon={<DeleteOutlined />} disabled>
-                Delete
-              </Button>
-            )}
-          </Space>
-        )
-      },
+      width: 90,
+      align: 'right',
+      render: (_, record) => (
+        <RowActions
+          onEdit={() => handleEdit(record)}
+          onDelete={() => handleDelete(record.id)}
+          deleteTitle="Delete this status?"
+          deleteDescription="Tickets using this status keep the value; reassign them first."
+          deleteDisabledReason={
+            record.is_deletable === true && !isLockedTicketStatusSlug(record.slug) ? undefined : 'Built-in status — cannot be deleted'
+          }
+        />
+      ),
     },
   ]
 
@@ -316,17 +270,18 @@ export default function TicketStatusesContent({ user: currentUser }: TicketStatu
     <Layout style={{ minHeight: '100vh' }}>
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
-        <Content style={{ margin: '24px' }}>
-          <SettingsBackLink />
-       
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Title level={4} style={{ margin: 0 }}>
-                Ticket statuses
-              </Title>
+        <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
+          <SettingsPageHeader
+            title="Ticket statuses"
+            description="Workflow states, the columns on the Kanban board, and what customers see"
+            count={`${statuses.length} statuses`}
+            actions={
               <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
                 Add status
               </Button>
-            </div>
+            }
+          />
+          <div className="ticket-surface ticket-table">
             <Table
               rowKey="id"
               loading={loading}
@@ -334,8 +289,9 @@ export default function TicketStatusesContent({ user: currentUser }: TicketStatu
               dataSource={statuses}
               pagination={false}
               tableLayout="fixed"
-              scroll={{ x: 'max-content' }}
+              scroll={{ x: 900 }}
             />
+          </div>
 
           <Modal
             title={editingStatus ? 'Edit Status' : 'Add Status'}

@@ -1,28 +1,12 @@
 'use client'
 
-import {
-  ArrowLeftOutlined,
-  CheckSquareOutlined,
-  DeleteOutlined,
-  DollarOutlined,
-  EditOutlined,
-  GlobalOutlined,
-  InfoCircleOutlined,
-  PlayCircleOutlined,
-  PlusOutlined,
-  TeamOutlined,
-} from '@ant-design/icons'
+import { CheckSquareOutlined, DollarOutlined, EditOutlined, GlobalOutlined, InfoCircleOutlined, PlayCircleOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons'
 import { Button, Card, Col, Divider, Form, Input, InputNumber, Layout, message, Modal, Row, Select, Space, Switch, Tabs, Tag, Typography } from 'antd'
 import { useRouter } from 'next/navigation'
-import { useEffect,useState } from 'react'
+import { useEffect, useState } from 'react'
 
-import {
-  TabCrawling,
-  TabInfo,
-  TabTickets,
-  TabUsers,
-  TabWebsites,
-} from '@/components/company'
+import BackLink from '@/components/common/BackLink'
+import { TabCrawling, TabInfo, TabTickets, TabUsers, TabWebsites } from '@/components/company'
 import CompanyBilling from '@/components/company/CompanyBilling'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
@@ -519,9 +503,9 @@ export default function CompanyDetailContent({
           
             <div className="company-hero">
               {!isCustomer ? (
-                <Button type="text" size="small" icon={<ArrowLeftOutlined />} onClick={() => router.push('/companies')} className="company-hero__back">
+                <BackLink href="/companies" style={{ marginBottom: 12 }}>
                   Companies
-                </Button>
+                </BackLink>
               ) : null}
               <div className="company-hero__row">
                 <span className="company-hero__mark" style={{ background: companyData.color || 'var(--brand-primary)' }} aria-hidden>

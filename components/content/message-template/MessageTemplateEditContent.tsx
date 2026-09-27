@@ -1,10 +1,11 @@
 'use client'
 
-import { ArrowLeftOutlined, EyeOutlined,SaveOutlined } from '@ant-design/icons'
-import { Button, Card, Input, Layout, message, Space, Spin,Typography } from 'antd'
+import { EyeOutlined, SaveOutlined } from '@ant-design/icons'
+import { Button, Card, Input, Layout, message, Space, Spin, Typography } from 'antd'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback,useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
+import BackLink from '@/components/common/BackLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import MessageTemplatePlaceholdersPanel from '@/components/message-template/MessageTemplatePlaceholdersPanel'
@@ -14,7 +15,7 @@ import CommentWysiwyg from '@/components/ticket/detail/CommentWysiwyg'
 import type { MessageTemplateRow } from './MessageTemplatesContent'
 
 const { Content } = Layout
-const { Title, Text } = Typography
+const { Text } = Typography
 
 interface MessageTemplateEditContentProps {
   user: { id: string; email?: string | null; user_metadata?: { full_name?: string | null }; role?: string }
@@ -111,15 +112,15 @@ export default function MessageTemplateEditContent({
           <Card>
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
               <Space wrap>
-                <Button icon={<ArrowLeftOutlined />} onClick={() => {
-                  const fromTab = searchParams.get('from_tab')
-                  const backUrl = fromTab
-                    ? `/settings/message-templates?tab=${encodeURIComponent(fromTab)}`
-                    : '/settings/message-templates'
-                  router.push(backUrl)
-                }}>
-                  Back to list
-                </Button>
+                <BackLink
+                  href={
+                    searchParams.get('from_tab')
+                      ? `/settings/message-templates?tab=${encodeURIComponent(searchParams.get('from_tab') ?? '')}`
+                      : '/settings/message-templates'
+                  }
+                >
+                  Message templates
+                </BackLink>
               </Space>
 
               {loading ? (

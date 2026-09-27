@@ -941,16 +941,40 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
   border-radius: 16px;
 }
 
-.settings-back {
+.back-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 8px;
+  height: 32px;
+  padding: 0 14px 0 4px;
+  border-radius: 999px;
+  border: 1px solid var(--kanban-card-border);
+  background: var(--kanban-card-bg);
+  box-shadow: var(--card-shadow);
+  font: inherit;
   font-size: 13px;
-  color: var(--kanban-card-muted) !important;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--kanban-card-title) !important;
   text-decoration: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s ease, color 0.15s ease;
 }
-.settings-back:hover { color: var(--brand-primary) !important; }
+.back-link__icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.back-link:hover { border-color: var(--brand-primary); color: var(--brand-primary) !important; }
+.back-link:hover .back-link__icon { background: var(--brand-primary); color: #fff; transform: translateX(-2px); }
+.back-link:focus-visible { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
 
 /* Settings → Scheduled jobs */
 .jobs-facts {
@@ -1004,6 +1028,76 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
   background: #0F172A;
   border-radius: 12px;
 }
+
+/* Settings list pages: compact row actions, muted cells */
+.row-actions { display: inline-flex; align-items: center; gap: 2px; }
+.row-actions .ant-btn { color: var(--kanban-card-muted); }
+.row-actions .ant-btn:not(:disabled):hover { color: var(--brand-primary); background: var(--brand-primary-soft); }
+.row-actions .ant-btn-dangerous:not(:disabled):hover { color: #DC2626; background: rgba(220, 38, 38, 0.1); }
+.cell-muted { color: var(--kanban-card-muted); }
+.cell-strong { font-weight: 600; color: var(--kanban-card-title); }
+.cell-order {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--kanban-card-muted);
+  background: var(--kanban-lane-bg);
+}
+.color-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 0%, transparent); }
+
+/* Settings → Checklist templates (list + detail) */
+.tpl-layout { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.tpl-list { width: 260px; flex-shrink: 0; padding: 8px; }
+@media (max-width: 760px) { .tpl-list { width: 100%; } }
+.tpl-list__head {
+  padding: 6px 10px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--kanban-card-muted);
+}
+.tpl-list__empty { padding: 8px 10px; font-size: 13px; color: var(--kanban-card-muted); }
+.tpl-list__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  color: var(--kanban-card-title);
+  cursor: pointer;
+}
+.tpl-list__item .anticon { color: var(--kanban-card-muted); }
+.tpl-list__item:hover { background: var(--kanban-lane-bg); }
+.tpl-list__item.is-active { background: var(--brand-primary-soft); color: var(--brand-primary); font-weight: 600; }
+.tpl-list__item.is-active .anticon { color: var(--brand-primary); }
+.tpl-detail.ant-card { border-radius: 16px; border-color: var(--kanban-card-border); box-shadow: var(--card-shadow); }
+.tpl-empty {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--kanban-card-muted);
+  border: 1px dashed var(--kanban-card-border);
+  border-radius: 16px;
+}
+.tpl-empty .anticon { font-size: 28px; color: var(--brand-primary); }
 
 /* Settings → Connection status (checks) */
 .conn-banner {

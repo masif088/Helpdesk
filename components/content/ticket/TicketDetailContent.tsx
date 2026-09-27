@@ -2,46 +2,12 @@
 
 import 'react-quill-new/dist/quill.snow.css'
 
-import {
-    ArrowLeftOutlined,
-    BankOutlined,
-    DeleteOutlined,
-    DeleteTwoTone,
-    EditOutlined,
-    FileMarkdownOutlined,
-    FolderOutlined,
-    LeftOutlined,
-    PrinterOutlined,
-    ProfileOutlined,
-    RightOutlined,
-    WarningOutlined,
-    WarningTwoTone,
-} from '@ant-design/icons'
-import {
-    Button,
-    Card,
-    Col,
-    DatePicker,
-    Divider,
-    Flex,
-    Form,
-    Grid,
-    Input,
-    Layout,
-    message,
-    Modal,
-    notification,
-    Row,
-    Select,
-    Tabs,
-    Tag,
-    Tooltip,
-    Typography,
-} from 'antd'
+import { BankOutlined, DeleteOutlined, EditOutlined, FileMarkdownOutlined, FolderOutlined, LeftOutlined, PrinterOutlined, ProfileOutlined, RightOutlined, WarningOutlined } from '@ant-design/icons'
+import { Button, Card, Flex, Form, Grid, Input, Layout, message, Select, Tabs, Tag, Tooltip, Typography } from 'antd'
 
 const { useBreakpoint } = Grid
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useRef,useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { BRANDING } from '@/lib/branding'
 import { isTicketFolder, TICKET_FOLDER_LABELS } from '@/lib/ticket-classification'
@@ -61,12 +27,11 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
 }
 import dayjs from 'dayjs'
 
-import DateDisplay from '@/components/common/DateDisplay'
+import BackLink from '@/components/common/BackLink'
 import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import { TabActivity, TabChecklist, TabGeneral, TabScreenshots, TabTimeTracker } from '@/components/ticket/detail'
-import CommentWysiwyg from '@/components/ticket/detail/CommentWysiwyg'
+import { TabActivity, TabChecklist, TabGeneral, TabTimeTracker } from '@/components/ticket/detail'
 import type { SidebarAttributesDraft } from '@/components/ticket/detail/TabGeneral'
 import TabGeneralCustomer from '@/components/ticket/detail/TabGeneralCustomer'
 import TicketPresenceBar from '@/components/ticket/TicketPresenceBar'
@@ -76,8 +41,6 @@ import { linkifyRichHtml } from '@/lib/linkify-rich-html'
 
 const { Content } = Layout
 const { Title, Text } = Typography
-const { TextArea } = Input
-const { Option } = Select
 
 function TitleDisplay({ id, title }: { id: number; title: string }) {
     const [expanded, setExpanded] = useState(false)
@@ -1512,15 +1475,14 @@ export default function TicketDetailContent({
                         transition: 'margin-right 0.2s',
                     }}>
                         <Flex gap={16} align="center" wrap="wrap">
-                            <Button
-                                icon={<ArrowLeftOutlined />}
+                            <BackLink
                                 onClick={() => {
                                     if (isTicketFolder(rowTicketType)) window.location.href = `/tickets?ticket_type=${rowTicketType}`
                                     else window.location.href = '/tickets'
                                 }}
                             >
-                                Back to {isCustomer ? 'Portal' : isTicketFolder(rowTicketType) ? TICKET_FOLDER_LABELS[rowTicketType] : 'Tickets'}
-                            </Button>
+                                {isCustomer ? 'Portal' : isTicketFolder(rowTicketType) ? TICKET_FOLDER_LABELS[rowTicketType] : 'Tickets'}
+                            </BackLink>
                             <div
                                 style={{
                                     flex: 1,

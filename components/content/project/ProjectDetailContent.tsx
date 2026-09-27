@@ -1,26 +1,12 @@
 'use client'
 
-import { ArrowLeftOutlined, PlusOutlined, UnorderedListOutlined } from '@ant-design/icons'
-import {
-  Button,
-  Card,
-  Form,
-  Input,
-  Layout,
-  message,
-  Modal,
-  Popconfirm,
-  Select,
-  Space,
-  Spin,
-  Table,
-  Tabs,
-  Typography,
-} from 'antd'
+import { PlusOutlined, UnorderedListOutlined } from '@ant-design/icons'
+import { Button, Card, Form, Input, Layout, message, Modal, Popconfirm, Select, Space, Spin, Table, Tabs, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
+import BackLink from '@/components/common/BackLink'
 import DateDisplay from '@/components/common/DateDisplay'
 import { SpaNavLink } from '@/components/common/SpaNavLink'
 import ProjectKanbanTab from '@/components/content/project/ProjectKanbanTab'
@@ -283,9 +269,7 @@ export default function ProjectDetailContent({ user: currentUser, projectId }: P
             ) : (
               <Space orientation="vertical" size="large" style={{ width: '100%' }}>
                 <Space wrap>
-                  <Button icon={<ArrowLeftOutlined />} onClick={() => router.push('/projects')}>
-                    Back
-                  </Button>
+                  <BackLink href="/projects">Projects</BackLink>
                   <Button type="default" onClick={openEdit}>
                     Edit project
                   </Button>

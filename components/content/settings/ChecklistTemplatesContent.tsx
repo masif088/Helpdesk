@@ -1,40 +1,16 @@
 'use client'
 
-import {
-  ArrowDownOutlined,
-  ArrowLeftOutlined,
-  ArrowUpOutlined,
-  CheckSquareOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  PlusOutlined,
-  SaveOutlined,
-} from '@ant-design/icons'
-import {
-  Button,
-  Card,
-  Collapse,
-  Form,
-  Input,
-  Layout,
-  message,
-  Modal,
-  Popconfirm,
-  Select,
-  Space,
-  Tag,
-  Typography,
-} from 'antd'
+import { ArrowDownOutlined, ArrowUpOutlined, CheckSquareOutlined, DeleteOutlined, EditOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons'
+import { Button, Card, Collapse, Form, Input, Layout, message, Modal, Popconfirm, Select, Space, Tag, Typography } from 'antd'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
-import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import SettingsBackLink from '@/components/settings/SettingsBackLink'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 
 const { Content } = Layout
-const { Title, Text } = Typography
+const { Text } = Typography
 
 type TemplateGroup = { id: string; title: string; orderIndex: number }
 type TemplateItem = { id: string; groupId: string | null; title: string; note: string | null; orderIndex: number }
@@ -459,53 +435,42 @@ export default function ChecklistTemplatesContent({ user: currentUser }: Props) 
       />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
-          <SettingsBackLink />
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-            <Space style={{ justifyContent: 'space-between', width: '100%' }}>
-              <span />
+          <SettingsPageHeader
+            title="Checklist templates"
+            description="Reusable checklists, organized in groups, that can be applied to tickets"
+            count={`${templates.length} templates`}
+            actions={
               <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                New Template
+                New template
               </Button>
-            </Space>
-
-            <Space align="center">
-              <CheckSquareOutlined style={{ fontSize: 28, color: '#1677ff' }} />
-              <Title level={2} style={{ margin: 0 }}>
-                Checklist Templates
-              </Title>
-            </Space>
-
-            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+            }
+          />
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <div className="tpl-layout">
               {/* Template list */}
-              <Card size="small" loading={loading} style={{ minWidth: 240, width: 240, flexShrink: 0 }}>
-                <Space direction="vertical" style={{ width: '100%' }} size={4}>
-                  {templates.length === 0 && !loading && (
-                    <Text type="secondary" style={{ fontSize: 13 }}>No templates yet.</Text>
-                  )}
-                  {templates.map((t) => (
-                    <div
-                      key={t.id}
-                      onClick={() => { router.replace(`?id=${t.id}`, { scroll: false }); void loadDetail(t.id) }}
-                      style={{
-                        cursor: 'pointer',
-                        padding: '6px 10px',
-                        borderRadius: 6,
-                        background: activeDetail?.id === t.id ? 'var(--ant-color-primary-bg, #e6f4ff)' : 'transparent',
-                        fontWeight: activeDetail?.id === t.id ? 600 : 400,
-                        fontSize: 14,
-                      }}
-                    >
-                      {t.title}
-                    </div>
-                  ))}
-                </Space>
-              </Card>
+              <nav className="ticket-surface tpl-list" aria-label="Checklist templates">
+                <div className="tpl-list__head">Templates</div>
+                {loading ? <div className="tpl-list__empty">Loading…</div> : null}
+                {templates.length === 0 && !loading ? <div className="tpl-list__empty">No templates yet.</div> : null}
+                {templates.map((t) => (
+                  <button
+                    type="button"
+                    key={t.id}
+                    className={`tpl-list__item${activeDetail?.id === t.id ? ' is-active' : ''}`}
+                    onClick={() => { router.replace(`?id=${t.id}`, { scroll: false }); void loadDetail(t.id) }}
+                  >
+                    <CheckSquareOutlined />
+                    <span>{t.title}</span>
+                  </button>
+                ))}
+              </nav>
 
               {/* Template detail */}
               {activeDetail ? (
                 <Card
+                  className="tpl-detail"
                   loading={detailLoading}
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, minWidth: 0 }}
                   styles={{ header: { padding: '12px 16px' }, body: { padding: 16 } }}
                   title={
                     <Space>
@@ -722,9 +687,10 @@ export default function ChecklistTemplatesContent({ user: currentUser }: Props) 
                   </Space>
                 </Card>
               ) : (
-                <Card size="small" style={{ flex: 1 }}>
-                  <Text type="secondary">Select a template from the list to view and edit it.</Text>
-                </Card>
+                <div className="tpl-empty">
+                  <CheckSquareOutlined />
+                  <div>Select a template on the left to view and edit its groups and items.</div>
+                </div>
               )}
             </div>
           </Space>

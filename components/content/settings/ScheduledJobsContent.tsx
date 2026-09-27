@@ -129,7 +129,11 @@ export default function ScheduledJobsContent({ user, runs: initialRuns, appUrl, 
                     </div>
                   </div>
                   <div className="jobs-row__run">
-                    <RunStatus job={job.key} run={run} />
+                    {!run && job.key === 'sync-inbox' && gmail?.lastSyncAt ? (
+                      <StatusPill color="#0F9D8A" title="Syncing" />
+                    ) : (
+                      <RunStatus job={job.key} run={run} />
+                    )}
                     {run ? (
                       <Tooltip title={dayjs(run.at).format('DD MMM YYYY HH:mm:ss')}>
                         <span className="jobs-row__when">
@@ -138,6 +142,12 @@ export default function ScheduledJobsContent({ user, runs: initialRuns, appUrl, 
                       </Tooltip>
                     ) : null}
                     {run?.summary ? <span className="jobs-row__summary">{run.summary}</span> : null}
+                    {!run && job.key === 'sync-inbox' && gmail?.lastSyncAt ? (
+                      // No recorded run yet (e.g. the server calling it runs an older version): show the mailbox's own last sync
+                      <Tooltip title={dayjs(gmail.lastSyncAt).format('DD MMM YYYY HH:mm:ss')}>
+                        <span className="jobs-row__when">Mailbox last synced {dayjs(gmail.lastSyncAt).fromNow()}</span>
+                      </Tooltip>
+                    ) : null}
                   </div>
                   <Button
                     icon={<PlayCircleOutlined />}

@@ -1,10 +1,11 @@
 'use client'
 
-import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons'
-import { Button, Card, Form, Input, Layout, message,Select } from 'antd'
+import { SaveOutlined } from '@ant-design/icons'
+import { Button, Card, Form, Input, Layout, message, Select } from 'antd'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+import BackLink from '@/components/common/BackLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import CommentWysiwyg from '@/components/ticket/detail/CommentWysiwyg'
@@ -99,14 +100,9 @@ export default function KnowledgeBaseArticleForm({
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content style={{ padding: 24, maxWidth: 800 }}>
-          <Button
-            type="text"
-            icon={<ArrowLeftOutlined />}
-            onClick={() => router.push('/settings/knowledge-base')}
-            style={{ marginBottom: 16, paddingLeft: 0 }}
-          >
-            Back to Knowledge Base
-          </Button>
+          <BackLink href="/settings/knowledge-base" style={{ marginBottom: 16 }}>
+            Knowledge base
+          </BackLink>
           <Card title={isEdit ? 'Edit Article' : 'Create Article'}>
             <Form
               form={form}

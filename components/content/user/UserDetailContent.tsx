@@ -1,19 +1,14 @@
 'use client'
 
-import { ArrowLeftOutlined, BankOutlined, CalendarOutlined, ClockCircleOutlined, CloseOutlined, EditOutlined, GlobalOutlined, HistoryOutlined, IdcardOutlined, LockOutlined, MailOutlined, NumberOutlined,PhoneOutlined, SaveOutlined, TranslationOutlined, UploadOutlined, UserOutlined } from '@ant-design/icons'
-import { Avatar, Button, Card, Col, DatePicker, Descriptions, Divider, Drawer, Flex,Form, Input, Layout, message, Modal, Radio, Row, Select, Space, Statistic, Switch, Table, Tabs, Tag, Typography, Upload } from 'antd'
+import { BankOutlined, CalendarOutlined, ClockCircleOutlined, CloseOutlined, EditOutlined, GlobalOutlined, HistoryOutlined, IdcardOutlined, LockOutlined, MailOutlined, NumberOutlined, PhoneOutlined, SaveOutlined, TranslationOutlined, UploadOutlined, UserOutlined } from '@ant-design/icons'
+import { Avatar, Button, Card, Col, DatePicker, Descriptions, Divider, Drawer, Flex, Form, Input, Layout, message, Modal, Radio, Row, Select, Space, Statistic, Switch, Table, Tabs, Tag, Typography, Upload } from 'antd'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useMemo,useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
-import {
-  getUserDepartmentAccentColor,
-  getUserPositionAccentColor,
-  USER_DEPARTMENTS,
-  USER_POSITIONS,
-} from '@/lib/user-work-dropdowns'
+import { getUserDepartmentAccentColor, getUserPositionAccentColor, USER_DEPARTMENTS, USER_POSITIONS } from '@/lib/user-work-dropdowns'
 import { uploadAvatar } from '@/utils/storage'
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
@@ -24,6 +19,7 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   }
   return res.json()
 }
+import BackLink from '@/components/common/BackLink'
 import { SpaNavLink } from '@/components/common/SpaNavLink'
 import { confirmUserCompanyMove } from '@/components/company/confirm-user-company-move'
 import DashboardHourlyActivityCard from '@/components/dashboard/DashboardHourlyActivityCard'
@@ -493,12 +489,9 @@ export default function UserDetailContent({ user: currentUser, userData: initial
               ) : null}
             </div>
             <Space style={{ marginBottom: 24 }} wrap>
-              <Button
-                icon={<ArrowLeftOutlined />}
-                onClick={() => router.push(isOwnProfile ? '/dashboard' : userData.role === 'customer' ? '/contacts' : '/settings/users')}
-              >
-                {isOwnProfile ? 'Back to dashboard' : 'Back to Users'}
-              </Button>
+              <BackLink href={isOwnProfile ? '/dashboard' : userData.role === 'customer' ? '/contacts' : '/settings/users'}>
+                {isOwnProfile ? 'Dashboard' : userData.role === 'customer' ? 'Contacts' : 'Users'}
+              </BackLink>
               {!isEditing ? (
                 <Space wrap>
                   <Button

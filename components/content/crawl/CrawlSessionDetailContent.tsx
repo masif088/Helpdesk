@@ -1,12 +1,13 @@
 'use client'
 
-import { ArrowLeftOutlined, CalendarOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, GlobalOutlined,ReloadOutlined } from '@ant-design/icons'
-import { Button, Card, Descriptions, Layout, message, Progress, Select,Space, Table, Tabs, Tag, Typography } from 'antd'
+import { CalendarOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, GlobalOutlined, ReloadOutlined } from '@ant-design/icons'
+import { Button, Descriptions, Layout, message, Progress, Select, Space, Table, Tabs, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useRouter } from 'next/navigation'
-import { useEffect,useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { getCrawlPages } from '@/app/actions/crawl'
+import BackLink from '@/components/common/BackLink'
 import DateDisplay from '@/components/common/DateDisplay'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
@@ -1422,19 +1423,9 @@ export default function CrawlSessionDetailContent({ user: currentUser, crawlSess
         <Content style={{ padding: '24px', background: 'var(--layout-bg)', minHeight: '100vh' }}>
           {/* <Card> */}
             <Space style={{ marginBottom: 24 }}>
-              <Button
-                icon={<ArrowLeftOutlined />}
-                onClick={() => router.push('/crawl-sessions')}
-              >
-                Back to Crawl Sessions
-              </Button>
+              <BackLink href="/crawl-sessions">Crawl sessions</BackLink>
               {crawlSession.company_websites?.company_id && (
-                <Button
-                  icon={<ArrowLeftOutlined />}
-                  onClick={() => router.push(`/companies/${crawlSession.company_websites.company_id}`)}
-                >
-                  Back to Company
-                </Button>
+                <BackLink href={`/companies/${crawlSession.company_websites.company_id}`}>Company</BackLink>
               )}
               {(crawlSession.status === 'crawling' || crawlSession.status === 'pending') && (
                 <Button

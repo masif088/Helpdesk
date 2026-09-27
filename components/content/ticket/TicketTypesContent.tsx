@@ -1,32 +1,18 @@
 'use client'
 
-import { DeleteOutlined,EditOutlined, PlusOutlined } from '@ant-design/icons'
-import {
-  Button,
-  Form,
-  Input,
-  InputNumber,
-  Layout,
-  message,
-  Modal,
-  Popconfirm,
-  Space,
-  Switch,
-  Table,
-  Tag,
-  Typography,
-} from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
+import { Button, Form, Input, InputNumber, Layout, message, Modal, Space, Switch, Table, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { useEffect,useState } from 'react'
+import { useEffect, useState } from 'react'
 
-import { KanbanTagPreview, tagPreviewFillHex } from '@/components/common/KanbanTagPreview'
+import { KanbanTagPreview } from '@/components/common/KanbanTagPreview'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import SettingsBackLink from '@/components/settings/SettingsBackLink'
-import { kanbanTagStyle } from '@/lib/kanban-tag-chip-style'
+import RowActions from '@/components/settings/RowActions'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import { Chip, StatusPill } from '@/components/ticket/list/TicketChips'
 
 const { Content } = Layout
-const { Title, Text } = Typography
 
 interface TicketTypesContentProps {
   user: { id: string; email?: string | null; user_metadata?: { full_name?: string | null } }
@@ -199,30 +185,24 @@ export default function TicketTypesContent({ user: currentUser }: TicketTypesCon
 
   const columns: ColumnsType<TicketTypeRecord> = [
     {
-      title: 'Order',
+      title: '#',
       dataIndex: 'sort_order',
       key: 'sort_order',
-      width: 104,
-      align: 'center',
+      width: 64,
       sorter: (a, b) => a.sort_order - b.sort_order,
+      render: (v: number) => <span className="cell-order">{v}</span>,
     },
     {
-      title: 'Title',
-      dataIndex: 'title',
+      title: 'Type',
       key: 'title',
-      width: 200,
-      ellipsis: true,
-    },
-    {
-      title: 'Slug',
-      dataIndex: 'slug',
-      key: 'slug',
-      width: 160,
-      ellipsis: true,
-      render: (slug: string) => (
-        <Typography.Text code copyable ellipsis={{ tooltip: slug }}>
-          {slug}
-        </Typography.Text>
+      width: 240,
+      render: (_, r) => (
+        <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+          <Chip color={r.color}>{r.title}</Chip>
+          <Typography.Text className="cell-muted" style={{ fontSize: 11 }} copyable={{ text: r.slug, tooltips: ['Copy slug', 'Copied'] }}>
+            {r.slug}
+          </Typography.Text>
+        </span>
       ),
     },
     {
@@ -230,52 +210,28 @@ export default function TicketTypesContent({ user: currentUser }: TicketTypesCon
       dataIndex: 'description',
       key: 'description',
       ellipsis: true,
-      render: (d: string | undefined) => (
-        <Typography.Text type="secondary" ellipsis>
-          {(d ?? '').trim() || '—'}
-        </Typography.Text>
-      ),
+      render: (d: string | undefined) => <span className="cell-muted">{(d ?? '').trim() || '—'}</span>,
     },
     {
-      title: 'Agents only',
+      title: 'Who can pick it',
       dataIndex: 'is_agent_only',
       key: 'is_agent_only',
-      width: 120,
-      align: 'center',
+      width: 150,
       render: (v: boolean | undefined) =>
-        v ? <Tag color="orange">Agents only</Tag> : <Text type="secondary">—</Text>,
+        v ? <StatusPill color="#D97706" title="Staff only" /> : <StatusPill color="#0F9D8A" title="Everyone" />,
     },
     {
-      title: 'Preview',
-      dataIndex: 'color',
-      key: 'preview',
-      width: 200,
-      render: (_: string, record: TicketTypeRecord) => (
-        <Tag style={kanbanTagStyle({ fillHex: tagPreviewFillHex(record.color) })}>{record.title}</Tag>
-      ),
-    },
-    {
-      title: 'Actions',
+      title: '',
       key: 'actions',
-      width: 216,
-      fixed: 'right' as const,
+      width: 90,
+      align: 'right',
       render: (_, record) => (
-        <Space>
-          <Button type="primary" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
-            Edit
-          </Button>
-          <Popconfirm
-            title="Delete this type?"
-            description="Tickets using this type will have type cleared."
-            onConfirm={() => handleDelete(record.id)}
-            okText="Delete"
-            okButtonProps={{ danger: true }}
-          >
-            <Button type="primary" danger icon={<DeleteOutlined />}>
-              Delete
-            </Button>
-          </Popconfirm>
-        </Space>
+        <RowActions
+          onEdit={() => handleEdit(record)}
+          onDelete={() => handleDelete(record.id)}
+          deleteTitle="Delete this type?"
+          deleteDescription="Tickets using this type will have their type cleared."
+        />
       ),
     },
   ]
@@ -284,17 +240,18 @@ export default function TicketTypesContent({ user: currentUser }: TicketTypesCon
     <Layout style={{ minHeight: '100vh' }}>
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
-        <Content style={{ margin: '24px' }}>
-          <SettingsBackLink />
-          
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Title level={4} style={{ margin: 0 }}>
-                Ticket Types
-              </Title>
+        <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
+          <SettingsPageHeader
+            title="Ticket types"
+            description="Request categories (bug, feature, question…) that customers and staff choose"
+            count={`${types.length} types`}
+            actions={
               <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-                Add Type
+                Add type
               </Button>
-            </div>
+            }
+          />
+          <div className="ticket-surface ticket-table">
             <Table
               rowKey="id"
               loading={loading}
@@ -302,8 +259,9 @@ export default function TicketTypesContent({ user: currentUser }: TicketTypesCon
               dataSource={types}
               pagination={false}
               tableLayout="fixed"
-              scroll={{ x: 960 }}
+              scroll={{ x: 760 }}
             />
+          </div>
 
           <Modal
             title={editingType ? 'Edit Type' : 'Add Type'}

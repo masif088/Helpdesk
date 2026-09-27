@@ -1,10 +1,10 @@
 'use client'
 
-import { ArrowLeftOutlined, MailOutlined } from '@ant-design/icons'
+import { MailOutlined } from '@ant-design/icons'
 import { Alert, Button, Card, Form, Input, Typography } from 'antd'
-import Link from 'next/link'
 import { useState } from 'react'
 
+import BackLink from '@/components/common/BackLink'
 import ThemeToggle from '@/components/common/ThemeToggle'
 
 const { Title, Text } = Typography
@@ -94,11 +94,7 @@ export default function ForgotPasswordPage() {
           )}
 
           <div style={{ textAlign: 'center', marginTop: 8 }}>
-            <Link href="/login">
-              <Button type="link" icon={<ArrowLeftOutlined />} style={{ padding: 0 }}>
-                Back to Login
-              </Button>
-            </Link>
+            <BackLink href="/login">Login</BackLink>
           </div>
         </Card>
       </div>

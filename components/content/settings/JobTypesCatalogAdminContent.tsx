@@ -1,39 +1,18 @@
 'use client'
 
-import {
-  ArrowLeftOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  PlusOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons'
-import {
-  Button,
-  Card,
-  Form,
-  Input,
-  InputNumber,
-  Layout,
-  message,
-  Modal,
-  Popconfirm,
-  Space,
-  Switch,
-  Table,
-  Tag,
-  Typography,
-} from 'antd'
+import { PlusOutlined, ReloadOutlined } from '@ant-design/icons'
+import { Button, Form, Input, InputNumber, Layout, message, Modal, Switch, Table, Tooltip } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import SettingsBackLink from '@/components/settings/SettingsBackLink'
+import RowActions from '@/components/settings/RowActions'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import { StatusPill } from '@/components/ticket/list/TicketChips'
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
 
 const { Content } = Layout
-const { Title, Text } = Typography
 
 interface JobTypeRow {
   slug: string
@@ -171,40 +150,47 @@ export default function JobTypesCatalogAdminContent({ user: currentUser }: JobTy
   }
 
   const columns: ColumnsType<JobTypeRow> = [
-    { title: 'Slug', dataIndex: 'slug', width: 160, render: (s: string) => <Text code>{s}</Text> },
-    { title: 'Title', dataIndex: 'title', ellipsis: true },
-    { title: 'Sort', dataIndex: 'sort_order', width: 80 },
     {
-      title: 'Billable',
+      title: '#',
+      dataIndex: 'sort_order',
+      width: 64,
+      sorter: (a, b) => a.sort_order - b.sort_order,
+      render: (v: number) => <span className="cell-order">{v}</span>,
+    },
+    {
+      title: 'Job type',
+      key: 'title',
+      render: (_, r) => (
+        <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+          <span className="cell-strong">{r.title}</span>
+          <span className="cell-muted" style={{ fontSize: 11 }}>{r.slug}</span>
+        </span>
+      ),
+    },
+    {
+      title: 'Billing',
       dataIndex: 'billable',
-      width: 110,
-      render: (b: boolean) => (b ? <Tag color="blue">Billable</Tag> : <Tag>Non-billable</Tag>),
-    },
-    {
-      title: 'Active',
-      dataIndex: 'is_active',
-      width: 100,
-      render: (a: boolean) => (a ? <Tag color="green">Yes</Tag> : <Tag>No</Tag>),
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
       width: 140,
+      render: (b: boolean) => (b ? <StatusPill color="#0F9D8A" title="Billable" /> : <StatusPill color="#64748B" title="Internal" />),
+    },
+    {
+      title: 'State',
+      dataIndex: 'is_active',
+      width: 120,
+      render: (a: boolean) => (a ? <StatusPill color="#16A34A" title="Active" /> : <StatusPill color="#94A3B8" title="Inactive" />),
+    },
+    {
+      title: '',
+      key: 'actions',
+      width: 90,
+      align: 'right',
       render: (_, record) => (
-        <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>
-            Edit
-          </Button>
-          <Popconfirm
-            title={`Delete "${record.slug}"?`}
-            description="Only possible when no time entry uses it — otherwise deactivate it instead."
-            onConfirm={() => handleDelete(record)}
-          >
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-              Delete
-            </Button>
-          </Popconfirm>
-        </Space>
+        <RowActions
+          onEdit={() => openEdit(record)}
+          onDelete={() => handleDelete(record)}
+          deleteTitle={`Delete "${record.title}"?`}
+          deleteDescription="Only possible when no time entry uses it — otherwise deactivate it instead."
+        />
       ),
     },
   ]
@@ -221,32 +207,32 @@ export default function JobTypesCatalogAdminContent({ user: currentUser }: JobTy
       />
 
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
-        <Content style={{ padding: 24, maxWidth: 1100 }}>
-          <SettingsBackLink />
+        <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
+          <SettingsPageHeader
+            title="Job types"
+            description="What time is spent on. Every time entry needs one; billable job types count toward the hours billed to the client."
+            count={`${rows.length} job types`}
+            actions={
+              <>
+                <Tooltip title="Refresh">
+                  <Button icon={<ReloadOutlined />} onClick={() => fetchList()} loading={listLoading} aria-label="Refresh" />
+                </Tooltip>
+                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                  Add job type
+                </Button>
+              </>
+            }
+          />
 
-          <Title level={2}>Job types</Title>
-          <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-            What the time was spent on. Every time entry needs one; billable job types count toward the hours billed to the client.
-          </Text>
-
-          <Card title="Job types" style={{ marginBottom: 24 }}>
-            <Space style={{ marginBottom: 16 }} wrap>
-              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                Add job type
-              </Button>
-              <Button icon={<ReloadOutlined />} onClick={() => fetchList()} loading={listLoading}>
-                Refresh list
-              </Button>
-            </Space>
-
+          <div className="ticket-surface ticket-table">
             <Table<JobTypeRow>
               rowKey="slug"
               loading={listLoading}
               columns={columns}
               dataSource={rows}
               pagination={{ pageSize: 15, showSizeChanger: true, pageSizeOptions: APP_TABLE_PAGE_SIZE_OPTIONS, showTotal: appTableShowTotal('job types') }}
-              size="small"
             />
+          </div>
 
             <Modal
               title={editing ? `Edit "${editing.slug}"` : 'Add job type'}
@@ -289,7 +275,6 @@ export default function JobTypesCatalogAdminContent({ user: currentUser }: JobTy
                 </Form.Item>
               </Form>
             </Modal>
-          </Card>
         </Content>
       </AdminMainColumn>
     </Layout>

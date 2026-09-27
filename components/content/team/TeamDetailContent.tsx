@@ -1,58 +1,20 @@
 'use client'
 
-import {
-  ArrowLeftOutlined,
-  BarChartOutlined,
-  ClockCircleOutlined,
-  EditOutlined,
-  InfoCircleOutlined,
-  PlusOutlined,
-  TeamOutlined,
-  UserDeleteOutlined,
-  UserOutlined,
-  UserSwitchOutlined,
-} from '@ant-design/icons'
-import {
-  Avatar,
-  Button,
-  Card,
-  Col,
-  DatePicker,
-  Empty,
-  Flex,
-  Form,
-  Input,
-  Layout,
-  List,
-  message,
-  Modal,
-  Row,
-  Segmented,
-  Select,
-  Space,
-  Spin,
-  Statistic,
-  Table,
-  Tabs,
-  Tag,
-  Typography,
-} from 'antd'
+import { BarChartOutlined, ClockCircleOutlined, EditOutlined, InfoCircleOutlined, PlusOutlined, TeamOutlined, UserDeleteOutlined, UserOutlined, UserSwitchOutlined } from '@ant-design/icons'
+import { Avatar, Button, Card, Col, DatePicker, Empty, Flex, Form, Input, Layout, List, message, Modal, Row, Segmented, Select, Space, Spin, Statistic, Table, Tabs, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs, { Dayjs } from 'dayjs'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo,useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
+import BackLink from '@/components/common/BackLink'
 import DateDisplay from '@/components/common/DateDisplay'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
 import { canAdminTeams } from '@/lib/auth-utils'
-import {
-  formatTeamVisibilityLabel,
-  parseTeamVisibility,
-  TEAM_VISIBILITY_OPTIONS,
-} from '@/lib/team-type'
+import { formatTeamVisibilityLabel, parseTeamVisibility, TEAM_VISIBILITY_OPTIONS } from '@/lib/team-type'
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...options, credentials: 'include' })
@@ -857,9 +819,7 @@ export default function TeamDetailContent({ user: currentUser, team }: TeamDetai
         <Content style={{ padding: '24px', background: 'var(--layout-bg)', minHeight: '100vh' }}>
           <Card>
             <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
-              <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => router.push('/settings/teams')}>
-                Back
-              </Button>
+              <BackLink href="/settings/teams">Teams</BackLink>
               {isAdmin && (
                 <Space>
                   <Button type="default" icon={<EditOutlined />} onClick={openEditModal}>

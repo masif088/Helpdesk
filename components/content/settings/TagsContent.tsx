@@ -1,30 +1,18 @@
 'use client'
 
-import { DeleteOutlined,EditOutlined, PlusOutlined } from '@ant-design/icons'
-import {
-  Button,
-  Form,
-  Input,
-  Layout,
-  message,
-  Modal,
-  Popconfirm,
-  Space,
-  Table,
-  Tag,
-  Typography,
-} from 'antd'
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons'
+import { Button, Form, Input, Layout, message, Modal, Space, Table, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { useEffect,useState } from 'react'
+import { useEffect, useState } from 'react'
 
-import { KanbanTagPreview, tagPreviewFillHex } from '@/components/common/KanbanTagPreview'
+import { KanbanTagPreview } from '@/components/common/KanbanTagPreview'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import SettingsBackLink from '@/components/settings/SettingsBackLink'
-import { kanbanTagStyle } from '@/lib/kanban-tag-chip-style'
+import RowActions from '@/components/settings/RowActions'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import { Chip } from '@/components/ticket/list/TicketChips'
 
 const { Content } = Layout
-const { Title } = Typography
 
 interface TagsContentProps {
   user: { id: string; email?: string | null; user_metadata?: { full_name?: string | null } }
@@ -92,6 +80,7 @@ function ColorPickerWithInput({
 }
 
 export default function TagsContent({ user: currentUser }: TagsContentProps) {
+  const [tagQuery, setTagQuery] = useState('')
   const [collapsed, setCollapsed] = useState(false)
   const [tags, setTags] = useState<TagRecord[]>([])
   const [loading, setLoading] = useState(false)
@@ -184,76 +173,73 @@ export default function TagsContent({ user: currentUser }: TagsContentProps) {
 
   const columns: ColumnsType<TagRecord> = [
     {
-      title: 'Name',
-      dataIndex: 'name',
+      title: 'Tag',
       key: 'name',
+      sorter: (a, b) => a.name.localeCompare(b.name),
+      render: (_, r) => <Chip color={r.color}>{r.name}</Chip>,
     },
     {
       title: 'Slug',
       dataIndex: 'slug',
       key: 'slug',
       render: (slug: string) => (
-        <Typography.Text code copyable>
+        <Typography.Text className="cell-muted" copyable={{ text: slug, tooltips: ['Copy slug', 'Copied'] }}>
           {slug}
         </Typography.Text>
       ),
     },
     {
-      title: 'Preview',
-      dataIndex: 'color',
-      key: 'preview',
-      width: 200,
-      render: (_: string, record: TagRecord) => (
-        <Tag style={kanbanTagStyle({ fillHex: tagPreviewFillHex(record.color) })}>{record.name}</Tag>
-      ),
-    },
-    {
-      title: 'Actions',
+      title: '',
       key: 'actions',
-      width: 120,
+      width: 90,
+      align: 'right',
       render: (_, record) => (
-        <Space>
-          <Button type="primary" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
-            Edit
-          </Button>
-          <Popconfirm
-            title="Delete this tag?"
-            description="It will be removed from all tickets."
-            onConfirm={() => handleDelete(record.id)}
-            okText="Delete"
-            okButtonProps={{ danger: true }}
-          >
-            <Button type="primary" danger icon={<DeleteOutlined />}>
-              Delete
-            </Button>
-          </Popconfirm>
-        </Space>
+        <RowActions
+          onEdit={() => handleEdit(record)}
+          onDelete={() => handleDelete(record.id)}
+          deleteTitle="Delete this tag?"
+          deleteDescription="It will be removed from all tickets."
+        />
       ),
     },
   ]
+  const q = tagQuery.trim().toLowerCase()
+  const visibleTags = q ? tags.filter((t) => `${t.name} ${t.slug}`.toLowerCase().includes(q)) : tags
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
-        <Content style={{ margin: '24px' }}>
-          <SettingsBackLink />
-          
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Title level={4} style={{ margin: 0 }}>
-                Tags
-              </Title>
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-                Add Tag
-              </Button>
-            </div>
+        <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
+          <SettingsPageHeader
+            title="Tags"
+            description="Labels for organizing and filtering tickets"
+            count={`${tags.length} tags`}
+            actions={
+              <>
+                <Input
+                  allowClear
+                  prefix={<SearchOutlined />}
+                  placeholder="Search tags…"
+                  value={tagQuery}
+                  onChange={(e) => setTagQuery(e.target.value)}
+                  style={{ width: 220 }}
+                />
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+                  Add tag
+                </Button>
+              </>
+            }
+          />
+          <div className="ticket-surface ticket-table">
             <Table
               rowKey="id"
               loading={loading}
               columns={columns}
-              dataSource={tags}
-              pagination={false}
+              dataSource={visibleTags}
+              pagination={visibleTags.length > 50 ? { pageSize: 50, showSizeChanger: false } : false}
             />
+          </div>
 
           <Modal
             title={editingTag ? 'Edit Tag' : 'Add Tag'}

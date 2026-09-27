@@ -1,10 +1,10 @@
 'use client'
 
-import { ArrowLeftOutlined } from '@ant-design/icons'
-import { Button, Card, Layout, Spin,Typography } from 'antd'
-import { useParams,useRouter } from 'next/navigation'
-import { useEffect,useState } from 'react'
+import { Card, Layout, Spin, Typography } from 'antd'
+import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
+import BackLink from '@/components/common/BackLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 
@@ -63,14 +63,9 @@ export default function KnowledgeBaseArticleDetail({ user: currentUser }: Knowle
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content style={{ padding: 24, maxWidth: 800 }}>
-          <Button
-            type="text"
-            icon={<ArrowLeftOutlined />}
-            onClick={() => router.back()}
-            style={{ marginBottom: 16, paddingLeft: 0 }}
-          >
+          <BackLink onClick={() => router.back()} style={{ marginBottom: 16 }}>
             Back
-          </Button>
+          </BackLink>
           {loading ? (
             <div style={{ textAlign: 'center', padding: 48 }}>
               <Spin size="large" />
