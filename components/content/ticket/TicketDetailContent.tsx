@@ -207,7 +207,7 @@ export default function TicketDetailContent({
         setTicketCcEmailsState(initialTicketCcEmails)
     }, [ticketData?.id, initialScreenshots, initialTicketCcEmails])
 
-    const [collapsed, setCollapsed] = useState(false)
+    const [collapsed, setCollapsed] = useState(true)
     const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(initialChecklistItems)
     const [comments, setComments] = useState<Comment[]>(initialComments)
     const [commentsHasOlder, setCommentsHasOlder] = useState(initialCommentsHasOlder)
