@@ -1,11 +1,13 @@
 rules_version = '2';
 
 // Files are uploaded and deleted only by the server (Admin SDK bypasses these rules).
-// Public read keeps stored download URLs working in the portal, emails and Slack.
+// Public get keeps stored download URLs working in the portal, emails and Slack.
+// Listing is denied so nobody can enumerate the bucket; a file is only reachable with its exact URL.
 service firebase.storage {
   match /b/{bucket}/o {
     match /{allPaths=**} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if false;
       allow write: if false;
     }
   }
