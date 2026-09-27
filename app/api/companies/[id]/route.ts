@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { canEditCompanies } from '@/lib/auth-utils'
+import { canEditCompanies, isAdminOrManager } from '@/lib/auth-utils'
+import { parseHourlyRateBody } from '@/lib/billing-rate'
 import { getCompanyDetail } from '@/lib/company-detail'
 import { customerOwnsCompany, isCompanyPortalAdmin, userBelongsToCompany } from '@/lib/customer-company'
 import {
@@ -47,7 +48,7 @@ export async function GET(
     if (!ok) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const companyData = await getCompanyDetail(id)
+  const companyData = await getCompanyDetail(id, { includeBilling: isAdminOrManager(role) })
   if (!companyData) {
     return NextResponse.json({ error: 'Company not found' }, { status: 404 })
   }
@@ -122,6 +123,18 @@ export async function PUT(
     if (isCustomerCompany !== undefined) updateData.isCustomer = isCustomerCompany
   }
 
+  const defaultRate = parseHourlyRateBody(body, { rate: 'default_hourly_rate', currency: 'default_rate_currency' })
+  if (defaultRate !== undefined) {
+    if (!isAdminOrManager(role)) {
+      return NextResponse.json({ error: 'Only admins and managers can set the default hourly rate' }, { status: 403 })
+    }
+    if ('error' in defaultRate) {
+      return NextResponse.json({ error: defaultRate.error }, { status: 400 })
+    }
+    updateData.defaultHourlyRate = defaultRate.hourlyRate
+    updateData.defaultRateCurrency = defaultRate.rateCurrency
+  }
+
   if (leader_user_id !== undefined) {
     if (isCustomer) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -183,6 +196,9 @@ export async function PUT(
       active_manager_id: row.activeManagerId ?? null,
       active_time: row.activeTime ?? 0,
       is_customer: row.isCustomer ?? false,
+      ...(isAdminOrManager(role)
+        ? { default_hourly_rate: row.defaultHourlyRate ?? null, default_rate_currency: row.defaultRateCurrency ?? null }
+        : {}),
       created_at: row.createdAt ? new Date(row.createdAt).toISOString() : '',
       updated_at: row.updatedAt ? new Date(row.updatedAt).toISOString() : '',
     },

@@ -6,6 +6,7 @@ import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
 import { createAppUser, findUserByEmail, randomPassword } from '@/lib/app-users'
 import { loadAutomationTicketContext, runAutomationRules, runTicketCommentAutomation } from '@/lib/automation-engine'
 import { sendAutomationLog } from '@/lib/automation-log-webhook'
+import { companyDefaultRate } from '@/lib/billing-rate-server'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
 import {
   commentAttachments,
@@ -1249,6 +1250,7 @@ export async function POST(request: NextRequest) {
               createdBy: creatorUserId ?? null,
               status: 'open',
               companyId: ticketCompanyId,
+              ...(await companyDefaultRate(ticketCompanyId)),
               createdVia: 'email',
               ticketType: isSpam ? 'spam' : DEFAULT_TICKET_TYPE,
               /** NULL first; then append to end of company queue. */

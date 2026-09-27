@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 
+import { companyDefaultRate } from '@/lib/billing-rate-server'
 import { find, insert, insertIgnore, recurringTicketRuns, recurringTickets, ticketAssignees, tickets, update } from '@/lib/fsdb'
 import { sendRecurringTicketCreatedEmail } from '@/lib/recurring-ticket-email'
 import { computeNextRunAt, type Frequency } from '@/lib/recurring-ticket-schedule'
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
           contactUserId: rule.contactUserId ?? null,
           createdVia: 'recurring',
           ticketType: 'support',
+          ...(await companyDefaultRate(rule.companyId)),
         })
 
         // Assign company / creator support queue rank

@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canDeleteTickets, isAdminOrManager } from '@/lib/auth-utils'
 import { runAutomationRules } from '@/lib/automation-engine'
 import { parseHourlyRateBody } from '@/lib/billing-rate'
+import { companyDefaultRate } from '@/lib/billing-rate-server'
 import { assertCustomerMayAccessTicket } from '@/lib/customer-ticket-access'
 import { diffNewAssignees,notifyTicketUsers } from '@/lib/firebase/ticket-notifications-server'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
@@ -532,6 +533,9 @@ export async function PATCH(
     ...(companyIdUpdate !== undefined && { companyId: companyIdUpdate }),
     ...(due_date !== undefined && { dueDate: due_date ? new Date(due_date) : null }),
     ...(rateUpdate !== undefined && !('error' in rateUpdate) && rateUpdate),
+    ...(rateUpdate === undefined && companyChanging && prioCtxRow.hourlyRate == null
+      ? await companyDefaultRate(nextCompanyResolved)
+      : {}),
     ...(ticketTypeUpdate !== undefined && { ticketType: ticketTypeUpdate }),
     ...(ticketTypeUpdate === 'trash' && { priority: null }),
     ...(clearContactDueToCompanyChange
@@ -627,128 +631,48 @@ export async function PATCH(
     )
   }
 
-  if (beforeSnapshot) {
-    const afterSnapshot = await loadTicketActivitySnapshot(ticketId)
-    if (afterSnapshot) {
-      const changes = diffTicketSnapshots(beforeSnapshot, afterSnapshot)
-      const meta: Record<string, unknown> = {}
-      if (Object.keys(changes).length > 0) meta.changes = changes
-      const changedKeys = Object.keys(changes)
-      if (changedKeys.length > 0) meta.changed_keys = changedKeys
-      if (changedKeys.length > 0) {
-        const entityLabels = await enrichActivityEntityLabels(changes)
-        if (Object.keys(entityLabels).length > 0) {
-          meta.entity_labels = entityLabels
-        }
-      }
-      if (attachments_add.length > 0) {
-        meta.attachments_added = attachments_add.map((a: { file_name?: string }) => ({
-          file_name: a.file_name ?? '',
-        }))
-      }
-      if (attachmentsRemovedMeta.length > 0) meta.attachments_removed = attachmentsRemovedMeta
-      if (Object.keys(meta).length > 0) {
-        await logTicketActivity({
-          ticketId,
-          actorUserId,
-          actorRole,
-          action: 'ticket_updated',
-          metadata: meta,
-        })
-      }
-
-      const statusChange = changes.status as { from: unknown; to: unknown } | undefined
-      if (
-        statusChange &&
-        statusChange.from !== statusChange.to &&
-        afterSnapshot
-      ) {
-        void notifySlackTicketEvent('status_changed', {
-          id: ticketId,
-          title: afterSnapshot.title,
-          status: afterSnapshot.status,
-          teamId: afterSnapshot.teamId,
-          priority: afterSnapshot.priority,
-          companyId: afterSnapshot.companyId,
-          typeId: afterSnapshot.typeId,
-          previousStatus: String(statusChange.from),
-        })
-        try {
-          const meta = await get(tickets, ticketId)
-          const arows = await findBy(ticketAssignees, { ticketId })
-          const recipients = [...arows.map((r) => r.userId), meta?.createdBy].filter(Boolean) as string[]
-          const actorName =
-            (session.user as { name?: string | null }).name ||
-            session.user.email ||
-            'Someone'
-          await notifyTicketUsers({
-            recipientUserIds: recipients,
-            excludeUserId: actorUserId,
-            ticketId,
-            ticketTitle: afterSnapshot.title,
-            type: 'status_changed',
-            title: 'Ticket status updated',
-            body: `"${afterSnapshot.title}": ${statusChange.from} → ${statusChange.to}`,
-            actorUserId,
-            actorName,
-            actorRole: role ?? null,
-          })
-        } catch (e) {
-          console.error('[PATCH ticket full] status notify:', e)
-        }
-      }
-
-      const assigneeChange = changes.assignee_ids as { from: unknown; to: unknown } | undefined
-      if (
-        assigneeChange &&
-        Array.isArray(assigneeChange.from) &&
-        Array.isArray(assigneeChange.to)
-      ) {
-        const added = diffNewAssignees(assigneeChange.from as string[], assigneeChange.to as string[])
-        if (added.length > 0) {
-          try {
-            const actorName =
-              (session.user as { name?: string | null }).name ||
-              session.user.email ||
-              'Someone'
-            await notifyTicketUsers({
-              recipientUserIds: added,
-              excludeUserId: actorUserId,
-              ticketId,
-              ticketTitle: afterSnapshot.title,
-              type: 'assignee_added',
-              title: 'You were assigned',
-              body: `Added as assignee on "${afterSnapshot.title}"`,
-              actorUserId,
-              actorName,
-              actorRole: role ?? null,
-            })
-          } catch (e) {
-            console.error('[PATCH ticket assignees] notify:', e)
+  // Activity log, notifications and automation run after the response is sent, so saving is not
+  // blocked by them; clients pick up any automation changes through the ticket data-sync bump.
+  const sessionUser = session.user as { name?: string | null; email?: string | null }
+  after(async () => {
+    try {
+      if (beforeSnapshot) {
+        const afterSnapshot = await loadTicketActivitySnapshot(ticketId)
+        if (afterSnapshot) {
+          const changes = diffTicketSnapshots(beforeSnapshot, afterSnapshot)
+          const meta: Record<string, unknown> = {}
+          if (Object.keys(changes).length > 0) meta.changes = changes
+          const changedKeys = Object.keys(changes)
+          if (changedKeys.length > 0) meta.changed_keys = changedKeys
+          if (changedKeys.length > 0) {
+            const entityLabels = await enrichActivityEntityLabels(changes)
+            if (Object.keys(entityLabels).length > 0) {
+              meta.entity_labels = entityLabels
+            }
           }
-          try {
-            await sendTicketAssignedEmail({
-              ticketId,
-              ticketTitle: afterSnapshot.title,
-              assignedUserIds: added,
-              actorUserId,
-            })
-          } catch (e) {
-            console.error('[PATCH ticket assignees] email:', e)
+          if (attachments_add.length > 0) {
+            meta.attachments_added = attachments_add.map((a: { file_name?: string }) => ({
+              file_name: a.file_name ?? '',
+            }))
           }
-        }
-      }
+          if (attachmentsRemovedMeta.length > 0) meta.attachments_removed = attachmentsRemovedMeta
+          if (Object.keys(meta).length > 0) {
+            await logTicketActivity({
+              ticketId,
+              actorUserId,
+              actorRole,
+              action: 'ticket_updated',
+              metadata: meta,
+            })
+          }
 
-      const tagChange = changes.tag_ids as { from: unknown; to: unknown } | undefined
-      if (tagChange && Array.isArray(tagChange.from) && Array.isArray(tagChange.to) && afterSnapshot) {
-        const prevIds = tagChange.from as string[]
-        const nextIds = tagChange.to as string[]
-        const addedIds = nextIds.filter((id) => !prevIds.includes(id))
-        if (addedIds.length > 0) {
-          try {
-            const tagRows = await getMany(tags, addedIds)
-            const addedTagNames = tagRows.map((r) => r.name ?? r.id)
-            void notifySlackTicketEvent('tag_added', {
+          const statusChange = changes.status as { from: unknown; to: unknown } | undefined
+          if (
+            statusChange &&
+            statusChange.from !== statusChange.to &&
+            afterSnapshot
+          ) {
+            void notifySlackTicketEvent('status_changed', {
               id: ticketId,
               title: afterSnapshot.title,
               status: afterSnapshot.status,
@@ -756,17 +680,109 @@ export async function PATCH(
               priority: afterSnapshot.priority,
               companyId: afterSnapshot.companyId,
               typeId: afterSnapshot.typeId,
-              addedTagNames,
+              previousStatus: String(statusChange.from),
             })
-          } catch (e) {
-            console.error('[PATCH ticket tag_added] slack notify:', e)
+            try {
+              const meta = await get(tickets, ticketId)
+              const arows = await findBy(ticketAssignees, { ticketId })
+              const recipients = [...arows.map((r) => r.userId), meta?.createdBy].filter(Boolean) as string[]
+              const actorName =
+                sessionUser.name ||
+                sessionUser.email ||
+                'Someone'
+              await notifyTicketUsers({
+                recipientUserIds: recipients,
+                excludeUserId: actorUserId,
+                ticketId,
+                ticketTitle: afterSnapshot.title,
+                type: 'status_changed',
+                title: 'Ticket status updated',
+                body: `"${afterSnapshot.title}": ${statusChange.from} → ${statusChange.to}`,
+                actorUserId,
+                actorName,
+                actorRole: role ?? null,
+              })
+            } catch (e) {
+              console.error('[PATCH ticket full] status notify:', e)
+            }
+          }
+
+          const assigneeChange = changes.assignee_ids as { from: unknown; to: unknown } | undefined
+          if (
+            assigneeChange &&
+            Array.isArray(assigneeChange.from) &&
+            Array.isArray(assigneeChange.to)
+          ) {
+            const added = diffNewAssignees(assigneeChange.from as string[], assigneeChange.to as string[])
+            if (added.length > 0) {
+              try {
+                const actorName =
+                  sessionUser.name ||
+                  sessionUser.email ||
+                  'Someone'
+                await notifyTicketUsers({
+                  recipientUserIds: added,
+                  excludeUserId: actorUserId,
+                  ticketId,
+                  ticketTitle: afterSnapshot.title,
+                  type: 'assignee_added',
+                  title: 'You were assigned',
+                  body: `Added as assignee on "${afterSnapshot.title}"`,
+                  actorUserId,
+                  actorName,
+                  actorRole: role ?? null,
+                })
+              } catch (e) {
+                console.error('[PATCH ticket assignees] notify:', e)
+              }
+              try {
+                await sendTicketAssignedEmail({
+                  ticketId,
+                  ticketTitle: afterSnapshot.title,
+                  assignedUserIds: added,
+                  actorUserId,
+                })
+              } catch (e) {
+                console.error('[PATCH ticket assignees] email:', e)
+              }
+            }
+          }
+
+          const tagChange = changes.tag_ids as { from: unknown; to: unknown } | undefined
+          if (tagChange && Array.isArray(tagChange.from) && Array.isArray(tagChange.to) && afterSnapshot) {
+            const prevIds = tagChange.from as string[]
+            const nextIds = tagChange.to as string[]
+            const addedIds = nextIds.filter((id) => !prevIds.includes(id))
+            if (addedIds.length > 0) {
+              try {
+                const tagRows = await getMany(tags, addedIds)
+                const addedTagNames = tagRows.map((r) => r.name ?? r.id)
+                void notifySlackTicketEvent('tag_added', {
+                  id: ticketId,
+                  title: afterSnapshot.title,
+                  status: afterSnapshot.status,
+                  teamId: afterSnapshot.teamId,
+                  priority: afterSnapshot.priority,
+                  companyId: afterSnapshot.companyId,
+                  typeId: afterSnapshot.typeId,
+                  addedTagNames,
+                })
+              } catch (e) {
+                console.error('[PATCH ticket tag_added] slack notify:', e)
+              }
+            }
           }
         }
       }
-    }
-  }
 
-  await triggerTicketUpdatedAutomation(ticketId)
+      await triggerTicketUpdatedAutomation(ticketId)
+    } catch (e) {
+      console.error('[PATCH ticket] post-save tasks:', e)
+    } finally {
+      bumpTicketDataVersion(ticketId)
+    }
+  })
+
   bumpTicketDataVersion(ticketId)
   const resBody: Record<string, unknown> = { ok: true }
   if (ticketCrossCompanyWarning) {

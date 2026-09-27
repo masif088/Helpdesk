@@ -16,7 +16,8 @@ import {
   users,
 } from '@/lib/fsdb'
 
-export async function getCompanyDetail(id: string) {
+/** `includeBilling`: add the default hourly rate (admin / manager views only). */
+export async function getCompanyDetail(id: string, opts?: { includeBilling?: boolean }) {
   const companyRow = await get(companies, id)
 
   if (!companyRow) return null
@@ -102,6 +103,12 @@ export async function getCompanyDetail(id: string) {
     active_time: company.activeTime ?? 0,
     is_customer: company.isCustomer ?? false,
     freshdesk_id: company.freshdeskId ?? null,
+    ...(opts?.includeBilling
+      ? {
+          default_hourly_rate: company.defaultHourlyRate ?? null,
+          default_rate_currency: company.defaultRateCurrency ?? null,
+        }
+      : {}),
     created_at: company.createdAt ? new Date(company.createdAt).toISOString() : '',
     updated_at: company.updatedAt ? new Date(company.updatedAt).toISOString() : '',
     company_users: companyUsersList,

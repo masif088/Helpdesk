@@ -24,6 +24,7 @@ import {
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import CustomerNavbar from '@/components/layout/CustomerNavbar'
+import { DEFAULT_RATE_CURRENCY, RATE_CURRENCIES } from '@/lib/billing-rate'
 
 const { Content } = Layout
 const { Title, Text } = Typography
@@ -76,6 +77,8 @@ export default function CompanyDetailContent({
 }: CompanyDetailContentProps) {
   const router = useRouter()
   const canEdit = (() => { const r = (currentUserRole ?? '').toLowerCase(); return r === 'admin' || r === 'manager' })()
+  /** Admin / manager (not the customer portal): may see and set the default hourly rate */
+  const canEditBilling = canEdit && variant !== 'customer'
   const [collapsed, setCollapsed] = useState(false)
   const [form] = Form.useForm()
   const [saving, setSaving] = useState(false)
@@ -165,6 +168,8 @@ export default function CompanyDetailContent({
       active_manager_id: companyData.active_manager_id || undefined,
       active_time: companyData.active_time ?? 0,
       is_customer: companyData.is_customer ?? false,
+      default_hourly_rate: companyData.default_hourly_rate ?? null,
+      default_rate_currency: companyData.default_rate_currency ?? DEFAULT_RATE_CURRENCY,
     })
     setCompanyEditModalOpen(true)
   }
@@ -201,6 +206,13 @@ export default function CompanyDetailContent({
             active_manager_id: values.active_manager_id ?? null,
             active_time: values.active_time ?? 0,
             is_customer: values.is_customer === true,
+            ...(canEditBilling
+              ? {
+                  default_hourly_rate: values.default_hourly_rate ?? null,
+                  default_rate_currency:
+                    values.default_hourly_rate != null ? values.default_rate_currency ?? DEFAULT_RATE_CURRENCY : null,
+                }
+              : {}),
           }),
         })
       }
@@ -596,6 +608,26 @@ export default function CompanyDetailContent({
                           <InputNumber min={0} precision={0} addonAfter="H" style={{ width: '100%' }} />
                         </Form.Item>
                       </Col>
+                      {canEditBilling ? (
+                        <Col xs={24} sm={12}>
+                          <Form.Item
+                            label="Default hourly rate"
+                            extra="Copied to new tickets of this company; each ticket can still be changed."
+                          >
+                            <Space.Compact style={{ width: '100%' }}>
+                              <Form.Item name="default_rate_currency" noStyle>
+                                <Select
+                                  style={{ width: 90 }}
+                                  options={RATE_CURRENCIES.map((c) => ({ value: c, label: c }))}
+                                />
+                              </Form.Item>
+                              <Form.Item name="default_hourly_rate" noStyle>
+                                <InputNumber min={0} placeholder="per hour" style={{ width: '100%' }} />
+                              </Form.Item>
+                            </Space.Compact>
+                          </Form.Item>
+                        </Col>
+                      ) : null}
                       {/* <Col xs={24} sm={12}>
                         <Form.Item name="is_customer" label="Is customer" valuePropName="checked">
                           <Switch checkedChildren="Yes" unCheckedChildren="No" />

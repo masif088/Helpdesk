@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
 import { loadAutomationTicketContext, runAutomationRules } from '@/lib/automation-engine'
+import { companyDefaultRate } from '@/lib/billing-rate-server'
 import { getCustomerCompanyId } from '@/lib/customer-company'
 import { loadCustomerAccessibleTickets } from '@/lib/customer-ticket-access'
 import { notifyTicketUsers } from '@/lib/firebase/ticket-notifications-server'
@@ -535,12 +536,13 @@ export async function POST(request: Request) {
   }
 
   let newTicket: TicketsRow | undefined
+  const companyRate = await companyDefaultRate(resolvedCompanyId)
 
   if (useCompanyPriorityPool) {
     const desiredRank = parseCompanyTicketDesiredRank(priority)
     try {
       // Priority NULL first, then placed into the company queue (shifting the others).
-      newTicket = await insert(tickets, { ...baseValues, priority: null, companyId: resolvedCompanyId })
+      newTicket = await insert(tickets, { ...baseValues, ...companyRate, priority: null, companyId: resolvedCompanyId })
       await assignCompanySupportTicketRank(resolvedCompanyId!, newTicket.id, desiredRank)
     } catch (e) {
       console.error('[POST /api/tickets] company queue create failed:', e)
@@ -556,7 +558,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to create ticket' }, { status: 500 })
     }
   } else {
-    newTicket = await insert(tickets, { ...baseValues, priority: resolvedPriority, companyId: resolvedCompanyId })
+    newTicket = await insert(tickets, { ...baseValues, ...companyRate, priority: resolvedPriority, companyId: resolvedCompanyId })
   }
 
   if (!newTicket) {

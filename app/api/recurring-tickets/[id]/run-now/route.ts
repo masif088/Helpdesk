@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { canAccessRecurringTickets } from '@/lib/auth-utils'
+import { companyDefaultRate } from '@/lib/billing-rate-server'
 import { get, insert, insertIgnore, recurringTicketRuns, recurringTickets, ticketAssignees, tickets, update } from '@/lib/fsdb'
 import { sendRecurringTicketCreatedEmail } from '@/lib/recurring-ticket-email'
 import { computeNextRunAt, type Frequency } from '@/lib/recurring-ticket-schedule'
@@ -42,6 +43,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         contactUserId: rule.contactUserId ?? null,
         createdVia: 'recurring',
         ticketType: 'support',
+        ...(await companyDefaultRate(rule.companyId)),
       })
 
       const scope = await resolveSupportQueueScope(row.id)

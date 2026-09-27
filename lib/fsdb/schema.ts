@@ -300,6 +300,10 @@ export type CompaniesRow = {
   activeTime: number
   isCustomer: boolean
   freshdeskId: number | null
+  /** Default hourly rate copied to new tickets of this company (admin/manager only). */
+  defaultHourlyRate: number | null
+  /** IDR | USD */
+  defaultRateCurrency: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -316,13 +320,15 @@ export type NewCompaniesRow = {
   activeTime?: number
   isCustomer?: boolean
   freshdeskId?: number | null
+  defaultHourlyRate?: number | null
+  defaultRateCurrency?: string | null
   createdAt?: Date
   updatedAt?: Date
 }
 
 export const companies = defineTable<CompaniesRow, NewCompaniesRow>({
   name: 'companies',
-  columns: ['id', 'name', 'isActive', 'email', 'domainList', 'color', 'activeTeamId', 'activeManagerId', 'activeTime', 'isCustomer', 'freshdeskId', 'createdAt', 'updatedAt'],
+  columns: ['id', 'name', 'isActive', 'email', 'domainList', 'color', 'activeTeamId', 'activeManagerId', 'activeTime', 'isCustomer', 'freshdeskId', 'defaultHourlyRate', 'defaultRateCurrency', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',

@@ -25,19 +25,20 @@ export function formatHourlyRate(rate: number | null | undefined, currency: stri
  * Returns undefined when neither key is present (no change).
  */
 export function parseHourlyRateBody(
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  keys: { rate: string; currency: string } = { rate: 'hourly_rate', currency: 'rate_currency' }
 ): { hourlyRate: number | null; rateCurrency: RateCurrency | null } | { error: string } | undefined {
-  const hasRate = Object.prototype.hasOwnProperty.call(body, 'hourly_rate')
-  const hasCurrency = Object.prototype.hasOwnProperty.call(body, 'rate_currency')
+  const hasRate = Object.prototype.hasOwnProperty.call(body, keys.rate)
+  const hasCurrency = Object.prototype.hasOwnProperty.call(body, keys.currency)
   if (!hasRate && !hasCurrency) return undefined
 
-  const raw = body.hourly_rate
+  const raw = body[keys.rate]
   if (raw === null || raw === undefined || raw === '') {
     return { hourlyRate: null, rateCurrency: null }
   }
   const n = typeof raw === 'number' ? raw : Number(raw)
-  if (!Number.isFinite(n) || n < 0) return { error: 'hourly_rate must be a number ≥ 0' }
-  const currency = body.rate_currency ?? DEFAULT_RATE_CURRENCY
-  if (!isRateCurrency(currency)) return { error: `rate_currency must be one of ${RATE_CURRENCIES.join(', ')}` }
+  if (!Number.isFinite(n) || n < 0) return { error: `${keys.rate} must be a number ≥ 0` }
+  const currency = body[keys.currency] ?? DEFAULT_RATE_CURRENCY
+  if (!isRateCurrency(currency)) return { error: `${keys.currency} must be one of ${RATE_CURRENCIES.join(', ')}` }
   return { hourlyRate: Math.round(n * 100) / 100, rateCurrency: currency }
 }

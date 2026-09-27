@@ -91,6 +91,9 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 
 # Optional: send the session cookie without `Secure` (plain http, e.g. VPS by IP). Auto-detected by default.
 # AUTH_COOKIE_SECURE=false
+
+# Dev only: log every Firestore round trip with its duration ([fsdb] get tickets/12 85ms)
+# FSDB_TRACE=1
 ```
 
 In the Firebase console enable **Authentication → Sign-in method → Email/Password** and create a **Firestore** database (Native mode).

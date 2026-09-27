@@ -2,6 +2,8 @@ import { type Firestore, Timestamp } from 'firebase-admin/firestore'
 
 import { getFirebaseAdminFirestore } from '@/lib/firebase/admin'
 
+import { installFsdbTrace } from './trace'
+
 export class FirestoreNotConfiguredError extends Error {
   constructor() {
     super('Firestore is not configured (set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)')
@@ -15,6 +17,7 @@ const globalForFs = globalThis as typeof globalThis & { __deskteamFsSettingsAppl
 export function fdb(): Firestore {
   const fs = getFirebaseAdminFirestore()
   if (!fs) throw new FirestoreNotConfiguredError()
+  installFsdbTrace()
   if (!globalForFs.__deskteamFsSettingsApplied) {
     try {
       fs.settings({ ignoreUndefinedProperties: true })

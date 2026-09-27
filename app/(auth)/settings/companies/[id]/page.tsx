@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import CompanyDetailContent from '@/components/content/company/CompanyDetailContent'
+import { isAdminOrManager } from '@/lib/auth-utils'
 import { getCompanyDetail } from '@/lib/company-detail'
 
 export default async function SettingsCompanyDetailPage({
@@ -16,12 +17,12 @@ export default async function SettingsCompanyDetailPage({
 
   const { id } = await params
 
-  const companyData = await getCompanyDetail(id)
+  const currentUserRole = (session.user as { role?: string }).role
+
+  const companyData = await getCompanyDetail(id, { includeBilling: isAdminOrManager(currentUserRole) })
   if (!companyData) {
     redirect('/settings/companies')
   }
-
-  const currentUserRole = (session.user as { role?: string }).role
 
   return (
     <CompanyDetailContent
