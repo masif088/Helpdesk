@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 import type { TicketTrackerStat } from '@/app/api/tickets/ticket-time-stats/route'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
-import { Chip, PriorityBadge, StatusPill } from './TicketChips'
+import { Chip, NewBadge, PriorityBadge, StatusPill } from './TicketChips'
 import TicketTimerButton, { type TicketTimerProps } from './TicketTimerButton'
 import type { StatusColumn, TicketRecord } from './types'
 import { DEFAULT_ALL_STATUS_COLUMNS } from './types'
@@ -95,6 +95,7 @@ export default function CardViewCard({
             {ticket.has_unread_replies && <span className="kanban-card__unread" title="Unread replies" />}#{ticket.id}
             {ticket.created_via === 'recurring' && <SyncOutlined title="Created by recurring ticket" />}
             {ticket.created_via === 'automation' && <RobotOutlined title="Created by automation" />}
+            <NewBadge show={ticket.is_new} />
           </span>
           <PriorityBadge priority={ticket.priority} />
           <StatusPill

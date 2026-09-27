@@ -18,6 +18,7 @@ import {
   parseSidebarCollapsedFromUrl,
   URL_PARAMS,
 } from '@/lib/ticket-filter-url'
+import type { TicketScope } from '@/lib/ticket-scope'
 import { isTicketStatusInKanban, ticketStatusDisplayLabel } from '@/lib/ticket-status-kanban'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 import {
@@ -180,6 +181,7 @@ function getInitialFilterStateFromStored(stored: StoredFilter | null, isCustomer
     sortBy: TICKETS_LIST_SORT_BY,
     sortOrder: TICKETS_LIST_SORT_ORDER,
     filterTicketType: null,
+    filterScope: null,
   }
 }
 
@@ -281,6 +283,8 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
   const [filterTicketType, setFilterTicketType] = useState<TicketFolder | null>(
     initialState.filterTicketType ?? null
   )
+  /** Inbox (unassigned) / My tickets; null = all tickets. Driven by the URL (sidebar links). */
+  const [filterScope, setFilterScope] = useState<TicketScope | null>(initialState.filterScope ?? null)
   const [newTicketAttachments, setNewTicketAttachments] = useState<NewTicketAttachment[]>([])
   const [deletedTicketAttachmentIds, setDeletedTicketAttachmentIds] = useState<string[]>([])
   const [attachmentUploading, setAttachmentUploading] = useState(false)
@@ -370,6 +374,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
         filterDueDateRange,
         debouncedSearch,
         filterTicketType,
+        filterScope,
         lookupReady,
         searchFields,
       }),
@@ -385,6 +390,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
       filterDueDateRange,
       debouncedSearch,
       filterTicketType,
+      filterScope,
       lookupReady,
       searchFields,
     ]
@@ -401,6 +407,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
       const inJunkFolder =
         !isCustomer && isTicketFolder(filterTicketType)
       if (inJunkFolder) params.set('ticket_type', filterTicketType!)
+      else if (!isCustomer && filterScope) params.set('scope', filterScope)
       if (!isCustomer) {
         const noCompany = filterCompanyIds.includes('__none__')
         const realCompanyIds = filterCompanyIds.filter((id) => id !== '__none__')
@@ -684,6 +691,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
         setViewMode(parsed.viewMode)
         setFilterSidebarCollapsed(parsed.filterSidebarCollapsed)
         setFilterTicketType(parsed.filterTicketType ?? null)
+        setFilterScope(null)
       } else if (searchParams.get(URL_PARAMS.preset) === '1') {
         // Saved preset navigation: apply ALL fields so absent params (= "all") correctly reset state.
         applyStatusFromParsed()
@@ -698,6 +706,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
         // effect even without a view param, so absent view means "keep current / localStorage value".
         if (searchParams.has(URL_PARAMS.view)) setViewMode(parsed.viewMode)
         setFilterTicketType(parsed.filterTicketType ?? null)
+        setFilterScope(parsed.filterScope ?? null)
       } else {
         /** Only apply fields actually present in the URL. `view` alone (without `status`) used to make parsed.filterStatus [] and overwrite state → unnecessary refetch. */
         if (searchParams.has(URL_PARAMS.status)) applyStatusFromParsed()
@@ -715,6 +724,8 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
         if (searchParams.has(URL_PARAMS.view)) setViewMode(parsed.viewMode)
         if (searchParams.has(URL_PARAMS.sidebar)) setFilterSidebarCollapsed(parsed.filterSidebarCollapsed)
         if (searchParams.has(URL_PARAMS.ticket_type)) setFilterTicketType(parsed.filterTicketType ?? null)
+        // Scope is navigation (sidebar): absent = all tickets
+        setFilterScope(parsed.filterScope ?? null)
       }
     } else if (canParseTicketsUrl(searchParams)) {
       let parsed = parseFiltersFromUrl(searchParams, { isCustomer })
@@ -757,6 +768,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
         setViewMode('kanban')
         setFilterSidebarCollapsed(true)
         setFilterTicketType(null)
+        setFilterScope(null)
       }
     }
   }, [
@@ -809,6 +821,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
         filterSearch,
         viewMode,
         filterTicketType: isCustomer ? null : filterTicketType,
+        filterScope: isCustomer ? null : filterScope,
       })
       const url = qs ? `${pathname}?${qs}` : pathname
       const currentUrl = typeof window !== 'undefined' ? window.location.pathname + (window.location.search || '') : ''
@@ -830,6 +843,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
     viewMode,
     filterSidebarCollapsed,
     filterTicketType,
+    filterScope,
     isCustomer,
     ticketsPageLimit,
   ])
@@ -846,6 +860,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
       filterSearch,
       viewMode,
       filterTicketType: isCustomer ? null : filterTicketType,
+      filterScope: isCustomer ? null : filterScope,
     })
   }, [
     filterStatus,
@@ -858,6 +873,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
     filterSearch,
     viewMode,
     filterTicketType,
+    filterScope,
     isCustomer,
   ])
 
@@ -1361,6 +1377,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
     lookupReady,
     getFilterQueryString,
     filterTicketType,
+    filterScope,
     filterByStatusFromChip,
     filterByTagFromChip,
     filterByCompanyFromChip,

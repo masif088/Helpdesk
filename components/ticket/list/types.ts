@@ -55,6 +55,8 @@ export interface TicketRecord {
   checklist_total?: number
   last_read_at?: string | null
   has_unread_replies?: boolean
+  /** Staff: never opened by anyone on the team */
+  is_new?: boolean
   /** Ticket-level files (from GET /api/tickets); used when editing in modal */
   attachments?: TicketAttachment[]
 }

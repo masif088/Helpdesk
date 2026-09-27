@@ -7,6 +7,8 @@ export type TicketNotificationType =
   | 'mention'
   | 'assignee_added'
   | 'new_ticket_assignee'
+  /** New support ticket with nobody assigned (Inbox) */
+  | 'new_ticket'
   | 'new_comment'
   | 'status_changed'
 

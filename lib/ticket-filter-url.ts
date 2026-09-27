@@ -2,6 +2,7 @@ import dayjs from 'dayjs'
 
 import type { TicketSortField, TicketSortOrder } from '@/components/ticket/list/types'
 import { isTicketFolder,type TicketFolder } from '@/lib/ticket-classification'
+import { isTicketScope, type TicketScope } from '@/lib/ticket-scope'
 
 /** URL param keys - used for shareable filter links and saved presets */
 export const URL_PARAMS = {
@@ -24,6 +25,8 @@ export const URL_PARAMS = {
   sidebar: 'sidebar',
   /** Row classification: spam | trash (junk folders) */
   ticket_type: 'ticket_type',
+  /** Staff queue view: inbox (unassigned) | mine (assigned to me). Absent = all tickets. */
+  scope: 'scope',
 } as const
 
 /** UI display preferences - not synced to the URL (except junk folders `view=card`) so changing view doesn't trigger `router.replace` and re-fetch. */
@@ -76,6 +79,7 @@ export interface ParsedUrlFilters {
   sortOrder: TicketSortOrder
   filterSidebarCollapsed: boolean
   filterTicketType: TicketFolder | null
+  filterScope: TicketScope | null
 }
 
 export function parseFiltersFromUrl(
@@ -120,6 +124,8 @@ export function parseFiltersFromUrl(
   const filterTicketType: TicketFolder | null =
     isTicketFolder(ticketTypeRaw) ? ticketTypeRaw : null
   const inJunkFolder = filterTicketType !== null
+  const scopeRaw = searchParams.get(URL_PARAMS.scope)?.trim().toLowerCase()
+  const filterScope: TicketScope | null = !isCustomer && !inJunkFolder && isTicketScope(scopeRaw) ? scopeRaw : null
 
   const junkViewMode: 'kanban' | 'list' | 'card' | 'roundrobin' = 'card'
   const resolvedViewMode = inJunkFolder ? junkViewMode : viewMode
@@ -144,6 +150,7 @@ export function parseFiltersFromUrl(
     sortOrder,
     filterSidebarCollapsed,
     filterTicketType,
+    filterScope,
   }
 }
 
@@ -158,6 +165,7 @@ export function buildSearchStringFromFilters(state: {
   filterSearch: string
   viewMode: string
   filterTicketType?: TicketFolder | null
+  filterScope?: TicketScope | null
 }): string {
   const p = new URLSearchParams()
   const inJunk = isTicketFolder(state.filterTicketType)
@@ -165,6 +173,7 @@ export function buildSearchStringFromFilters(state: {
     p.set(URL_PARAMS.ticket_type, state.filterTicketType!)
     p.set(URL_PARAMS.view, 'card')
   }
+  if (!inJunk && state.filterScope) p.set(URL_PARAMS.scope, state.filterScope)
   if (state.filterStatus.length > 0) p.set(URL_PARAMS.status, state.filterStatus.join(','))
   if (state.filterTypeIds.length > 0) p.set(URL_PARAMS.type_ids, state.filterTypeIds.join(','))
   if (state.filterCompanyIds.length > 0) p.set(URL_PARAMS.company_ids, state.filterCompanyIds.join(','))

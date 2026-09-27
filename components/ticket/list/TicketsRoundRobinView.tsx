@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import type { CompanyTimeStat } from '@/app/api/tickets/company-time-stats/route'
 import type { TicketTrackerStat } from '@/app/api/tickets/ticket-time-stats/route'
 
+import { NewBadge } from './TicketChips'
 import TicketTimerButton from './TicketTimerButton'
 import type { StatusColumn, TicketRecord } from './types'
 import { DEFAULT_ALL_STATUS_COLUMNS, sortTickets, TICKETS_LIST_SORT_BY, TICKETS_LIST_SORT_ORDER } from './types'
@@ -189,6 +190,7 @@ export default function TicketsRoundRobinView({
                 <span className="rr-pill__dot" aria-hidden />
                 #{ticket.id}
                 {ticket.priority != null && ticket.priority > 0 && <span className="rr-pill__prio">P{ticket.priority}</span>}
+                <NewBadge show={ticket.is_new} />
               </a>
               </Tooltip>
               {ticket.short_note ? <p className="rr-note">{ticket.short_note}</p> : null}

@@ -19,7 +19,7 @@ import type { TicketTrackerStat } from '@/app/api/tickets/ticket-time-stats/rout
 import DateDisplay from '@/components/common/DateDisplay'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
-import { Chip } from './TicketChips'
+import { Chip, NewBadge } from './TicketChips'
 import TicketTimerButton, { type TicketTimerProps } from './TicketTimerButton'
 import type { StatusColumn, TicketRecord } from './types'
 
@@ -113,6 +113,7 @@ export default function KanbanCard({
             {ticket.has_unread_replies && <span className="kanban-card__unread" title="Unread replies" />}#{ticket.id}
             {ticket.created_via === 'recurring' && <SyncOutlined title="Created by recurring ticket" />}
             {ticket.created_via === 'automation' && <RobotOutlined title="Created by automation" />}
+            <NewBadge show={ticket.is_new} />
           </span>
           <span className="kanban-card__top-right" onPointerDown={(e) => e.stopPropagation()}>
             <span className="kanban-card__actions">

@@ -5,6 +5,7 @@ import { Button, ConfigProvider, Flex, Input, Popover, Segmented, Select, Space,
 import { useState } from 'react'
 
 import { isTicketFolder, TICKET_FOLDER_LABELS, type TicketFolder } from '@/lib/ticket-classification'
+import { TICKET_SCOPE_LABELS, type TicketScope } from '@/lib/ticket-scope'
 import { TICKETS_PAGE_LIMIT_OPTIONS, type TicketsPageLimit } from '@/lib/tickets-list-query'
 
 type ViewMode = 'kanban' | 'list' | 'card' | 'roundrobin'
@@ -21,6 +22,8 @@ interface TicketsHeaderProps {
   searchFields?: string
   onSearchFieldsChange?: (v: string) => void
   filterTicketType?: TicketFolder | null
+  /** Inbox / My tickets (staff) */
+  filterScope?: TicketScope | null
   ticketsPageLimit?: TicketsPageLimit
   onTicketsPageLimitChange?: (v: TicketsPageLimit) => void
   onRefresh?: () => void
@@ -48,6 +51,7 @@ export default function TicketsHeader({
   searchFields = 'title,description',
   onSearchFieldsChange,
   filterTicketType = null,
+  filterScope = null,
   ticketsPageLimit = 50,
   onTicketsPageLimitChange,
   onRefresh,
@@ -102,8 +106,15 @@ export default function TicketsHeader({
       )}
       <Flex vertical gap={12} style={{ padding: 24 }}>
         <Typography.Title level={2} style={{ margin: 0 }}>
-          {junkTitle ?? 'My Tickets'}
+          {junkTitle ?? (filterScope ? TICKET_SCOPE_LABELS[filterScope] : isCustomer ? 'My Tickets' : 'All tickets')}
         </Typography.Title>
+        {!inJunkFolder && filterScope ? (
+          <Typography.Text type="secondary" style={{ marginTop: -8 }}>
+            {filterScope === 'inbox'
+              ? 'Open tickets nobody is assigned to yet, newest first. Assign one to take it out of the Inbox.'
+              : 'Open tickets assigned to you.'}
+          </Typography.Text>
+        ) : null}
 
         {!inJunkFolder && (
           <Flex align="center" justify="space-between" gap={12} wrap="wrap">

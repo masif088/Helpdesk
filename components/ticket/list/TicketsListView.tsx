@@ -27,7 +27,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type TicketFolder } from '@/lib/ticket-classification'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
-import { Chip, PriorityBadge, StatusPill } from './TicketChips'
+import { Chip, NewBadge, PriorityBadge, StatusPill } from './TicketChips'
 import TicketTimerButton from './TicketTimerButton'
 import type { StatusColumn, TicketRecord, TicketSortField, TicketSortOrder } from './types'
 import {
@@ -357,6 +357,7 @@ export default function TicketsListView({
             <a href={`/tickets/${record.id}`} className="ticket-table__title"
               onClick={(e) => { if (e.button !== 0 || e.ctrlKey || e.metaKey) return; e.preventDefault(); router.push(`/tickets/${record.id}`) }}>
               {record.has_unread_replies && <span className="kanban-card__unread" style={{ display: 'inline-block', marginRight: 6, verticalAlign: 'middle' }} title="Unread replies" />}
+              {record.is_new ? <span style={{ marginRight: 6 }}><NewBadge show /></span> : null}
               {title && title.length > 50 ? title.slice(0, 50) + '...' : title}
               {record.created_via === 'recurring' && <SyncOutlined title="Created by recurring ticket" style={{ fontSize: 11, color: '#0E7490', marginLeft: 6, verticalAlign: 'middle' }} />}
               {record.created_via === 'automation' && <RobotOutlined title="Created by automation" style={{ fontSize: 11, color: '#0E7490', marginLeft: 6, verticalAlign: 'middle' }} />}

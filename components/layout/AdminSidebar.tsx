@@ -8,9 +8,11 @@ import {
   DeleteOutlined,
   DoubleLeftOutlined,
   DoubleRightOutlined,
+  InboxOutlined,
   NotificationOutlined,
   ReadOutlined,
   SettingOutlined,
+  UserOutlined,
   WarningOutlined,
 } from '@ant-design/icons'
 import { Avatar, Dropdown, Tooltip } from 'antd'
@@ -39,7 +41,17 @@ export function sidebarInset(collapsed: boolean): number {
   return (collapsed ? SIDEBAR_RAIL_WIDTH : SIDEBAR_WIDTH) + SIDEBAR_GAP
 }
 
-type NavItem = { key: string; label: string; icon: ReactNode }
+type NavItem = {
+  key: string
+  label: string
+  icon: ReactNode
+  /** Count badge; `alert` = highlighted (work waiting) */
+  count?: number
+  countTone?: 'alert' | 'muted'
+}
+
+/** Sidebar badge refresh: Inbox / My tickets counts */
+const SCOPE_COUNTS_POLL_MS = 60_000
 type NavGroup = { title: string; items: NavItem[] }
 
 interface SessionUser {
@@ -64,6 +76,9 @@ function selectedKeysForPathname(pathname: string | null, ticketsSearch: string)
     const qs = ticketsSearch.trim()
     const sp = new URLSearchParams(qs.startsWith('?') ? qs.slice(1) : qs)
     const tt = sp.get('ticket_type')?.toLowerCase()
+    const scope = sp.get('scope')?.toLowerCase()
+    if (!tt && scope === 'inbox') return ['/tickets?scope=inbox']
+    if (!tt && scope === 'mine') return ['/tickets?scope=mine']
     if (tt === 'notification') return ['/tickets?ticket_type=notification']
     if (tt === 'spam') return ['/tickets?ticket_type=spam']
     if (tt === 'trash') return ['/tickets?ticket_type=trash']
@@ -93,6 +108,29 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
   const [appName, setAppName] = useState<string>(BRANDING.name)
   const [appLogoUrl, setAppLogoUrl] = useState<string | null>(BRANDING.logo)
 
+  const showScopeCounts = !isCustomer && canAccessTickets(role)
+  const [scopeCounts, setScopeCounts] = useState<{ inbox: number; mine: number } | null>(null)
+  // Refresh on an interval, on window focus, and whenever the route changes (e.g. after assigning a ticket).
+  useEffect(() => {
+    if (!showScopeCounts) return
+    let alive = true
+    const load = () =>
+      fetch('/api/tickets/scope-counts', { credentials: 'include' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (alive && d && typeof d.inbox === 'number') setScopeCounts({ inbox: d.inbox, mine: d.mine ?? 0 })
+        })
+        .catch(() => {})
+    void load()
+    const id = setInterval(load, SCOPE_COUNTS_POLL_MS)
+    window.addEventListener('focus', load)
+    return () => {
+      alive = false
+      clearInterval(id)
+      window.removeEventListener('focus', load)
+    }
+  }, [showScopeCounts, pathname, ticketsListSearch])
+
   useEffect(() => {
     fetch('/api/app-settings')
       .then((r) => r.json())
@@ -113,6 +151,20 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
         items: isCustomer
           ? [{ key: '/tickets', label: 'Tickets', icon: <CheckSquareOutlined /> }]
           : [
+              {
+                key: '/tickets?scope=inbox',
+                label: 'Inbox',
+                icon: <InboxOutlined />,
+                count: scopeCounts?.inbox,
+                countTone: 'alert',
+              },
+              {
+                key: '/tickets?scope=mine',
+                label: 'My tickets',
+                icon: <UserOutlined />,
+                count: scopeCounts?.mine,
+                countTone: 'muted',
+              },
               { key: '/tickets', label: 'All tickets', icon: <CheckSquareOutlined /> },
               { key: '/tickets?ticket_type=notification', label: 'Notifications', icon: <NotificationOutlined /> },
               { key: '/tickets?ticket_type=spam', label: 'Spam', icon: <WarningOutlined /> },
@@ -131,7 +183,7 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
       out.push({ title: 'Admin', items: [{ key: '/settings', label: 'Settings', icon: <SettingOutlined /> }] })
     }
     return out
-  }, [role, isCustomer])
+  }, [role, isCustomer, scopeCounts])
 
   const selectedKeys = useMemo(
     () => selectedKeysForPathname(pathname, pathname?.startsWith('/tickets') ? ticketsListSearch : ''),
@@ -195,12 +247,18 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
                   aria-current={active ? 'page' : undefined}
                   aria-label={collapsed ? item.label : undefined}
                 >
-                  <span className="app-sidebar__icon">{item.icon}</span>
+                  <span className="app-sidebar__icon">
+                    {item.icon}
+                    {collapsed && item.count ? <span className={`app-sidebar__dot is-${item.countTone ?? 'muted'}`} /> : null}
+                  </span>
                   {!collapsed ? <span className="app-sidebar__label">{item.label}</span> : null}
+                  {!collapsed && item.count ? (
+                    <span className={`app-sidebar__count is-${item.countTone ?? 'muted'}`}>{item.count > 99 ? '99+' : item.count}</span>
+                  ) : null}
                 </SpaNavLink>
               )
               return collapsed ? (
-                <Tooltip key={item.key} title={item.label} placement="right">
+                <Tooltip key={item.key} title={item.count ? `${item.label} (${item.count})` : item.label} placement="right">
                   <span style={{ display: 'block' }}>{link}</span>
                 </Tooltip>
               ) : (

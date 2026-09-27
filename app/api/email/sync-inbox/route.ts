@@ -41,6 +41,7 @@ import { uploadBuffer } from '@/lib/storage-provider'
 import { logTicketActivity } from '@/lib/ticket-activity-log'
 import { DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
 import { assignCompanySupportTicketRank } from '@/lib/ticket-company-priority-order'
+import { notifyNewUnassignedTicket } from '@/lib/ticket-inbox'
 import { sendNewTicketAgentNotificationEmail } from '@/lib/ticket-notification-emails'
 
 /** Parse Gmail internalDate to ISO string for created_at */
@@ -1426,6 +1427,23 @@ export async function POST(request: NextRequest) {
                   senderEmail,
                   (mailErr as Error)?.message
                 )
+              }
+            }
+
+            // Bell notification: a new support ticket is waiting in the Inbox
+            if (newTicket.ticketType === DEFAULT_TICKET_TYPE) {
+              try {
+                await notifyNewUnassignedTicket({
+                  ticketId: newTicket.id,
+                  ticketTitle: title,
+                  teamId: newTicket.teamId ?? null,
+                  companyId: ticketCompanyId,
+                  actorUserId: creatorUserId ?? userId,
+                  actorName: senderEmail || 'Email',
+                  actorRole: 'customer',
+                })
+              } catch (e) {
+                console.error('[Sync] inbox notification failed:', (e as Error)?.message)
               }
             }
 

@@ -1,6 +1,7 @@
 import type { Dayjs } from 'dayjs'
 
 import type { TicketFolder } from '@/lib/ticket-classification'
+import type { TicketScope } from '@/lib/ticket-scope'
 
 /** Page sizes supported by the ticket list UI. */
 export const TICKETS_PAGE_LIMIT_OPTIONS = [50, 100, 200] as const
@@ -24,6 +25,7 @@ export type TicketsListQueryKeyPayload = {
   filterDueDateRangeKey: string
   debouncedSearch: string
   filterTicketType: string
+  filterScope: string
   lookupReady: boolean
 }
 
@@ -44,6 +46,7 @@ export function buildTicketsListQueryKey(
     | 'filterDueDateRangeKey'
     | 'debouncedSearch'
     | 'filterTicketType'
+    | 'filterScope'
   > & {
     filterCompanyIds: string[]
     filterStatus: string[]
@@ -54,6 +57,7 @@ export function buildTicketsListQueryKey(
     filterDueDateRange: [Dayjs | null, Dayjs | null] | null
     debouncedSearch: string
     filterTicketType: TicketFolder | null
+    filterScope: TicketScope | null
   }
 ): readonly ['tickets', 'list', TicketsListQueryKeyPayload] {
   const payload: TicketsListQueryKeyPayload = {
@@ -68,6 +72,7 @@ export function buildTicketsListQueryKey(
     filterDueDateRangeKey: rangeKey(ctx.filterDueDateRange),
     debouncedSearch: ctx.debouncedSearch.trim(),
     filterTicketType: ctx.filterTicketType ?? '',
+    filterScope: ctx.filterScope ?? '',
     lookupReady: ctx.lookupReady,
   }
   return ['tickets', 'list', payload] as const

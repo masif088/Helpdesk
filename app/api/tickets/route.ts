@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { isAdmin } from '@/lib/auth-utils'
@@ -47,6 +47,7 @@ import {
   assertTicketContactUserAllowed,
   getEffectiveCompanyIdForUser,
 } from '@/lib/ticket-contact-user'
+import { isInboxTicket, isTicketScope, loadAssignedTicketIds, loadMyTicketIds, notifyNewUnassignedTicket } from '@/lib/ticket-inbox'
 import { loadTicketCandidates, searchTickets, sortTicketList } from '@/lib/ticket-list-query'
 import { sendNewTicketAgentNotificationEmail } from '@/lib/ticket-notification-emails'
 import { assertCustomerMayUseTicketType } from '@/lib/ticket-type-customer-access'
@@ -136,6 +137,10 @@ export async function GET(request: Request) {
       ? ticketTypeFilter
       : DEFAULT_TICKET_TYPE
 
+  /** Staff views on the support queue: inbox (unassigned, open) or mine (assigned to me). */
+  const scopeParam = url.searchParams.get('scope')?.trim().toLowerCase()
+  const scope = !isCustomerList && listTicketType === DEFAULT_TICKET_TYPE && isTicketScope(scopeParam) ? scopeParam : null
+
   // ── 1. Candidate set ────────────────────────────────────────────────────────
   let candidates: TicketsRow[]
   const searchAsId = search && /^\d+$/.test(search) ? parseInt(search, 10) : null
@@ -210,8 +215,15 @@ export async function GET(request: Request) {
     taggedTicketIds = new Set((await find(ticketTags, { select: ['ticketId'] })).map((l) => l.ticketId))
   }
 
+  const [assignedIds, myIds] = await Promise.all([
+    scope === 'inbox' ? loadAssignedTicketIds() : null,
+    scope === 'mine' ? loadMyTicketIds(userId) : null,
+  ])
+
   const filtered = candidates.filter((t) => {
     if (!allowed(t)) return false
+    if (assignedIds && !isInboxTicket(t, assignedIds)) return false
+    if (myIds && !myIds.has(t.id)) return false
     if (t.ticketType !== listTicketType) return false
     if (!isCustomerList && companySet.size > 0 && (!t.companyId || !companySet.has(t.companyId))) return false
     if (statusSet.size > 0 && !statusSet.has(t.status)) return false
@@ -232,7 +244,8 @@ export async function GET(request: Request) {
   })
 
   // ── 4. Sort + page, then load full rows and relations for the page only ────
-  const pageIds = sortTicketList(filtered, sortById, sortOrder)
+  // Inbox: newest first (it is about "has anyone seen this", not priority)
+  const pageIds = sortTicketList(filtered, sortById || scope === 'inbox', scope === 'inbox' ? 'desc' : sortOrder)
     .slice(offset, offset + limit)
     .map((t) => t.id)
   const pageTicketMap = await getManyMap(tickets, pageIds)
@@ -391,6 +404,8 @@ export async function GET(request: Request) {
       checklist_total: cl.total,
       last_read_at: lastReadAt,
       has_unread_replies: hasUnread,
+      /** Staff: no one on the team has opened this ticket yet */
+      is_new: !isCustomerViewer && !t.staffLastReadAt,
       attachments: attachmentsByTicket[t.id] || [],
     }
   })
@@ -533,6 +548,8 @@ export async function POST(request: Request) {
     ticketType: insertTicketType,
     projectId: insertProjectId,
     projectStatusId: insertProjectStatusId,
+    // Created by staff → already seen by the team (not "New")
+    ...(role !== 'customer' ? { staffLastReadAt: new Date() } : {}),
   }
 
   let newTicket: TicketsRow | undefined
@@ -614,6 +631,26 @@ export async function POST(request: Request) {
       attachment_count: Array.isArray(attachments) ? attachments.length : 0,
     },
   })
+
+  if (insertTicketType === DEFAULT_TICKET_TYPE && !(Array.isArray(assignees) && assignees.length > 0)) {
+    const inboxTicket = { id: ticket.id, title: ticket.title, teamId: ticket.teamId ?? null, companyId: ticket.companyId ?? null }
+    const actor = { id: userId, name: authUser.name || authUser.email || 'Someone', role: role ?? null }
+    after(async () => {
+      try {
+        await notifyNewUnassignedTicket({
+          ticketId: inboxTicket.id,
+          ticketTitle: inboxTicket.title || 'Untitled',
+          teamId: inboxTicket.teamId,
+          companyId: inboxTicket.companyId,
+          actorUserId: actor.id,
+          actorName: actor.name,
+          actorRole: actor.role,
+        })
+      } catch (e) {
+        console.error('[POST ticket] notify inbox:', e)
+      }
+    })
+  }
 
   if (Array.isArray(assignees) && assignees.length > 0) {
     try {

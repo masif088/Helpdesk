@@ -53,6 +53,16 @@ export function StatusPill({
   )
 }
 
+/** Never opened by anyone on the team (staff views). */
+export function NewBadge({ show }: { show?: boolean }) {
+  if (!show) return null
+  return (
+    <span className="ticket-new-badge" title="New — nobody on the team has opened this ticket yet">
+      New
+    </span>
+  )
+}
+
 /** P1 red, P2 amber, others teal. */
 export function PriorityBadge({ priority }: { priority: number | null | undefined }) {
   if (priority == null || priority <= 0) return null

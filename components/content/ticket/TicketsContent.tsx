@@ -123,6 +123,7 @@ export default function TicketsContent({ user: currentUser }: TicketsContentProp
     lookupReady,
     getFilterQueryString,
     filterTicketType,
+    filterScope,
     filterByStatusFromChip,
     filterByTagFromChip,
     filterByCompanyFromChip,
@@ -178,6 +179,7 @@ export default function TicketsContent({ user: currentUser }: TicketsContentProp
             searchFields={searchFields}
             onSearchFieldsChange={setSearchFields}
             filterTicketType={filterTicketType}
+            filterScope={filterScope}
             ticketsPageLimit={ticketsPageLimit}
             onTicketsPageLimitChange={setTicketsPageLimit}
             onRefresh={refetchTickets}
