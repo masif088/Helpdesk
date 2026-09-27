@@ -100,7 +100,6 @@ export async function getCompanyDetail(id: string, opts?: { includeBilling?: boo
     active_team_name,
     active_manager_id: company.activeManagerId ?? null,
     active_manager_display,
-    active_time: company.activeTime ?? 0,
     is_customer: company.isCustomer ?? false,
     freshdesk_id: company.freshdeskId ?? null,
     ...(opts?.includeBilling

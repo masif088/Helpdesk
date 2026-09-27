@@ -4,13 +4,15 @@ import {
   ArrowLeftOutlined,
   CheckSquareOutlined,
   DeleteOutlined,
+  DollarOutlined,
   EditOutlined,
   GlobalOutlined,
+  InfoCircleOutlined,
   PlayCircleOutlined,
   PlusOutlined,
   TeamOutlined,
 } from '@ant-design/icons'
-import { Button, Card, Col, Divider, Flex, Form, Input, InputNumber, Layout, message, Modal, Row, Select, Space, Switch, Tabs, Tag, Typography } from 'antd'
+import { Button, Card, Col, Divider, Form, Input, InputNumber, Layout, message, Modal, Row, Select, Space, Switch, Tabs, Tag, Typography } from 'antd'
 import { useRouter } from 'next/navigation'
 import { useEffect,useState } from 'react'
 
@@ -21,10 +23,12 @@ import {
   TabUsers,
   TabWebsites,
 } from '@/components/company'
+import CompanyBilling from '@/components/company/CompanyBilling'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import CustomerNavbar from '@/components/layout/CustomerNavbar'
-import { DEFAULT_RATE_CURRENCY, RATE_CURRENCIES } from '@/lib/billing-rate'
+import { StatusPill } from '@/components/ticket/list/TicketChips'
+import { DEFAULT_RATE_CURRENCY, formatHourlyRate, RATE_CURRENCIES } from '@/lib/billing-rate'
 
 const { Content } = Layout
 const { Title, Text } = Typography
@@ -166,7 +170,6 @@ export default function CompanyDetailContent({
       leader_user_id: leaderId,
       active_team_id: companyData.active_team_id || undefined,
       active_manager_id: companyData.active_manager_id || undefined,
-      active_time: companyData.active_time ?? 0,
       is_customer: companyData.is_customer ?? false,
       default_hourly_rate: companyData.default_hourly_rate ?? null,
       default_rate_currency: companyData.default_rate_currency ?? DEFAULT_RATE_CURRENCY,
@@ -204,7 +207,6 @@ export default function CompanyDetailContent({
             leader_user_id: values.leader_user_id,
             active_team_id: values.active_team_id ?? null,
             active_manager_id: values.active_manager_id ?? null,
-            active_time: values.active_time ?? 0,
             is_customer: values.is_customer === true,
             ...(canEditBilling
               ? {
@@ -411,9 +413,26 @@ export default function CompanyDetailContent({
   const tabItems = [
     {
       key: 'info',
-      label: 'Company Information',
+      label: (
+        <span>
+          <InfoCircleOutlined /> Overview
+        </span>
+      ),
       children: <TabInfo companyData={companyData} canEdit={canEdit} />,
     },
+    ...(canEditBilling
+      ? [
+          {
+            key: 'billing',
+            label: (
+              <span>
+                <DollarOutlined /> Billing
+              </span>
+            ),
+            children: <CompanyBilling companyId={companyData.id} defaultCurrency={companyData.default_rate_currency} />,
+          },
+        ]
+      : []),
     {
       key: 'users',
       label: (
@@ -498,30 +517,40 @@ export default function CompanyDetailContent({
       >
         <Content style={{ padding: '24px', background: 'var(--layout-bg)', minHeight: '100vh' }}>
           
-            {!isCustomer ? (
-              <div style={{ marginBottom: 16 }}>
-                <Button
-                  type="default"
-                  icon={<ArrowLeftOutlined />}
-                  onClick={() => router.push('/companies')}
-                >
-                  Back to list
+            <div className="company-hero">
+              {!isCustomer ? (
+                <Button type="text" size="small" icon={<ArrowLeftOutlined />} onClick={() => router.push('/companies')} className="company-hero__back">
+                  Companies
                 </Button>
-              </div>
-            ) : null}
-
-            <Flex justify="space-between" align="center" wrap="wrap" gap={12}>
-              <Title level={2} style={{ margin: 0 }}>
-                {companyData.name}
-              </Title>
-              <Space>
+              ) : null}
+              <div className="company-hero__row">
+                <span className="company-hero__mark" style={{ background: companyData.color || 'var(--brand-primary)' }} aria-hidden>
+                  {(companyData.name || '?').trim().charAt(0).toUpperCase()}
+                </span>
+                <div className="company-hero__main">
+                  <Title level={2} className="page-head__title">
+                    {companyData.name}
+                  </Title>
+                  <div className="company-hero__meta">
+                    <StatusPill color={companyData.is_active === false ? '#94A3B8' : '#16A34A'} title={companyData.is_active === false ? 'Inactive' : 'Active'} />
+                    {!isCustomer ? (
+                      <StatusPill color={companyData.is_customer ? '#0F9D8A' : '#64748B'} title={companyData.is_customer ? 'Customer' : 'Internal'} />
+                    ) : null}
+                    {companyData.email ? <a href={`mailto:${companyData.email}`}>{companyData.email}</a> : null}
+                    {companyData.active_team_name ? <span>Team · <strong>{companyData.active_team_name}</strong></span> : null}
+                    {companyData.active_manager_display ? <span>Manager · <strong>{companyData.active_manager_display}</strong></span> : null}
+                    {canEditBilling && companyData.default_hourly_rate != null ? (
+                      <span>Rate · <strong>{formatHourlyRate(companyData.default_hourly_rate, companyData.default_rate_currency)}</strong></span>
+                    ) : null}
+                  </div>
+                </div>
                 {canEdit && (
                   <Button type="primary" icon={<EditOutlined />} onClick={() => void openEditCompanyModal()}>
                     Edit company
                   </Button>
                 )}
-              </Space>
-            </Flex>
+              </div>
+            </div>
 
             <Modal
               title="Edit company"
@@ -603,11 +632,6 @@ export default function CompanyDetailContent({
                       />
                     </Form.Item>
                     <Row gutter={16}>
-                      <Col xs={24} sm={12}>
-                        <Form.Item name="active_time" label="Active time" initialValue={0}>
-                          <InputNumber min={0} precision={0} addonAfter="H" style={{ width: '100%' }} />
-                        </Form.Item>
-                      </Col>
                       {canEditBilling ? (
                         <Col xs={24} sm={12}>
                           <Form.Item
@@ -645,7 +669,7 @@ export default function CompanyDetailContent({
                 return item ? item.children : null
               })()
             ) : (
-              <Tabs items={tabItems} />
+              <Tabs items={tabItems} className="company-tabs" />
             )}
 
             {/* Website Modal */}

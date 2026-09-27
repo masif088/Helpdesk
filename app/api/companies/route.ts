@@ -11,11 +11,6 @@ function normalizeUuidBody(v: unknown): string | null {
   return v
 }
 
-function parseActiveTime(v: unknown): number {
-  if (typeof v !== 'number' || !Number.isFinite(v)) return 0
-  return Math.max(0, Math.floor(v))
-}
-
 /** GET /api/companies - List companies */
 export async function GET(request: Request) {
   const session = await auth()
@@ -74,7 +69,6 @@ export async function GET(request: Request) {
     is_active: r.isActive ?? true,
     active_team_id: r.activeTeamId ?? null,
     active_manager_id: r.activeManagerId ?? null,
-    active_time: r.activeTime ?? 0,
     is_customer: r.isCustomer ?? false,
     created_at: r.createdAt ? new Date(r.createdAt).toISOString() : '',
     updated_at: r.updatedAt ? new Date(r.updatedAt).toISOString() : '',
@@ -95,7 +89,6 @@ export async function POST(request: Request) {
   const { name, email, is_active, color, leader_user_id } = body
   const activeTeamId = normalizeUuidBody(body.active_team_id)
   const activeManagerId = normalizeUuidBody(body.active_manager_id)
-  const activeTime = parseActiveTime(body.active_time)
   const isCustomerCompany = body.is_customer === true
 
   if (!name) {
@@ -138,7 +131,6 @@ export async function POST(request: Request) {
     isActive: is_active !== undefined ? is_active : true,
     activeTeamId,
     activeManagerId,
-    activeTime,
     isCustomer: isCustomerCompany,
   })
 
@@ -167,7 +159,6 @@ export async function POST(request: Request) {
         is_active: row.isActive ?? true,
         active_team_id: row.activeTeamId ?? null,
         active_manager_id: row.activeManagerId ?? null,
-        active_time: row.activeTime ?? 0,
         is_customer: row.isCustomer ?? false,
         created_at: row.createdAt ? new Date(row.createdAt).toISOString() : '',
         updated_at: row.updatedAt ? new Date(row.updatedAt).toISOString() : '',

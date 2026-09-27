@@ -51,15 +51,6 @@ const { Content } = Layout
 const { Title, Text } = Typography
 
 /** Maksimal 2 angka di belakang koma */
-function formatActiveTicketEquiv(v: number): string {
-  if (!Number.isFinite(v)) return '0'
-  const rounded = Math.round(v * 100) / 100
-  return rounded.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })
-}
-
 interface TeamsContentProps {
   user: { id: string; email?: string | null; name?: string | null; role?: string }
 }
@@ -90,15 +81,12 @@ interface CompanyListRow {
   id: string
   name: string | null
   active_team_id: string | null
-  active_time: number
 }
 
 interface CompanyActivePlanRow {
   key: string
   no: number
   company_label: string
-  active_time: number
-  active_ticket_equiv: number
 }
 
 /** Header tints — cycle for each team block */
@@ -165,13 +153,10 @@ export default function TeamsContent({ user: currentUser }: TeamsContentProps) {
           )
           const rows: CompanyActivePlanRow[] = teamCompanies.map((c, idx) => {
             const cname = (c.name ?? '').trim() || `Company ${c.id.slice(0, 8)}…`
-            const at = Number(c.active_time) || 0
             return {
               key: c.id,
               no: idx + 1,
               company_label: cname,
-              active_time: at,
-              active_ticket_equiv: at / 3,
             }
           })
           groups.push({
@@ -436,22 +421,6 @@ export default function TeamsContent({ user: currentUser }: TeamsContentProps) {
       key: 'company_label',
       ellipsis: true,
     },
-    {
-      title: 'Time',
-      dataIndex: 'active_time',
-      key: 'active_time',
-      width: 100,
-      align: 'center',
-      render: (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString(),
-    },
-    {
-      title: 'Active ticket',
-      dataIndex: 'active_ticket_equiv',
-      key: 'active_ticket_equiv',
-      width: 140,
-      align: 'center',
-      render: (v: number) => formatActiveTicketEquiv(v),
-    },
   ]
 
   return (
@@ -526,28 +495,6 @@ export default function TeamsContent({ user: currentUser }: TeamsContentProps) {
                               pagination={false}
                               size="small"
                               scroll={{ x: 480 }}
-                              summary={() => {
-                                const teamTime = g.rows.reduce(
-                                  (s, r) => s + (Number(r.active_time) || 0),
-                                  0
-                                )
-                                const teamTicket = teamTime / 3
-                                return (
-                                  <Table.Summary fixed>
-                                    <Table.Summary.Row>
-                                      <Table.Summary.Cell index={0} colSpan={2} align="right">
-                                        <Text strong>Total</Text>
-                                      </Table.Summary.Cell>
-                                      <Table.Summary.Cell index={2} align="center">
-                                        <Text strong>{teamTime.toLocaleString()}</Text>
-                                      </Table.Summary.Cell>
-                                      <Table.Summary.Cell index={3} align="center">
-                                        <Text strong>{formatActiveTicketEquiv(teamTicket)}</Text>
-                                      </Table.Summary.Cell>
-                                    </Table.Summary.Row>
-                                  </Table.Summary>
-                                )
-                              }}
                             />
                           </div>
                         </Col>

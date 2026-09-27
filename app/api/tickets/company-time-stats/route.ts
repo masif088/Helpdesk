@@ -15,7 +15,6 @@ export type ActiveTrackerEntry = {
 export type CompanyTimeStat = {
   company_id: string
   today_seconds: number
-  active_time_hours: number
   active_manager_name: string | null
   has_active_tracker: boolean
   active_tracker_user_name: string | null
@@ -78,7 +77,7 @@ export async function GET(request: Request) {
     activeMap.set(cid, arr)
   }
 
-  // Company active_time + active_manager_id
+  // Company active manager
   const companyRows = await getMany(companies, companyIds)
 
   // Resolve tracker user and manager names in one batch
@@ -99,7 +98,6 @@ export async function GET(request: Request) {
     return {
       company_id: c.id,
       today_seconds: timeMap.get(c.id) ?? 0,
-      active_time_hours: c.activeTime ?? 0,
       active_manager_name: c.activeManagerId ? nameOf(c.activeManagerId) : null,
       has_active_tracker: actives.length > 0,
       active_tracker_user_name: first ? nameOf(first.userId) : null,

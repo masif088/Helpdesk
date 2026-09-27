@@ -26,11 +26,6 @@ function normalizeUuidBody(v: unknown): string | null {
   return v
 }
 
-function parseActiveTime(v: unknown): number {
-  if (typeof v !== 'number' || !Number.isFinite(v)) return 0
-  return Math.max(0, Math.floor(v))
-}
-
 /** GET /api/companies/[id] - Get company with related data */
 export async function GET(
   _request: Request,
@@ -73,7 +68,6 @@ export async function PUT(
     body.active_team_id !== undefined ? normalizeUuidBody(body.active_team_id) : undefined
   const activeManagerId =
     body.active_manager_id !== undefined ? normalizeUuidBody(body.active_manager_id) : undefined
-  const activeTime = body.active_time !== undefined ? parseActiveTime(body.active_time) : undefined
   const isCustomerCompany = body.is_customer !== undefined ? body.is_customer === true : undefined
   const role = (session.user as { role?: string }).role?.toLowerCase()
   const isCustomer = role === 'customer'
@@ -119,7 +113,6 @@ export async function PUT(
       }
       updateData.activeManagerId = activeManagerId
     }
-    if (activeTime !== undefined) updateData.activeTime = activeTime
     if (isCustomerCompany !== undefined) updateData.isCustomer = isCustomerCompany
   }
 
@@ -194,7 +187,6 @@ export async function PUT(
       is_active: row.isActive ?? true,
       active_team_id: row.activeTeamId ?? null,
       active_manager_id: row.activeManagerId ?? null,
-      active_time: row.activeTime ?? 0,
       is_customer: row.isCustomer ?? false,
       ...(isAdminOrManager(role)
         ? { default_hourly_rate: row.defaultHourlyRate ?? null, default_rate_currency: row.defaultRateCurrency ?? null }

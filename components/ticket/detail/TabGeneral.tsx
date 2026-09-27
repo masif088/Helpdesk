@@ -460,7 +460,7 @@ export default function TabGeneral({
 
   const [companyDetail, setCompanyDetail] = useState<{
     name: string; email?: string | null; active_manager_id?: string | null
-    active_team_id?: string | null; domainList?: string[]; active_time?: number
+    active_team_id?: string | null; domainList?: string[]
   } | null>(null)
   const [companyAttrs, setCompanyAttrs] = useState<CompanyAttr[]>([])
   const [topTickets, setTopTickets] = useState<TopTicket[]>([])
@@ -1336,12 +1336,6 @@ export default function TabGeneral({
                         <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>
                           {teamOptions?.find(t => t.id === companyDetail!.active_team_id)?.name || '—'}
                         </Text>
-                      </div>
-                    )}
-                    {(companyDetail.active_time ?? 0) > 0 && (
-                      <div>
-                        <Text style={{ fontSize: 11, display: 'block', marginBottom: 2, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1 }}>Active Time</Text>
-                        <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>{companyDetail.active_time} h</Text>
                       </div>
                     )}
                     {companyDetail.domainList && companyDetail.domainList.length > 0 && (

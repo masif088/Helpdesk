@@ -297,7 +297,6 @@ export type CompaniesRow = {
   color: string | null
   activeTeamId: string | null
   activeManagerId: string | null
-  activeTime: number
   isCustomer: boolean
   freshdeskId: number | null
   /** Default hourly rate copied to new tickets of this company (admin/manager only). */
@@ -317,7 +316,6 @@ export type NewCompaniesRow = {
   color?: string | null
   activeTeamId?: string | null
   activeManagerId?: string | null
-  activeTime?: number
   isCustomer?: boolean
   freshdeskId?: number | null
   defaultHourlyRate?: number | null
@@ -328,12 +326,48 @@ export type NewCompaniesRow = {
 
 export const companies = defineTable<CompaniesRow, NewCompaniesRow>({
   name: 'companies',
-  columns: ['id', 'name', 'isActive', 'email', 'domainList', 'color', 'activeTeamId', 'activeManagerId', 'activeTime', 'isCustomer', 'freshdeskId', 'defaultHourlyRate', 'defaultRateCurrency', 'createdAt', 'updatedAt'],
+  columns: ['id', 'name', 'isActive', 'email', 'domainList', 'color', 'activeTeamId', 'activeManagerId', 'isCustomer', 'freshdeskId', 'defaultHourlyRate', 'defaultRateCurrency', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',
-  defaults: {'isActive': true, 'domainList': [], 'color': '#000000', 'activeTime': 0, 'isCustomer': false},
+  defaults: {'isActive': true, 'domainList': [], 'color': '#000000', 'isCustomer': false},
   nowFields: ['createdAt', 'updatedAt'],
+})
+
+/** Payments received from a company (billing: billed − paid = outstanding). */
+export type CompanyPaymentsRow = {
+  id: string
+  companyId: string
+  amount: number
+  /** IDR | USD */
+  currency: string
+  paidAt: Date
+  reference: string | null
+  note: string | null
+  createdBy: string | null
+  createdAt: Date
+}
+
+export type NewCompanyPaymentsRow = {
+  id?: string
+  companyId: string
+  amount: number
+  currency: string
+  paidAt: Date
+  reference?: string | null
+  note?: string | null
+  createdBy?: string | null
+  createdAt?: Date
+}
+
+export const companyPayments = defineTable<CompanyPaymentsRow, NewCompanyPaymentsRow>({
+  name: 'company_payments',
+  columns: ['id', 'companyId', 'amount', 'currency', 'paidAt', 'reference', 'note', 'createdBy', 'createdAt'],
+  docKey: ['id'],
+  idField: 'id',
+  idGen: 'uuid',
+  defaults: {},
+  nowFields: ['createdAt'],
 })
 
 export type CompanyAttributesRow = {
@@ -1721,4 +1755,4 @@ export const users = defineTable<UsersRow, NewUsersRow>({
   nowFields: ['createdAt', 'updatedAt'],
 })
 
-export const allTables = [aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const
+export const allTables = [aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const

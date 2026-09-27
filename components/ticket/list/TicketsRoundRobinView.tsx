@@ -124,7 +124,6 @@ export default function TicketsRoundRobinView({
             <div style={{ minWidth: 0 }}>
               <div className="rr-company__name">
                 {row.companyName}
-                {stat && stat.active_time_hours > 0 && <span className="rr-company__hours">{stat.active_time_hours}h plan</span>}
               </div>
               {stat && (
                 <div className="rr-company__meta">

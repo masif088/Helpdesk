@@ -1,7 +1,7 @@
 'use client'
 
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
-import { Button, Card, Col, Form, Input, InputNumber, Layout, message, Modal, Popconfirm, Row, Select, Space, Switch, Tooltip, Typography } from 'antd'
+import { Button, Card, Col, Form, Input, Layout, message, Modal, Popconfirm, Row, Select, Space, Switch, Tooltip, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo,useState } from 'react'
@@ -41,7 +41,6 @@ interface CompanyRecord {
   color: string
   active_team_id?: string | null
   active_manager_id?: string | null
-  active_time?: number
   is_customer?: boolean
   created_at: string
   updated_at: string
@@ -194,7 +193,6 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       leader_user_id: undefined,
       active_team_id: undefined,
       active_manager_id: undefined,
-      active_time: 0,
       is_customer: false,
     })
     setModalVisible(true)
@@ -209,7 +207,6 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       leader_user_id: record.created_by || undefined,
       active_team_id: record.active_team_id || undefined,
       active_manager_id: record.active_manager_id || undefined,
-      active_time: record.active_time ?? 0,
       is_customer: record.is_customer ?? false,
     })
     setModalVisible(true)
@@ -232,13 +229,11 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
     leader_user_id?: string
     active_team_id?: string | null
     active_manager_id?: string | null
-    active_time?: number | null
     is_customer?: boolean
   }) => {
     const staffPayload = {
       active_team_id: values.active_team_id ?? null,
       active_manager_id: values.active_manager_id ?? null,
-      active_time: values.active_time ?? 0,
       is_customer: values.is_customer === true,
     }
     setSaving(true)
@@ -339,14 +334,6 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       },
     },
     {
-      title: 'Active Time',
-      key: 'active_time',
-      width: 110,
-      align: 'center',
-      render: (_: unknown, record: CompanyRecord) =>
-        (record.active_time ?? 0) > 0 ? <Chip color="#0F9D8A">{record.active_time}h</Chip> : <span className="people-muted">—</span>,
-    },
-    {
       title: 'Last ticket update',
       dataIndex: 'last_ticket_updated_at',
       key: 'last_ticket_updated_at',
@@ -436,9 +423,6 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
               dataSource={filteredCompanies}
               rowKey="id"
               loading={loading}
-              rowClassName={(record: CompanyRecord) =>
-                record.is_customer && !(record.active_time ?? 0) ? 'company-row--no-active-time' : ''
-              }
               pagination={{
                 current: pagination.current,
                 pageSize: pagination.pageSize,
@@ -537,15 +521,6 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
               </Form.Item>
 
               <Row gutter={24}>
-                <Col xs={24} sm={8}>
-                  <Form.Item
-                    name="active_time"
-                    label="Active time"
-                    initialValue={0}
-                  >
-                    <InputNumber min={0} precision={0} addonAfter="H" style={{ width: '100%' }} />
-                  </Form.Item>
-                </Col>
                 <Col xs={24} sm={5}>
                   <Form.Item
                     name="is_customer"
