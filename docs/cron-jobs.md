@@ -31,7 +31,8 @@ Pick **one** scheduler below. Both are free at this volume.
 Time-driven triggers in a Google Apps Script project call the endpoints with `UrlFetchApp`.
 
 1. Open https://script.google.com → *New project*. Name it e.g. "Helpdesk scheduler".
-2. Replace `Code.gs` with the contents of [`docs/apps-script-scheduler.gs`](apps-script-scheduler.gs).
+2. Replace `Code.gs` with the script from **Settings → Scheduled jobs → Copy script** in the app
+   (source: `lib/scheduler-apps-script.ts`).
 3. Project Settings (gear) → *Script Properties* → add:
    - `APP_URL` = the app URL, no trailing slash (e.g. `https://helpdesk.example.com`)
    - `CRON_SECRET` = the value of `SYNC_INBOX_CRON_SECRET` on the server
@@ -39,7 +40,8 @@ Time-driven triggers in a Google Apps Script project call the endpoints with `Ur
    (external requests + triggers). This creates the three triggers; run it again after changing the schedule.
 5. Select `syncInbox` → *Run* once to test. The log shows the HTTP status and the response.
 
-Check runs in *Executions* (left sidebar). A failing run (401 / 5xx) is marked failed and Google emails
+Check runs in *Executions* (left sidebar), or in the app: **Settings → Scheduled jobs** shows the last run
+of each job (time, OK / failed / late, counts) and has a *Run now* button. A failing run (401 / 5xx) is marked failed and Google emails
 the script owner a daily failure summary.
 
 Limits to keep in mind (free Gmail account; Google Workspace accounts have higher limits):
@@ -118,5 +120,6 @@ Or use the **Sync inbox** button in Settings → Email Integration.
 ## Adding a job
 
 1. Create the endpoint at `app/api/cron/<name>/route.ts` and start it with `if (!isCronRequest(req)) return 401`.
-2. Add a function + trigger in `docs/apps-script-scheduler.gs` (or a Cloud Scheduler job).
+2. Add it to `lib/scheduled-jobs.ts`, wrap the handler with `withJobRun` (`lib/job-runs.ts`), add a function +
+   trigger in `lib/scheduler-apps-script.ts` (or a Cloud Scheduler job).
 3. Add it to the table in this document.

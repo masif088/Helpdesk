@@ -1,27 +1,32 @@
 'use client'
 
 import {
+  ApartmentOutlined,
+  ApiOutlined,
   AppstoreOutlined,
-  BellOutlined,
-  CalendarOutlined,
-  CheckSquareOutlined,
-  FileTextOutlined,
-  GlobalOutlined,
-  InfoCircleOutlined,
+  ArrowRightOutlined,
+  BgColorsOutlined,
+  CarryOutOutlined,
+  FieldTimeOutlined,
+  IdcardOutlined,
   MailOutlined,
-  NotificationOutlined,
+  MessageOutlined,
+  PushpinOutlined,
+  ReadOutlined,
   RobotOutlined,
-  SettingOutlined,
-  TagOutlined,
+  SafetyCertificateOutlined,
+  ScheduleOutlined,
+  SearchOutlined,
+  SlackOutlined,
+  SoundOutlined,
+  SyncOutlined,
+  TagsOutlined,
   TeamOutlined,
   ThunderboltOutlined,
-  ToolOutlined,
-  UnorderedListOutlined,
-  UserOutlined,
 } from '@ant-design/icons'
-import { Col, Layout, Row, Typography } from 'antd'
+import { Input, Layout, Typography } from 'antd'
 import type { CSSProperties, ReactNode } from 'react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
@@ -46,66 +51,115 @@ import {
 const { Content } = Layout
 const { Title, Text } = Typography
 
-const tileStyle: CSSProperties = {
-  display: 'flex',
-  height: '100%',
-  padding: 20,
-  gap: 20,
-  alignItems: 'center',
-  borderRadius: 12,
-  background: 'var(--settings-hub-tile-bg)',
-  border: '1px solid var(--settings-hub-tile-border)',
-  transition: 'background 0.2s, box-shadow 0.2s',
-}
-
-interface HubTileProps {
+type SettingItem = {
   title: string
-  description?: string
+  description: string
   href: string
   icon: ReactNode
+  /** Extra search words */
+  keywords?: string
+  show: (role: string) => boolean
 }
 
-function HubTile({ title, description, href, icon }: HubTileProps) {
+type SettingGroup = {
+  key: string
+  title: string
+  description: string
+  icon: ReactNode
+  /** Accent color of the group (icon chips) */
+  tone: string
+  items: SettingItem[]
+}
+
+const always = () => true
+
+const GROUPS: SettingGroup[] = [
+  {
+    key: 'tickets',
+    title: 'Tickets',
+    description: 'How tickets are classified and worked on',
+    icon: <AppstoreOutlined />,
+    tone: '#0F9D8A',
+    items: [
+      { title: 'Statuses', description: 'Workflow states and Kanban columns', href: '/settings/ticket-statuses', icon: <ApartmentOutlined />, keywords: 'workflow kanban column', show: canAccessTicketAttributes },
+      { title: 'Types', description: 'Request categories: bug, feature, question…', href: '/settings/ticket-types', icon: <AppstoreOutlined />, keywords: 'category', show: canAccessTicketAttributes },
+      { title: 'Tags', description: 'Labels for organizing and filtering tickets', href: '/settings/tags', icon: <TagsOutlined />, keywords: 'label', show: canAccessTicketAttributes },
+      { title: 'Checklist templates', description: 'Reusable checklists, grouped, applied to tickets', href: '/settings/checklist-templates', icon: <CarryOutOutlined />, keywords: 'todo task', show: canAccessChecklistTemplates },
+      { title: 'Job types', description: 'Work categories for the time tracker, billable or not', href: '/settings/job-types-catalog', icon: <FieldTimeOutlined />, keywords: 'time tracker billable hours', show: isAdmin },
+    ],
+  },
+  {
+    key: 'workflow',
+    title: 'Workflow & automation',
+    description: 'Things that happen on their own',
+    icon: <ThunderboltOutlined />,
+    tone: '#D97706',
+    items: [
+      { title: 'Automation rules', description: 'When a ticket matches, set fields, tags, notes…', href: '/settings/automation-rules', icon: <ThunderboltOutlined />, keywords: 'trigger action time', show: canAccessAutomationRules },
+      { title: 'Recurring tickets', description: 'Create tickets automatically on a schedule', href: '/settings/recurring-tickets', icon: <SyncOutlined />, keywords: 'schedule repeat', show: canAccessRecurringTickets },
+      { title: 'Message templates', description: 'Email notifications and reply templates', href: '/settings/message-templates', icon: <MessageOutlined />, keywords: 'email reply notification', show: canAccessMessageTemplates },
+    ],
+  },
+  {
+    key: 'integrations',
+    title: 'Integrations',
+    description: 'Connected services',
+    icon: <ApiOutlined />,
+    tone: '#6366F1',
+    items: [
+      { title: 'Email (Gmail)', description: 'Mailbox that turns emails into tickets and sends replies', href: '/settings/email-integration', icon: <MailOutlined />, keywords: 'gmail inbox sync', show: canAccessEmailIntegration },
+      { title: 'Slack', description: 'Ticket alerts to Slack channels', href: '/settings/slack-notifications', icon: <SlackOutlined />, keywords: 'notification channel', show: canAccessSlackNotifications },
+      { title: 'AI', description: 'Provider and model for summaries and reply drafts', href: '/settings/ai', icon: <RobotOutlined />, keywords: 'openai codex summary', show: canAccessAiSettings },
+    ],
+  },
+  {
+    key: 'people',
+    title: 'People & access',
+    description: 'Internal accounts and what they can do',
+    icon: <TeamOutlined />,
+    tone: '#0EA5E9',
+    items: [
+      { title: 'Users', description: 'Admins, managers and staff accounts', href: '/settings/users', icon: <IdcardOutlined />, keywords: 'staff admin manager account', show: canAccessUsers },
+      { title: 'Teams', description: 'Groups that tickets are assigned to', href: '/settings/teams', icon: <TeamOutlined />, keywords: 'group member', show: canAccessTeams },
+      { title: 'Feature access', description: 'Which role can use which feature', href: '/settings/feature-access', icon: <SafetyCertificateOutlined />, keywords: 'role permission', show: always },
+    ],
+  },
+  {
+    key: 'content',
+    title: 'Content & announcements',
+    description: 'What customers and staff read',
+    icon: <ReadOutlined />,
+    tone: '#E11D48',
+    items: [
+      { title: 'Knowledge base', description: 'Help articles for customers', href: '/settings/knowledge-base', icon: <ReadOutlined />, keywords: 'article help faq', show: canAccessKnowledgeBase },
+      { title: 'Global announcement', description: 'Banner across the app, with start and end time', href: '/settings/global-announcement', icon: <SoundOutlined />, keywords: 'banner', show: canManageGlobalAnnouncement },
+      { title: 'Dashboard announcements', description: 'Posts on the dashboard, per role', href: '/settings/dashboard-announcements', icon: <PushpinOutlined />, keywords: 'news post', show: canManageDashboardAnnouncements },
+    ],
+  },
+  {
+    key: 'system',
+    title: 'System',
+    description: 'Look, health and background jobs',
+    icon: <ScheduleOutlined />,
+    tone: '#64748B',
+    items: [
+      { title: 'Branding', description: 'App name, logo, favicon and email sender name', href: '/settings/app-branding', icon: <BgColorsOutlined />, keywords: 'logo name favicon sender', show: isAdmin },
+      { title: 'Scheduled jobs', description: 'Email sync, recurring tickets, time triggers: last run and setup', href: '/settings/scheduled-jobs', icon: <ScheduleOutlined />, keywords: 'cron apps script scheduler sync', show: isAdmin },
+      { title: 'Connection status', description: 'Database, storage, Firebase, email and AI checks', href: '/settings/connection-status', icon: <ApiOutlined />, keywords: 'health check firebase storage', show: isAdmin },
+    ],
+  },
+]
+
+function SettingCard({ item, tone }: { item: SettingItem; tone: string }) {
   return (
-    <SpaNavLink
-      href={href}
-      style={{ display: 'block', height: '100%', color: 'inherit' }}
-      className="settings-hub-tile-link"
-    >
-      <div
-        className="settings-hub-tile"
-        style={tileStyle}
-      >
-        <div style={{ fontSize: 22, color: '#1890ff', marginBottom: 12 }}>{icon}</div>
-        <div>
-        <Text strong style={{ fontSize: 15, display: 'block', color: 'var(--settings-hub-tile-title)' }}>
-          {title}
-        </Text>
-        {description ? (
-          <Text style={{ fontSize: 13, display: 'block', color: 'var(--settings-hub-tile-desc)' }}>
-            {description}
-          </Text>
-        ) : null}
-        </div>
-        
-      </div>
+    <SpaNavLink href={item.href} className="settings-card" style={{ ['--tone' as string]: tone } as CSSProperties}>
+      <span className="settings-card__icon">{item.icon}</span>
+      <span className="settings-card__text">
+        <span className="settings-card__title">{item.title}</span>
+        <span className="settings-card__desc">{item.description}</span>
+      </span>
+      <ArrowRightOutlined className="settings-card__arrow" />
     </SpaNavLink>
-  )
-}
-
-interface SectionProps {
-  heading: string
-  children: ReactNode
-}
-
-function Section({ heading, children }: SectionProps) {
-  return (
-    <section style={{ marginBottom: 32 }}>
-      <Title level={4} className="settings-section-heading" style={{ marginTop: 0, marginBottom: 16 }}>
-        {heading}
-      </Title>
-      {children}
-    </section>
   )
 }
 
@@ -115,257 +169,66 @@ interface SettingsContentProps {
 
 export default function SettingsContent({ user: currentUser }: SettingsContentProps) {
   const [collapsed, setCollapsed] = useState(false)
+  const [query, setQuery] = useState('')
   const role = (currentUser.role ?? '').toLowerCase()
+
+  const groups = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return GROUPS.map((g) => ({
+      ...g,
+      items: g.items.filter(
+        (it) =>
+          it.show(role) &&
+          (!q || `${it.title} ${it.description} ${it.keywords ?? ''} ${g.title}`.toLowerCase().includes(q))
+      ),
+    })).filter((g) => g.items.length > 0)
+  }, [role, query])
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <AdminSidebar
-        user={{
-          ...currentUser,
-          role: currentUser.role ?? undefined,
-        }}
-        collapsed={collapsed}
-        onCollapse={setCollapsed}
-      />
+      <AdminSidebar user={{ ...currentUser, role: currentUser.role ?? undefined }} collapsed={collapsed} onCollapse={setCollapsed} />
 
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
-        <Content className="settings-page" style={{ padding: 24, margin: '0 auto', width: '100%' }}>
-          <div style={{ marginBottom: 24 }}>
-            <Title level={2} className="settings-section-heading" style={{ margin: 0 }}>
-              Settings
-            </Title>
-            <Text style={{ color: 'var(--settings-hub-tile-desc)' }}>
-              Configure ticket catalogs, automation, and general options
-            </Text>
+        <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
+          <div className="page-head">
+            <div>
+              <Title level={2} className="page-head__title">
+                Settings
+              </Title>
+              <Text className="page-head__sub">Ticket catalog, automation, integrations and system options</Text>
+            </div>
+            <Input
+              allowClear
+              prefix={<SearchOutlined />}
+              placeholder="Search settings…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={{ width: 280, maxWidth: '100%' }}
+            />
           </div>
 
-          {/* ── Ticket Attributes ─────────────────────────────────── */}
-          {canAccessTicketAttributes(role) && (
-            <Section heading="Ticket Attributes">
-              <Row gutter={[16, 16]}>
-                <Col xs={24} sm={12} md={8}>
-                  <HubTile
-                    title="Ticket Statuses"
-                    description="Workflow states and kanban columns"
-                    href="/settings/ticket-statuses"
-                    icon={<SettingOutlined />}
-                  />
-                </Col>
-                <Col xs={24} sm={12} md={8}>
-                  <HubTile
-                    title="Ticket Types"
-                    description="Request categories (bug, feature, etc)"
-                    href="/settings/ticket-types"
-                    icon={<AppstoreOutlined />}
-                  />
-                </Col>
-                <Col xs={24} sm={12} md={8}>
-                  <HubTile
-                    title="Tags"
-                    description="Labels for organizing tickets"
-                    href="/settings/tags"
-                    icon={<TagOutlined />}
-                  />
-                </Col>
-                {isAdmin(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Job Types"
-                      description="Work categories for the time tracker"
-                      href="/settings/job-types-catalog"
-                      icon={<ToolOutlined />}
-                    />
-                  </Col>
-                )}
-                {canAccessChecklistTemplates(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Checklist Templates"
-                      description="Reusable checklist templates with groups, applied to tickets"
-                      href="/settings/checklist-templates"
-                      icon={<CheckSquareOutlined />}
-                    />
-                  </Col>
-                )}
-              </Row>
-            </Section>
+          {groups.length === 0 ? (
+            <div className="settings-empty">No settings match “{query}”.</div>
+          ) : (
+            <div className="settings-groups">
+              {groups.map((g) => (
+                <section key={g.key} className="settings-group" style={{ ['--tone' as string]: g.tone } as CSSProperties}>
+                  <header className="settings-group__head">
+                    <span className="settings-group__icon">{g.icon}</span>
+                    <span>
+                      <span className="settings-group__title">{g.title}</span>
+                      <span className="settings-group__desc">{g.description}</span>
+                    </span>
+                  </header>
+                  <div className="settings-group__items">
+                    {g.items.map((it) => (
+                      <SettingCard key={it.href} item={it} tone={g.tone} />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
           )}
-
-          {/* ── Automation & Notifications ────────────────────────── */}
-          {(canAccessEmailIntegration(role) ||
-            canAccessSlackNotifications(role) ||
-            canAccessMessageTemplates(role) ||
-            canAccessAutomationRules(role) ||
-            canAccessRecurringTickets(role)) && (
-            <Section heading="Automation & Notifications">
-              <Row gutter={[16, 16]}>
-                {canAccessEmailIntegration(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Email Integration"
-                      description="Inbound mail and threading"
-                      href="/settings/email-integration"
-                      icon={<MailOutlined />}
-                    />
-                  </Col>
-                )}
-                {canAccessSlackNotifications(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Slack Notifications"
-                      description="Ticket alerts to a Slack channel"
-                      href="/settings/slack-notifications"
-                      icon={<BellOutlined />}
-                    />
-                  </Col>
-                )}
-                {canAccessMessageTemplates(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Message Templates"
-                      description="Notification and reply templates"
-                      href="/settings/message-templates"
-                      icon={<FileTextOutlined />}
-                    />
-                  </Col>
-                )}
-                {canAccessAutomationRules(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Automation Rules"
-                      description="Triggers and actions on tickets"
-                      href="/settings/automation-rules"
-                      icon={<ThunderboltOutlined />}
-                    />
-                  </Col>
-                )}
-                {canAccessRecurringTickets(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Recurring Tickets"
-                      description="Auto-create tickets on a schedule"
-                      href="/settings/recurring-tickets"
-                      icon={<CalendarOutlined />}
-                    />
-                  </Col>
-                )}
-              </Row>
-            </Section>
-          )}
-
-          {/* ── People & Access ───────────────────────────────────── */}
-          {(canAccessUsers(role) || canAccessTeams(role)) && (
-            <Section heading="People & Access">
-              <Row gutter={[16, 16]}>
-                {canAccessUsers(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Users"
-                      description="Internal accounts: admins, managers and staff"
-                      href="/settings/users"
-                      icon={<UserOutlined />}
-                    />
-                  </Col>
-                )}
-                {canAccessTeams(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Teams"
-                      description="Groups for ticket assignments"
-                      href="/settings/teams"
-                      icon={<TeamOutlined />}
-                    />
-                  </Col>
-                )}
-                <Col xs={24} sm={12} md={8}>
-                  <HubTile
-                    title="Feature Access"
-                    description="Role-based access overview for all features"
-                    href="/settings/feature-access"
-                    icon={<UnorderedListOutlined />}
-                  />
-                </Col>
-                {isAdmin(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Connection Status"
-                      description="Check database, storage, Firebase, email, and AI connectivity"
-                      href="/settings/connection-status"
-                      icon={<ToolOutlined />}
-                    />
-                  </Col>
-                )}
-              </Row>
-            </Section>
-          )}
-
-
-          {/* ── Content ───────────────────────────────────────────── */}
-          {(canAccessKnowledgeBase(role) ||
-            canManageGlobalAnnouncement(role) ||
-            canManageDashboardAnnouncements(role)) && (
-            <Section heading="Content">
-              <Row gutter={[16, 16]}>
-                {canAccessKnowledgeBase(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Knowledge Base"
-                      description="Help articles for customers"
-                      href="/settings/knowledge-base"
-                      icon={<InfoCircleOutlined />}
-                    />
-                  </Col>
-                )}
-                {canManageGlobalAnnouncement(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Global Announcement"
-                      description="Running banner with start and end schedule"
-                      href="/settings/global-announcement"
-                      icon={<NotificationOutlined />}
-                    />
-                  </Col>
-                )}
-                {canManageDashboardAnnouncements(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="Dashboard Announcements"
-                      description="Title on dashboard, full text in a modal; by role"
-                      href="/settings/dashboard-announcements"
-                      icon={<BellOutlined />}
-                    />
-                  </Col>
-                )}
-              </Row>
-            </Section>
-          )}
-
-          {/* ── App ───────────────────────────────────────────────── */}
-          {isAdmin(role) && (
-            <Section heading="App">
-              <Row gutter={[16, 16]}>
-                <Col xs={24} sm={12} md={8}>
-                  <HubTile
-                    title="App Branding"
-                    description="App name, logo, and favicon"
-                    href="/settings/app-branding"
-                    icon={<GlobalOutlined />}
-                  />
-                </Col>
-                {canAccessAiSettings(role) && (
-                  <Col xs={24} sm={12} md={8}>
-                    <HubTile
-                      title="AI Integration"
-                      description="Codex/OpenAI provider and active model"
-                      href="/settings/ai"
-                      icon={<RobotOutlined />}
-                    />
-                  </Col>
-                )}
-              </Row>
-            </Section>
-          )}
-
         </Content>
       </AdminMainColumn>
     </Layout>

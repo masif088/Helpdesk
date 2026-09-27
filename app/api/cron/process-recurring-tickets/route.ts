@@ -9,12 +9,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { companyDefaultRate } from '@/lib/billing-rate-server'
 import { isCronRequest } from '@/lib/cron-auth'
 import { find, insert, insertIgnore, recurringTicketRuns, recurringTickets, ticketAssignees, tickets, update } from '@/lib/fsdb'
+import { withJobRun } from '@/lib/job-runs'
 import { sendRecurringTicketCreatedEmail } from '@/lib/recurring-ticket-email'
 import { computeNextRunAt, type Frequency } from '@/lib/recurring-ticket-schedule'
 import { applyRecurringTicketTemplate } from '@/lib/recurring-ticket-template'
 import { assignCompanySupportTicketRank, assignCreatorSupportTicketRank, parseCompanyTicketDesiredRank, resolveSupportQueueScope } from '@/lib/ticket-company-priority-order'
 
-export async function POST(req: NextRequest) {
+async function processRecurringTickets(req: NextRequest) {
   if (!isCronRequest(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -147,3 +148,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ processed: due.length, created, failed })
 }
+
+/** Records each run for Settings → Scheduled jobs */
+export const POST = withJobRun('recurring-tickets', processRecurringTickets)

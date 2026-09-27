@@ -36,6 +36,7 @@ import {
   users,
 } from '@/lib/fsdb'
 import { isInboxAutoUserActivationEmailEnabled } from '@/lib/inbox-user-activation'
+import { withJobRun } from '@/lib/job-runs'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
 import { sendRequesterTicketCreatedEmail } from '@/lib/requester-new-ticket-email'
 import { uploadBuffer } from '@/lib/storage-provider'
@@ -510,7 +511,7 @@ async function processIncomingEmailMedia(
   return { body, files }
 }
 
-export async function POST(request: NextRequest) {
+async function syncInbox(request: NextRequest) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
     const clientId = process.env.GOOGLE_CLIENT_ID
@@ -1559,3 +1560,6 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+/** Records each run for Settings → Scheduled jobs */
+export const POST = withJobRun('sync-inbox', syncInbox)

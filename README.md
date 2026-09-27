@@ -176,7 +176,7 @@ Firebase App Hosting has no crontab: an external scheduler — **Google Apps Scr
 | `POST /api/cron/process-recurring-tickets` | every 5 min | Create tickets from due recurring rules |
 | `POST /api/automation/time-trigger` | daily 06:00 | Time Trigger automation rules (each fires once per idle period) |
 
-Setup (Apps Script code in [docs/apps-script-scheduler.gs](docs/apps-script-scheduler.gs)), logs and
+Setup (the Apps Script is under Settings → Scheduled jobs), logs and
 troubleshooting: [docs/cron-jobs.md](docs/cron-jobs.md).
 Deploy config (env values and Secret Manager secrets): [apphosting.yaml](apphosting.yaml).
 

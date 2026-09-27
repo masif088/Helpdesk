@@ -10,12 +10,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { loadAutomationTicketContext, runAutomationRules } from '@/lib/automation-engine'
 import { cronSecret, isCronRequest } from '@/lib/cron-auth'
 import { automationRules, find, tickets, update } from '@/lib/fsdb'
+import { withJobRun } from '@/lib/job-runs'
 import { DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-export async function POST(req: NextRequest) {
+async function runTimeTriggers(req: NextRequest) {
   // Scheduler secret required; without a configured secret only local dev may call it
   const allowed = isCronRequest(req) || (!cronSecret() && process.env.NODE_ENV !== 'production')
   if (!allowed) {
@@ -73,3 +74,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true, candidates: candidates.length, checked, fired, rules: rules.length })
 }
+
+/** Records each run for Settings → Scheduled jobs */
+export const POST = withJobRun('time-trigger', runTimeTriggers)
