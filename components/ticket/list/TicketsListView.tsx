@@ -27,12 +27,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
 import { Chip, PriorityBadge, StatusPill } from './TicketChips'
+import TicketTimerButton from './TicketTimerButton'
 import type { StatusColumn, TicketRecord, TicketSortField, TicketSortOrder } from './types'
 import {
   sortTickets,
   TICKETS_LIST_SORT_BY,
   TICKETS_LIST_SORT_ORDER,
 } from './types'
+import { useMyTicketTimers } from './useMyTicketTimers'
 
 type ColKey = 'company' | 'priority' | 'type' | 'tags' | 'due_date' | 'team' | 'status'
 
@@ -96,6 +98,7 @@ export default function TicketsListView({
   sortOrder = TICKETS_LIST_SORT_ORDER,
 }: TicketsListViewProps) {
   const router = useRouter()
+  const { timerFor } = useMyTicketTimers(!isCustomer)
 
   const [pagination, setPagination] = useState(() => {
     try {
@@ -364,9 +367,13 @@ export default function TicketsListView({
           .filter((k) => !colConfig.hidden.includes(k))
           .map((k) => allColDefs[k]),
         {
-          title: '', key: 'actions', width: 80,
+          title: '', key: 'actions', width: isCustomer ? 80 : 150,
           render: (_: unknown, record: TicketRecord) => (
-            <Space>
+            <Space size={4}>
+              {(() => {
+                const timer = timerFor(record.id)
+                return timer ? <TicketTimerButton timer={timer} /> : null
+              })()}
               <Tooltip title="Edit"><Button type="text" size="small" icon={<EditOutlined />} onClick={() => onEdit(record)} /></Tooltip>
               {canDeleteTicket ? (
                 <Tooltip title="Move to trash">

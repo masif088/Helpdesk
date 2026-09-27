@@ -1,27 +1,26 @@
 'use client'
 
 import {
-  CaretRightFilled,
   CommentOutlined,
   DeleteOutlined,
   EditOutlined,
   FlagOutlined,
-  PauseOutlined,
   RobotOutlined,
   SyncOutlined,
 } from '@ant-design/icons'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Avatar, Button, Dropdown, Modal, Tooltip } from 'antd'
+import { Avatar, Button, Modal, Tooltip } from 'antd'
 import dayjs from 'dayjs'
 import { useRouter } from 'next/navigation'
-import { type ReactNode, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 
 import type { TicketTrackerStat } from '@/app/api/tickets/ticket-time-stats/route'
 import DateDisplay from '@/components/common/DateDisplay'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
 import { Chip } from './TicketChips'
+import TicketTimerButton, { type TicketTimerProps } from './TicketTimerButton'
 import type { StatusColumn, TicketRecord } from './types'
 
 function fmtSeconds(s: number): string {
@@ -29,15 +28,6 @@ function fmtSeconds(s: number): string {
   const m = Math.floor((s % 3600) / 60)
   if (h === 0 && m === 0) return '< 1m'
   return m === 0 ? `${h}h` : `${h}h ${m}m`
-}
-
-function fmtClock(s: number): string {
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  const sec = s % 60
-  return h > 0
-    ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
-    : `${m}:${String(sec).padStart(2, '0')}`
 }
 
 function TrackerTooltipContent({ stat }: { stat: TicketTrackerStat | undefined }): ReactNode {
@@ -59,79 +49,6 @@ function TrackerTooltipContent({ stat }: { stat: TicketTrackerStat | undefined }
   )
 }
 
-/** Timer controls for one card (staff only). */
-export type KanbanTimerProps = {
-  /** My running session on this ticket, if any */
-  running: { sessionId: string; startTime: string } | null
-  jobTypes: { slug: string; title: string; billable?: boolean }[]
-  busy: boolean
-  onStart: (jobType: string) => void
-  onStop: (sessionId: string) => void
-}
-
-function TimerControl({ timer }: { timer: KanbanTimerProps }) {
-  const [elapsed, setElapsed] = useState(0)
-  const running = timer.running
-  useEffect(() => {
-    if (!running) return
-    const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - new Date(running.startTime).getTime()) / 1000)))
-    tick()
-    const id = window.setInterval(tick, 1000)
-    return () => window.clearInterval(id)
-  }, [running])
-
-  if (running) {
-    return (
-      <Tooltip title="Stop my timer">
-        <button
-          type="button"
-          className="kanban-timer is-running"
-          disabled={timer.busy}
-          onClick={(e) => {
-            e.stopPropagation()
-            timer.onStop(running.sessionId)
-          }}
-        >
-          <span className="kanban-timer__pulse" aria-hidden />
-          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtClock(elapsed)}</span>
-          <PauseOutlined />
-        </button>
-      </Tooltip>
-    )
-  }
-  return (
-    <Dropdown
-      trigger={['click']}
-      disabled={timer.busy || timer.jobTypes.length === 0}
-      menu={{
-        items: [
-          { key: '__label', type: 'group', label: 'Start timer as…' },
-          ...timer.jobTypes.map((j) => ({
-            key: j.slug,
-            label: j.billable === false ? `${j.title} (non-billable)` : j.title,
-          })),
-        ],
-        onClick: ({ key, domEvent }) => {
-          domEvent.stopPropagation()
-          timer.onStart(String(key))
-        },
-      }}
-    >
-      <Tooltip title="Start timer">
-        <button
-          type="button"
-          className="kanban-timer"
-          disabled={timer.busy}
-          aria-label="Start timer"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <CaretRightFilled />
-        </button>
-      </Tooltip>
-    </Dropdown>
-  )
-}
-
 interface KanbanCardProps {
   ticket: TicketRecord
   dragDisabled?: boolean
@@ -145,7 +62,7 @@ interface KanbanCardProps {
   onFilterByCompany?: (companyId: string) => void
   allStatusColumns?: StatusColumn[]
   trackerStat?: TicketTrackerStat
-  timer?: KanbanTimerProps
+  timer?: TicketTimerProps
 }
 
 function priorityTone(p: number): string {
@@ -334,7 +251,7 @@ export default function KanbanCard({
                 ))}
               </Avatar.Group>
             )}
-            {timer && <TimerControl timer={timer} />}
+            {timer && <TicketTimerButton timer={timer} />}
           </div>
         </div>
       </article>

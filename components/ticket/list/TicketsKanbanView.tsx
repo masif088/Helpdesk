@@ -12,16 +12,15 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import { App, Typography } from 'antd'
+import { Typography } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 
 import type { TicketTrackerStat } from '@/app/api/tickets/ticket-time-stats/route'
-import { useSession } from '@/lib/auth-client'
 
-import type { KanbanTimerProps } from './KanbanCard'
 import KanbanColumn from './KanbanColumn'
 import type { StatusColumn, TicketRecord, TicketSortField, TicketSortOrder } from './types'
 import { TICKETS_LIST_SORT_BY, TICKETS_LIST_SORT_ORDER } from './types'
+import { useMyTicketTimers } from './useMyTicketTimers'
 
 const { Text } = Typography
 
@@ -69,15 +68,7 @@ export default function TicketsKanbanView({
   onFilterByTag,
   onFilterByCompany,
 }: TicketsKanbanViewProps) {
-  const { message } = App.useApp()
-  const { data: session } = useSession()
-  const userId = session?.user?.id
   const [ticketStatsMap, setTicketStatsMap] = useState<Map<number, TicketTrackerStat>>(new Map())
-  /** My running timers by ticket id (staff only) */
-  const [myTimers, setMyTimers] = useState<Map<number, { sessionId: string; startTime: string }>>(new Map())
-  const [jobTypes, setJobTypes] = useState<KanbanTimerProps['jobTypes']>([])
-  const [timerBusyId, setTimerBusyId] = useState<number | null>(null)
-
   const loadStats = useCallback(() => {
     const ids = tickets.map((t) => t.id).join(',')
     if (!ids) return
@@ -91,102 +82,11 @@ export default function TicketsKanbanView({
       .catch(() => {})
   }, [tickets])
 
+  const { timerFor, changeTick } = useMyTicketTimers(!isCustomer)
+
   useEffect(() => {
     loadStats()
-  }, [loadStats])
-
-  const loadMyTimers = useCallback(() => {
-    if (isCustomer || !userId) return
-    fetch(`/api/users/time-tracker?user_id=${encodeURIComponent(userId)}&active_only=1`, { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows: { id: string; ticket_id: number; start_time: string }[]) => {
-        const map = new Map<number, { sessionId: string; startTime: string }>()
-        for (const r of Array.isArray(rows) ? rows : []) map.set(r.ticket_id, { sessionId: r.id, startTime: r.start_time })
-        setMyTimers(map)
-      })
-      .catch(() => {})
-  }, [isCustomer, userId])
-
-  useEffect(() => {
-    loadMyTimers()
-  }, [loadMyTimers])
-
-  useEffect(() => {
-    if (isCustomer) return
-    fetch('/api/job-types', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows) => setJobTypes(Array.isArray(rows) ? rows : []))
-      .catch(() => {})
-  }, [isCustomer])
-
-  const startTimer = useCallback(
-    async (ticketId: number, jobType: string) => {
-      setTimerBusyId(ticketId)
-      try {
-        const res = await fetch(`/api/tickets/${ticketId}/time-tracker`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'start', job_type: jobType }),
-        })
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to start timer')
-        const row = data as { id: string; start_time: string }
-        setMyTimers((prev) => new Map(prev).set(ticketId, { sessionId: row.id, startTime: String(row.start_time) }))
-        message.success(`Timer started on #${ticketId}`)
-        loadStats()
-      } catch (e) {
-        message.error(e instanceof Error ? e.message : 'Failed to start timer')
-      } finally {
-        setTimerBusyId(null)
-      }
-    },
-    [loadStats, message]
-  )
-
-  const stopTimer = useCallback(
-    async (ticketId: number, sessionId: string) => {
-      setTimerBusyId(ticketId)
-      try {
-        const res = await fetch(`/api/tickets/${ticketId}/time-tracker`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'stop', session_id: sessionId }),
-        })
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}))
-          throw new Error((data as { error?: string }).error || 'Failed to stop timer')
-        }
-        setMyTimers((prev) => {
-          const next = new Map(prev)
-          next.delete(ticketId)
-          return next
-        })
-        message.success(`Timer stopped on #${ticketId}`)
-        loadStats()
-      } catch (e) {
-        message.error(e instanceof Error ? e.message : 'Failed to stop timer')
-      } finally {
-        setTimerBusyId(null)
-      }
-    },
-    [loadStats, message]
-  )
-
-  const timerFor = useCallback(
-    (ticketId: number): KanbanTimerProps | undefined =>
-      isCustomer
-        ? undefined
-        : {
-            running: myTimers.get(ticketId) ?? null,
-            jobTypes,
-            busy: timerBusyId === ticketId,
-            onStart: (jobType) => void startTimer(ticketId, jobType),
-            onStop: (sessionId) => void stopTimer(ticketId, sessionId),
-          },
-    [isCustomer, myTimers, jobTypes, timerBusyId, startTimer, stopTimer]
-  )
+  }, [loadStats, changeTick])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

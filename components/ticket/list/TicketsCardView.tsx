@@ -15,6 +15,7 @@ import {
   type TicketSortField,
   type TicketSortOrder,
 } from './types'
+import { useMyTicketTimers } from './useMyTicketTimers'
 
 interface TicketsCardViewProps {
   tickets: TicketRecord[]
@@ -59,14 +60,15 @@ export default function TicketsCardView({
   const [pageSize, setPageSize] = useState(saved.pageSize)
   const [ticketStatsMap, setTicketStatsMap] = useState<Map<number, TicketTrackerStat>>(new Map())
   const lastIdsRef = useRef<string>('')
+  const { timerFor, changeTick } = useMyTicketTimers(!isCustomer)
 
   useEffect(() => {
     const ids = tickets.map((t) => t.id)
     if (ids.length === 0) return
-    const key = ids.join(',')
+    const key = `${ids.join(',')}|${changeTick}`
     if (key === lastIdsRef.current) return
     lastIdsRef.current = key
-    fetch(`/api/tickets/ticket-time-stats?ticket_ids=${key}`)
+    fetch(`/api/tickets/ticket-time-stats?ticket_ids=${ids.join(',')}`)
       .then((r) => r.json())
       .then((data: TicketTrackerStat[]) => {
         const map = new Map<number, TicketTrackerStat>()
@@ -117,6 +119,7 @@ export default function TicketsCardView({
               onFilterByTag={onFilterByTag}
               onFilterByCompany={onFilterByCompany}
               trackerStat={ticketStatsMap.get(ticket.id)}
+              timer={timerFor(ticket.id)}
             />
           </Col>
         ))}

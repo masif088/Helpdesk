@@ -9,6 +9,7 @@ import type { TicketTrackerStat } from '@/app/api/tickets/ticket-time-stats/rout
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
 import { Chip, PriorityBadge, StatusPill } from './TicketChips'
+import TicketTimerButton, { type TicketTimerProps } from './TicketTimerButton'
 import type { StatusColumn, TicketRecord } from './types'
 import { DEFAULT_ALL_STATUS_COLUMNS } from './types'
 
@@ -50,6 +51,8 @@ interface CardViewCardProps {
   onFilterByTag?: (tagId: string) => void
   onFilterByCompany?: (companyId: string) => void
   trackerStat?: TicketTrackerStat
+  /** Start / stop my timer (staff only) */
+  timer?: TicketTimerProps
 }
 
 /** Card view row: status accent on the left, title + meta, chips and menu on the right. */
@@ -64,6 +67,7 @@ export default function CardViewCard({
   onFilterByTag,
   onFilterByCompany,
   trackerStat,
+  timer,
 }: CardViewCardProps) {
   const router = useRouter()
   const statusCols = allStatusColumns?.length ? allStatusColumns : DEFAULT_ALL_STATUS_COLUMNS
@@ -176,6 +180,7 @@ export default function CardViewCard({
             </Chip>
           ))}
         </div>
+        {timer && <TicketTimerButton timer={timer} />}
         <Dropdown
           menu={{
             items: [

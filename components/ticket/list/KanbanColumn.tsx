@@ -6,7 +6,8 @@ import { useMemo } from 'react'
 
 import type { TicketTrackerStat } from '@/app/api/tickets/ticket-time-stats/route'
 
-import KanbanCard, { type KanbanTimerProps } from './KanbanCard'
+import KanbanCard from './KanbanCard'
+import type { TicketTimerProps } from './TicketTimerButton'
 import {
   sortTickets,
   type StatusColumn,
@@ -34,7 +35,7 @@ interface KanbanColumnProps {
   onFilterByCompany?: (companyId: string) => void
   ticketStatsMap?: Map<number, TicketTrackerStat>
   /** Per-ticket timer controls (staff only) */
-  timerFor?: (ticketId: number) => KanbanTimerProps | undefined
+  timerFor?: (ticketId: number) => TicketTimerProps | undefined
 }
 
 /** A status lane: neutral surface, status color only as dot + top accent line. */

@@ -9,8 +9,10 @@ import { useEffect, useState } from 'react'
 import type { CompanyTimeStat } from '@/app/api/tickets/company-time-stats/route'
 import type { TicketTrackerStat } from '@/app/api/tickets/ticket-time-stats/route'
 
+import TicketTimerButton from './TicketTimerButton'
 import type { StatusColumn, TicketRecord } from './types'
 import { DEFAULT_ALL_STATUS_COLUMNS, sortTickets, TICKETS_LIST_SORT_BY, TICKETS_LIST_SORT_ORDER } from './types'
+import { useMyTicketTimers } from './useMyTicketTimers'
 
 interface RoundRobinRow {
   key: string
@@ -48,6 +50,7 @@ export default function TicketsRoundRobinView({
   canDeleteTicket = false,
 }: TicketsRoundRobinViewProps) {
   const router = useRouter()
+  const { timerFor, changeTick } = useMyTicketTimers(true)
   const [companyStats, setCompanyStats] = useState<Map<string, CompanyTimeStat>>(new Map())
   const [ticketStats, setTicketStats] = useState<Map<number, TicketTrackerStat>>(new Map())
 
@@ -97,7 +100,7 @@ export default function TicketsRoundRobinView({
         .catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tickets])
+  }, [tickets, changeTick])
 
   const columns: ColumnsType<RoundRobinRow> = [
     {
@@ -191,6 +194,10 @@ export default function TicketsRoundRobinView({
               </Tooltip>
               {ticket.short_note ? <p className="rr-note">{ticket.short_note}</p> : null}
               </div>
+              {(() => {
+                const timer = timerFor(ticket.id)
+                return timer ? <TicketTimerButton timer={timer} /> : null
+              })()}
               <Dropdown
                 menu={{
                   items: [
