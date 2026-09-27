@@ -47,6 +47,7 @@ export async function deleteCompanyCascade(companyId: string): Promise<S.Compani
   await Promise.all([
     removeWhere(S.companyUsers, [['companyId', '==', companyId]]),
     removeWhere(S.companyPayments, [['companyId', '==', companyId]]),
+    removeWhere(S.invoices, [['companyId', '==', companyId]]),
   ])
   return remove(S.companies, companyId)
 }

@@ -370,6 +370,66 @@ export const companyPayments = defineTable<CompanyPaymentsRow, NewCompanyPayment
   nowFields: ['createdAt'],
 })
 
+export type InvoiceLine = {
+  ticketId: number
+  title: string
+  /** Billable seconds in the period */
+  seconds: number
+  rate: number
+  amount: number
+}
+
+export type InvoicesRow = {
+  id: string
+  /** e.g. INV-2026-0007 */
+  number: string
+  companyId: string
+  currency: string
+  periodFrom: string
+  periodTo: string
+  issueDate: string
+  dueDate: string | null
+  lines: InvoiceLine[]
+  total: number
+  /** issued | paid | void */
+  status: string
+  notes: string | null
+  /** Payment recorded when the invoice was marked paid */
+  paymentId: string | null
+  createdBy: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type NewInvoicesRow = {
+  id?: string
+  number: string
+  companyId: string
+  currency: string
+  periodFrom: string
+  periodTo: string
+  issueDate: string
+  dueDate?: string | null
+  lines: InvoiceLine[]
+  total: number
+  status?: string
+  notes?: string | null
+  paymentId?: string | null
+  createdBy?: string | null
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+export const invoices = defineTable<InvoicesRow, NewInvoicesRow>({
+  name: 'invoices',
+  columns: ['id', 'number', 'companyId', 'currency', 'periodFrom', 'periodTo', 'issueDate', 'dueDate', 'lines', 'total', 'status', 'notes', 'paymentId', 'createdBy', 'createdAt', 'updatedAt'],
+  docKey: ['id'],
+  idField: 'id',
+  idGen: 'uuid',
+  defaults: { status: 'issued' },
+  nowFields: ['createdAt', 'updatedAt'],
+})
+
 export type CompanyAttributesRow = {
   id: string
   companyId: string
@@ -1764,4 +1824,4 @@ export const users = defineTable<UsersRow, NewUsersRow>({
   nowFields: ['createdAt', 'updatedAt'],
 })
 
-export const allTables = [aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const
+export const allTables = [invoices, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const
