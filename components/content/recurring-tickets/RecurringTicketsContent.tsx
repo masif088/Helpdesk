@@ -1,32 +1,8 @@
 'use client'
 
-import {
-  ClockCircleOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  EyeOutlined,
-  PauseCircleOutlined,
-  PlayCircleOutlined,
-  PlusOutlined,
-  ReloadOutlined,
-  ThunderboltOutlined,
-} from '@ant-design/icons'
-import {
-  Button,
-  Drawer,
-  Empty,
-  Input,
-  Layout,
-  message,
-  Modal,
-  Select,
-  Space,
-  Switch,
-  Table,
-  Tag,
-  Tooltip,
-  Typography,
-} from 'antd'
+import { ClockCircleOutlined, HistoryOutlined, PlusOutlined, ReloadOutlined, SearchOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import { Button, Drawer, Empty, Input, Layout, message, Select, Switch, Table, Tooltip } from 'antd'
+import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { useRouter } from 'next/navigation'
@@ -34,7 +10,9 @@ import { useCallback, useEffect, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import SettingsBackLink from '@/components/settings/SettingsBackLink'
+import RowActions from '@/components/settings/RowActions'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import { Chip } from '@/components/ticket/list/TicketChips'
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
 import { normalizeSpecificDates } from '@/lib/recurring-ticket-schedule'
 
@@ -42,7 +20,6 @@ import RecurringTicketRunsDrawer from './RecurringTicketRunsDrawer'
 
 dayjs.extend(relativeTime)
 
-const { Title, Text } = Typography
 
 export interface RecurringTicketRow {
   id: string
@@ -154,23 +131,16 @@ export default function RecurringTicketsContent({ user }: Props) {
     }
   }
 
-  const handleDelete = (row: RecurringTicketRow) => {
-    Modal.confirm({
-      title: 'Delete recurring ticket?',
-      content: `"${row.title}" will be permanently deleted. Tickets already created will remain.`,
-      okText: 'Delete',
-      okType: 'danger',
-      onOk: async () => {
-        const res = await fetch(`/api/recurring-tickets/${row.id}`, { method: 'DELETE' })
-        if (res.ok) {
-          setRows((prev) => prev.filter((r) => r.id !== row.id))
-          messageApi.success('Deleted')
-        } else {
-          messageApi.error('Failed to delete')
-        }
-      },
-    })
+  const handleDelete = async (row: RecurringTicketRow) => {
+    const res = await fetch(`/api/recurring-tickets/${row.id}`, { method: 'DELETE' })
+    if (res.ok) {
+      setRows((prev) => prev.filter((r) => r.id !== row.id))
+      messageApi.success('Deleted')
+    } else {
+      messageApi.error('Failed to delete')
+    }
   }
+
 
 
   const handleRunNow = async (row: RecurringTicketRow) => {
@@ -188,60 +158,53 @@ export default function RecurringTicketsContent({ user }: Props) {
     }
   }
 
-  const columns = [
+  const columns: ColumnsType<RecurringTicketRow> = [
     {
-      title: 'Title',
+      title: 'Ticket',
       dataIndex: 'title',
       key: 'title',
-      render: (text: string, row: RecurringTicketRow) => (
-        <div>
-          <Text strong>{text}</Text>
-          {row.description && (
-            <div>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {row.description.slice(0, 80)}{row.description.length > 80 ? '…' : ''}
-              </Text>
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: 'Priority',
-      key: 'ticketPriority',
-      render: (_: unknown, row: RecurringTicketRow) => {
+      render: (text: string, row: RecurringTicketRow) => {
         const p = row.ticketPriority && row.ticketPriority > 0 ? row.ticketPriority : null
-        return p
-          ? <Tag color="orange">#{p}</Tag>
-          : <Text type="secondary">—</Text>
+        return (
+          <div style={{ minWidth: 0 }}>
+            <span className="cell-strong">{text}</span>
+            {p ? <span className="cell-order" style={{ marginLeft: 8 }}>P{p}</span> : null}
+            {row.description ? (
+              <div className="cell-muted" style={{ fontSize: 12 }}>
+                {row.description.slice(0, 90)}
+                {row.description.length > 90 ? '…' : ''}
+              </div>
+            ) : null}
+          </div>
+        )
       },
     },
     {
-      title: 'Frequency',
+      title: 'Schedule',
       key: 'frequency',
+      width: 220,
       render: (_: unknown, row: RecurringTicketRow) => (
-        <Tag icon={<ClockCircleOutlined />} color="blue">
-          {freqLabel(row)}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Time',
-      key: 'time',
-      render: (_: unknown, row: RecurringTicketRow) => (
-        <Text>{row.timeOfDay} <Text type="secondary" style={{ fontSize: 11 }}>({row.timezone})</Text></Text>
+        <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+          <Chip color="#0F9D8A">
+            <ClockCircleOutlined /> {freqLabel(row)}
+          </Chip>
+          <span className="cell-muted" style={{ fontSize: 12 }}>
+            {row.timeOfDay} · {row.timezone}
+          </span>
+        </span>
       ),
     },
     {
       title: 'Next run',
       key: 'nextRunAt',
+      width: 130,
       render: (_: unknown, row: RecurringTicketRow) => {
-        if (!row.isActive) return <Text type="secondary">Paused</Text>
-        if (!row.nextRunAt) return <Text type="secondary">—</Text>
+        if (!row.isActive) return <span className="cell-muted">Paused</span>
+        if (!row.nextRunAt) return <span className="cell-muted">—</span>
         const d = dayjs(row.nextRunAt)
         return (
-          <Tooltip title={d.format('YYYY-MM-DD HH:mm:ss')}>
-            <Text>{d.fromNow()}</Text>
+          <Tooltip title={d.format('YYYY-MM-DD HH:mm')}>
+            <span className="cell-strong">{d.fromNow()}</span>
           </Tooltip>
         )
       },
@@ -249,70 +212,46 @@ export default function RecurringTicketsContent({ user }: Props) {
     {
       title: 'Last run',
       key: 'lastRunAt',
-      render: (_: unknown, row: RecurringTicketRow) => {
-        if (!row.lastRunAt) return <Text type="secondary">Never</Text>
-        return (
-          <Tooltip title={dayjs(row.lastRunAt).format('YYYY-MM-DD HH:mm:ss')}>
-            <Text type="secondary">{dayjs(row.lastRunAt).fromNow()}</Text>
+      width: 130,
+      render: (_: unknown, row: RecurringTicketRow) =>
+        row.lastRunAt ? (
+          <Tooltip title={dayjs(row.lastRunAt).format('YYYY-MM-DD HH:mm')}>
+            <span className="cell-muted">{dayjs(row.lastRunAt).fromNow()}</span>
           </Tooltip>
-        )
-      },
-    },
-    {
-      title: 'Created',
-      key: 'createdAt',
-      render: (_: unknown, row: RecurringTicketRow) => (
-        <Tooltip title={dayjs(row.createdAt).format('YYYY-MM-DD HH:mm:ss')}>
-          <Text type="secondary">{dayjs(row.createdAt).format('MMM D, YYYY')}</Text>
-        </Tooltip>
-      ),
+        ) : (
+          <span className="cell-muted">Never</span>
+        ),
     },
     {
       title: 'Active',
       key: 'isActive',
+      width: 90,
       render: (_: unknown, row: RecurringTicketRow) => (
-        <Switch
-          checked={row.isActive}
-          loading={toggling === row.id}
-          onChange={(v) => handleToggle(row, v)}
-          checkedChildren={<PlayCircleOutlined />}
-          unCheckedChildren={<PauseCircleOutlined />}
-        />
+        <Switch size="small" checked={row.isActive} loading={toggling === row.id} onChange={(v) => handleToggle(row, v)} />
       ),
     },
     {
-      title: 'Actions',
+      title: '',
       key: 'actions',
+      width: 150,
+      align: 'right',
       render: (_: unknown, row: RecurringTicketRow) => (
-        <Space>
-          <Tooltip title="Run now — create ticket immediately">
-            <Button
-              type="primary"
-              icon={<ThunderboltOutlined />}
-              loading={running === row.id}
-              onClick={() => handleRunNow(row)}
-            />
-          </Tooltip>
-          <Tooltip title="View run history">
-            <Button
-              icon={<EyeOutlined />}
-              onClick={() => setRunsDrawer(row)}
-            />
-          </Tooltip>
-          <Tooltip title="Edit">
-            <Button
-              icon={<EditOutlined />}
-              onClick={() => router.push(`/settings/recurring-tickets/${row.id}/edit`)}
-            />
-          </Tooltip>
-          <Tooltip title="Delete">
-            <Button
-              danger
-              icon={<DeleteOutlined />}
-              onClick={() => handleDelete(row)}
-            />
-          </Tooltip>
-        </Space>
+        <RowActions
+          extra={
+            <>
+              <Tooltip title="Run now: create the ticket immediately">
+                <Button type="text" size="small" icon={<ThunderboltOutlined />} loading={running === row.id} onClick={() => handleRunNow(row)} aria-label="Run now" />
+              </Tooltip>
+              <Tooltip title="Run history">
+                <Button type="text" size="small" icon={<HistoryOutlined />} onClick={() => setRunsDrawer(row)} aria-label="Run history" />
+              </Tooltip>
+            </>
+          }
+          onEdit={() => router.push(`/settings/recurring-tickets/${row.id}/edit`)}
+          onDelete={() => handleDelete(row)}
+          deleteTitle="Delete this recurring ticket?"
+          deleteDescription="Tickets it already created stay."
+        />
       ),
     },
   ]
@@ -322,44 +261,44 @@ export default function RecurringTicketsContent({ user }: Props) {
       {contextHolder}
       <AdminSidebar user={user} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={user}>
-        <div style={{ padding: '24px 32px' }}>
-          <SettingsBackLink />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <div>
-              <Title level={4} style={{ margin: 0 }}>Recurring Tickets</Title>
-              <Text type="secondary">Automatically create tickets on a recurring schedule.</Text>
-            </div>
-            <Space>
-              <Input.Search
-                placeholder="Search by title…"
-                allowClear
-                style={{ width: 200 }}
-                value={filterTitle}
-                onChange={(e) => setFilterTitle(e.target.value)}
-              />
-              <Select
-                allowClear
-                showSearch
-                placeholder="Filter by company"
-                style={{ width: 200 }}
-                value={filterCompany}
-                onChange={setFilterCompany}
-                filterOption={(input, option) =>
-                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                }
-                options={companies.map((c) => ({ value: c.id, label: c.name }))}
-              />
-              <Button icon={<ReloadOutlined />} onClick={fetchRules} loading={loading} />
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => router.push('/settings/recurring-tickets/new')}
-              >
-                New recurring ticket
-              </Button>
-            </Space>
+        <div className="settings-page" style={{ padding: 24, width: '100%' }}>
+          <SettingsPageHeader
+            title="Recurring tickets"
+            description="Tickets created automatically on a schedule"
+            count={`${rows.length} rules`}
+            actions={
+              <>
+                <Tooltip title="Refresh">
+                  <Button icon={<ReloadOutlined />} onClick={fetchRules} loading={loading} aria-label="Refresh" />
+                </Tooltip>
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/settings/recurring-tickets/new')}>
+                  New recurring ticket
+                </Button>
+              </>
+            }
+          />
+          <div className="page-toolbar">
+            <Input
+              allowClear
+              prefix={<SearchOutlined />}
+              placeholder="Search by title…"
+              style={{ width: 240 }}
+              value={filterTitle}
+              onChange={(e) => setFilterTitle(e.target.value)}
+            />
+            <Select
+              allowClear
+              showSearch
+              placeholder="All companies"
+              style={{ width: 200 }}
+              value={filterCompany}
+              onChange={setFilterCompany}
+              filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+              options={companies.map((c) => ({ value: c.id, label: c.name }))}
+            />
           </div>
 
+          <div className="ticket-surface ticket-table">
           <Table
             dataSource={rows.filter((r) => {
               if (filterCompany && r.companyId !== filterCompany) return false
@@ -377,6 +316,7 @@ export default function RecurringTicketsContent({ user }: Props) {
             }}
             locale={{ emptyText: <Empty description="No recurring tickets yet" /> }}
           />
+          </div>
         </div>
 
 

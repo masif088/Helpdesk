@@ -1,37 +1,22 @@
 'use client'
 
-import { DeleteOutlined, EditOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons'
-import {
-  Button,
-  Card,
-  Form,
-  Input,
-  InputNumber,
-  Layout,
-  message,
-  Modal,
-  Popconfirm,
-  Select,
-  Space,
-  Switch,
-  Table,
-  Tag,
-  Typography,
-} from 'antd'
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons'
+import { Button, Form, Input, InputNumber, Layout, message, Modal, Select, Space, Switch, Table } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { useEffect,useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import ActionBuilder from '@/components/automation/ActionBuilder'
 import ConditionBuilder from '@/components/automation/ConditionBuilder'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import SettingsBackLink from '@/components/settings/SettingsBackLink'
+import RowActions from '@/components/settings/RowActions'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import { Chip, StatusPill } from '@/components/ticket/list/TicketChips'
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
 import type { AutomationActions } from '@/lib/automation-actions-types'
 import type { OurConditionGroup } from '@/lib/condition-builder-utils'
 
 const { Content } = Layout
-const { Title } = Typography
 
 interface AutomationRulesContentProps {
   user: { id: string; email?: string | null; user_metadata?: { full_name?: string | null } }
@@ -198,68 +183,65 @@ export default function AutomationRulesContent({ user: currentUser }: Automation
     }
   }
 
+  const EVENT_LABELS: Record<string, { label: string; color: string }> = {
+    ticket_created: { label: 'Ticket created', color: '#0F9D8A' },
+    ticket_updated: { label: 'Ticket updated', color: '#0EA5E9' },
+    ticket_reply_added: { label: 'New reply', color: '#6366F1' },
+    ticket_note_added: { label: 'Internal note', color: '#64748B' },
+    ticket_comment_added: { label: 'Reply or note', color: '#8B5CF6' },
+    time_trigger: { label: 'Time trigger', color: '#D97706' },
+  }
+
   const columns: ColumnsType<AutomationRuleRecord> = [
     {
       title: 'Priority',
       dataIndex: 'priority',
       key: 'priority',
-      width: 100,
+      width: 90,
       sorter: (a, b) => b.priority - a.priority,
-      render: (p: number) => <Tag>{p}</Tag>,
+      render: (p: number) => <span className="cell-order">{p}</span>,
     },
     {
-      title: 'Name',
+      title: 'Rule',
       dataIndex: 'name',
       key: 'name',
-      render: (name: string | null) => name || <Typography.Text type="secondary">—</Typography.Text>,
+      render: (name: string | null) => (name ? <span className="cell-strong">{name}</span> : <span className="cell-muted">Untitled rule</span>),
     },
     {
-      title: 'Event',
+      title: 'When',
       dataIndex: 'event_type',
       key: 'event_type',
-      width: 130,
-      render: (et: string) => <Tag color="blue">{et}</Tag>,
-    },
-    {
-      title: 'Scope',
-      dataIndex: 'company_id',
-      key: 'company_id',
-      width: 150,
-      render: (cid: string | null) => {
-        if (!cid) return <Tag>Global</Tag>
-        const company = companies.find((c) => c.id === cid)
-        return <Tag color="purple">{company?.name ?? cid}</Tag>
+      width: 160,
+      render: (et: string) => {
+        const e = EVENT_LABELS[et]
+        return <Chip color={e?.color ?? '#64748B'}>{e?.label ?? et}</Chip>
       },
     },
     {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      width: 80,
-      render: (s: boolean) => (
-        <Tag color={s ? 'green' : 'default'}>{s ? 'Active' : 'Inactive'}</Tag>
-      ),
+      title: 'Applies to',
+      dataIndex: 'company_id',
+      key: 'company_id',
+      width: 180,
+      render: (cid: string | null) => {
+        if (!cid) return <span className="cell-muted">All companies</span>
+        const company = companies.find((c) => c.id === cid)
+        return <span className="cell-strong">{company?.name ?? cid}</span>
+      },
     },
     {
-      title: 'Actions',
+      title: 'State',
+      dataIndex: 'status',
+      key: 'status',
+      width: 110,
+      render: (s: boolean) => (s ? <StatusPill color="#16A34A" title="Active" /> : <StatusPill color="#94A3B8" title="Paused" />),
+    },
+    {
+      title: '',
       key: 'actions',
-      width: 200,
+      width: 90,
+      align: 'right',
       render: (_, record) => (
-        <Space>
-          <Button type="primary" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
-            Edit
-          </Button>
-          <Popconfirm
-            title="Delete this rule?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Delete"
-            okButtonProps={{ danger: true }}
-          >
-            <Button type="primary" danger icon={<DeleteOutlined />}>
-              Delete
-            </Button>
-          </Popconfirm>
-        </Space>
+        <RowActions onEdit={() => handleEdit(record)} onDelete={() => handleDelete(record.id)} deleteTitle="Delete this rule?" />
       ),
     },
   ]
@@ -268,42 +250,41 @@ export default function AutomationRulesContent({ user: currentUser }: Automation
     <Layout style={{ minHeight: '100vh' }}>
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
-        <Content style={{ margin: '24px' }}>
-          <SettingsBackLink />
-          
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Title level={4} style={{ margin: 0 }}>
-                <ThunderboltOutlined style={{ marginRight: 8 }} />
-                Automation Rules
-              </Title>
-              <Space>
-                <Input.Search
-                  placeholder="Search by name…"
-                  allowClear
-                  style={{ width: 200 }}
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                />
-                <Select
-                  allowClear
-                  showSearch
-                  placeholder="Filter by company"
-                  style={{ width: 180 }}
-                  value={filterCompany ?? undefined}
-                  onChange={(v) => setFilterCompany(v ?? null)}
-                  filterOption={(input, option) =>
-                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
-                  options={[
-                    { value: '__global__', label: 'Global' },
-                    ...companies.map((c) => ({ value: c.id, label: c.name })),
-                  ]}
-                />
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-                  Add Rule
-                </Button>
-              </Space>
-            </div>
+        <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
+          <SettingsPageHeader
+            title="Automation rules"
+            description="When a ticket matches the conditions, set fields, add tags, assignees, notes or checklists"
+            count={`${rules.length} rules`}
+            actions={
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
+                Add rule
+              </Button>
+            }
+          />
+          <div className="page-toolbar">
+            <Input
+              allowClear
+              prefix={<SearchOutlined />}
+              placeholder="Search rules…"
+              style={{ width: 240 }}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+            />
+            <Select
+              allowClear
+              showSearch
+              placeholder="All companies"
+              style={{ width: 200 }}
+              value={filterCompany ?? undefined}
+              onChange={(v) => setFilterCompany(v ?? null)}
+              filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+              options={[
+                { value: '__global__', label: 'Global rules only' },
+                ...companies.map((c) => ({ value: c.id, label: c.name })),
+              ]}
+            />
+          </div>
+          <div className="ticket-surface ticket-table">
             <Table
               rowKey="id"
               loading={loading}
@@ -321,6 +302,7 @@ export default function AutomationRulesContent({ user: currentUser }: Automation
                 showTotal: appTableShowTotal('rules'),
               }}
             />
+          </div>
 
           <Modal
             title={editingRule ? 'Edit Rule' : 'Add Rule'}

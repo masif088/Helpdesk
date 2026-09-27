@@ -1099,6 +1099,30 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
 }
 .tpl-empty .anticon { font-size: 28px; color: var(--brand-primary); }
 
+/* Settings → Message templates: group intro */
+.mt-group-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: var(--kanban-card-bg);
+  border: 1px solid var(--kanban-card-border);
+}
+.mt-group-info__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+  flex-shrink: 0;
+}
+.mt-group-info__text { flex: 1; min-width: 220px; }
+
 /* Settings → Connection status (checks) */
 .conn-banner {
   display: flex;

@@ -1,27 +1,7 @@
 'use client'
 
-import {
-  BellOutlined,
-  EditOutlined,
-  EyeOutlined,
-  FileTextOutlined,
-  MailOutlined,
-  TeamOutlined,
-} from '@ant-design/icons'
-import {
-  Alert,
-  Button,
-  Card,
-  Flex,
-  Layout,
-  message,
-  Space,
-  Switch,
-  Table,
-  Tabs,
-  Tag,
-  Typography,
-} from 'antd'
+import { BellOutlined, EditOutlined, EyeOutlined, FileTextOutlined, MailOutlined, TeamOutlined } from '@ant-design/icons'
+import { Button, Card, Flex, Layout, message, Space, Switch, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -30,11 +10,11 @@ import { shouldOpenHrefInNewTab } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import MessageTemplatePreviewModal from '@/components/message-template/MessageTemplatePreviewModal'
-import SettingsBackLink from '@/components/settings/SettingsBackLink'
+import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import { StatusPill } from '@/components/ticket/list/TicketChips'
 import { APP_TABLE_PAGE_SIZE_OPTIONS } from '@/lib/app-table'
 
 const { Content } = Layout
-const { Title, Text, Paragraph } = Typography
 
 interface MessageTemplatesContentProps {
   user: { id: string; email?: string | null; user_metadata?: { full_name?: string | null }; role?: string }
@@ -120,43 +100,30 @@ function GroupTabPanel({
   const stats = useMemo(() => groupStats(rows), [rows])
 
   return (
-    <Card size="small" styles={{ body: { padding: 16 } }}>
-      <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-        <Alert
-          type="info"
-          showIcon
-          icon={meta?.icon ?? <BellOutlined />}
-          message={<Text strong>{group}</Text>}
-          description={
-            <Space orientation="vertical" size={4} style={{ width: '100%' }}>
-              <span>{meta?.description ?? 'Templates in this category.'}</span>
-              {meta?.hint ? (
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                  {meta.hint}
-                </Text>
-              ) : null}
-            </Space>
-          }
-        />
-        <Flex wrap="wrap" gap={8}>
-          <Tag>{stats.total} templates</Tag>
-          <Tag color="success">{stats.active} active</Tag>
-          {stats.inactive > 0 ? <Tag color="default">{stats.inactive} inactive</Tag> : null}
-          <Tag color={stats.withBody > 0 ? 'processing' : 'warning'}>
-            {stats.withBody} with body · {stats.empty} empty
-          </Tag>
+    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+      <div className="mt-group-info">
+        <span className="mt-group-info__icon">{meta?.icon ?? <BellOutlined />}</span>
+        <div className="mt-group-info__text">
+          <div className="cell-strong">{meta?.description ?? 'Templates in this category.'}</div>
+          {meta?.hint ? <div className="cell-muted" style={{ fontSize: 12 }}>{meta.hint}</div> : null}
+        </div>
+        <Flex wrap="wrap" gap={6} className="mt-group-info__stats">
+          <StatusPill color="#16A34A" title={`${stats.active} active`} />
+          {stats.inactive > 0 ? <StatusPill color="#94A3B8" title={`${stats.inactive} off`} /> : null}
+          {stats.empty > 0 ? <StatusPill color="#D97706" title={`${stats.empty} empty`} /> : null}
         </Flex>
+      </div>
+      <div className="ticket-surface ticket-table">
         <Table<MessageTemplateRow>
           rowKey="id"
           loading={loading}
           columns={columns}
           dataSource={rows}
           pagination={{ pageSize: 15, showSizeChanger: true, pageSizeOptions: APP_TABLE_PAGE_SIZE_OPTIONS, showTotal: (t) => `${t} in this group` }}
-          scroll={{ x: 1100 }}
-          size="middle"
+          scroll={{ x: 960 }}
         />
-      </Space>
-    </Card>
+      </div>
+    </Space>
   )
 }
 
@@ -226,12 +193,10 @@ export default function MessageTemplatesContent({ user: currentUser }: MessageTe
         key: 'template',
         ellipsis: true,
         render: (_: unknown, r) => (
-          <Space orientation="vertical" size={0} style={{ maxWidth: '100%' }}>
-            <Text strong>{r.title}</Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {r.type.replace(/_/g, ' ')}
-            </Text>
-          </Space>
+          <span style={{ display: 'inline-flex', flexDirection: 'column', maxWidth: '100%' }}>
+            <span className="cell-strong">{r.title}</span>
+            <span className="cell-muted" style={{ fontSize: 12 }}>{r.type.replace(/_/g, ' ')}</span>
+          </span>
         ),
       },
       {
@@ -241,7 +206,7 @@ export default function MessageTemplatesContent({ user: currentUser }: MessageTe
         width: 280,
         ellipsis: true,
         render: (key: string) => (
-          <Typography.Text code copyable={{ text: key }} ellipsis={{ tooltip: key }} style={{ fontSize: 12 }}>
+          <Typography.Text className="cell-muted" copyable={{ text: key, tooltips: ['Copy key', 'Copied'] }} ellipsis={{ tooltip: key }} style={{ fontSize: 12 }}>
             {key}
           </Typography.Text>
         ),
@@ -253,11 +218,7 @@ export default function MessageTemplatesContent({ user: currentUser }: MessageTe
         align: 'center',
         render: (_: unknown, r) => {
           const len = r.content?.trim().length ?? 0
-          return len > 0 ? (
-            <Tag color="success">Set</Tag>
-          ) : (
-            <Tag color="warning">Empty</Tag>
-          )
+          return len > 0 ? <StatusPill color="#16A34A" title="Set" /> : <StatusPill color="#D97706" title="Empty" />
         },
       },
       {
@@ -266,9 +227,7 @@ export default function MessageTemplatesContent({ user: currentUser }: MessageTe
         key: 'updated_at',
         width: 168,
         render: (v: string) => (
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {formatUpdatedAt(v)}
-          </Text>
+          <span className="cell-muted" style={{ fontSize: 12 }}>{formatUpdatedAt(v)}</span>
         ),
       },
       {
@@ -277,37 +236,28 @@ export default function MessageTemplatesContent({ user: currentUser }: MessageTe
         width: 88,
         align: 'center',
         render: (_: unknown, r) => (
-          <Switch
-            checked={r.status === 'active'}
-            onChange={(c) => void toggleStatus(r, c)}
-            checkedChildren="On"
-            unCheckedChildren="Off"
-          />
+          <Switch size="small" checked={r.status === 'active'} onChange={(c) => void toggleStatus(r, c)} />
         ),
       },
       {
-        title: 'Actions',
+        title: '',
         key: 'actions',
-        width: 200,
-        fixed: 'right' as const,
+        width: 90,
+        align: 'right' as const,
         render: (_: unknown, r) => {
           const fromTab = encodeURIComponent(r.group || '')
           const editHref = `/settings/message-templates/${r.id}/edit?from_tab=${fromTab}`
           const isInactive = r.status !== 'active'
           return (
-            <Space>
+            <span className="row-actions">
+              <Tooltip title="Preview">
+                <Button type="text" size="small" icon={<EyeOutlined />} disabled={isInactive} onClick={() => setPreviewRow(r)} aria-label="Preview" />
+              </Tooltip>
+              <Tooltip title="Edit">
               <Button
-                type="link"
+                type="text"
                 size="small"
-                icon={<EyeOutlined />}
-                disabled={isInactive}
-                onClick={() => setPreviewRow(r)}
-              >
-                Preview
-              </Button>
-              <Button
-                type="link"
-                size="small"
+                aria-label="Edit"
                 icon={<EditOutlined />}
                 disabled={isInactive}
                 href={editHref}
@@ -321,10 +271,9 @@ export default function MessageTemplatesContent({ user: currentUser }: MessageTe
                   e.preventDefault()
                   router.push(editHref)
                 }}
-              >
-                Edit
-              </Button>
-            </Space>
+              />
+              </Tooltip>
+            </span>
           )
         },
       },
@@ -357,24 +306,13 @@ export default function MessageTemplatesContent({ user: currentUser }: MessageTe
     <Layout style={{ minHeight: '100vh' }}>
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
-        <Content style={{ margin: 24 }}>
-          <SettingsBackLink />
-          <Card>
-            <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-              <div>
-                <Space align="center" style={{ marginBottom: 8 }}>
-                  <FileTextOutlined style={{ fontSize: 22, color: '#1677ff' }} />
-                  <Title level={4} style={{ margin: 0 }}>
-                    Message templates
-                  </Title>
-                </Space>
-                <Paragraph type="secondary" style={{ marginBottom: 0, maxWidth: 720 }}>
-                  Pre-defined notification and composer templates. Edit the HTML body on each template&apos;s page;
-                  toggle <Text strong>Active</Text> to enable or disable sending. Rows cannot be added or deleted — use
-                  the <Text code>key</Text> column when wiring automation or email in code.
-                </Paragraph>
-              </div>
-
+        <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
+          <SettingsPageHeader
+            title="Message templates"
+            description="Notification emails and reply templates. Toggle a template to enable or disable sending; the key is what code and automations refer to."
+            count={`${rows.length} templates`}
+          />
+          <div>
               {groupsInOrder.length > 0 ? (
                 <Tabs
                   activeKey={resolvedGroup}
@@ -384,6 +322,7 @@ export default function MessageTemplatesContent({ user: currentUser }: MessageTe
                   }}
                   items={tabItems}
                   destroyOnHidden={false}
+                  className="company-tabs"
                 />
               ) : (
                 <Card size="small" styles={{ body: { padding: 16 } }}>
@@ -396,8 +335,7 @@ export default function MessageTemplatesContent({ user: currentUser }: MessageTe
                   />
                 </Card>
               )}
-            </Space>
-          </Card>
+          </div>
         </Content>
       </AdminMainColumn>
 
