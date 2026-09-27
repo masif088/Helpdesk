@@ -96,7 +96,7 @@
   --settings-hub-tile-title: rgba(255, 255, 255, 0.88);
   --settings-hub-tile-desc: rgba(255, 255, 255, 0.45);
   --settings-hub-tile-hover-bg: #16213A;
-  --ticket-nav-bg: #0B1220;
+  --ticket-nav-bg: #111A2E;
   --ticket-nav-border: #1E293B;
   --ticket-nav-brand: #99F6E4;
   --ticket-nav-icon-btn-bg: #111A2E;
@@ -599,6 +599,28 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
   cursor: pointer;
 }
 .app-sidebar__toggle:hover { background: rgba(148, 163, 184, 0.12); color: #fff; }
+
+/* Floating side panels (ticket Attributes / Company Info) — same shell as .app-sidebar */
+.app-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #0F172A;
+  background-image: radial-gradient(120% 50% at 100% 0%, rgba(20, 184, 166, 0.12) 0%, rgba(15, 23, 42, 0) 60%);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+}
+/* Mask the strip above the floating navbar so scrolled content does not show through the gap */
+.ticket-search-navbar::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  right: -13px;
+  top: -14px;
+  height: 13px;
+  background: var(--layout-bg);
+}
 
 /* Cards: softer border + shadow for the new look */
 .ant-card.ant-card-bordered {

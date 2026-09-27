@@ -397,11 +397,13 @@ export default function TabGeneral({
   const isMobile = !screens.md
   const [drawerAttrOpen, setDrawerAttrOpen] = useState(false)
   const [drawerCompanyOpen, setDrawerCompanyOpen] = useState(false)
-  const ATTR_W = rightCollapsed ? 75 : 280
-  const COMP_W = companyCollapsed ? 75 : 220
+  const ATTR_W = rightCollapsed ? 72 : 280
+  const COMP_W = companyCollapsed ? 72 : 220
+  /** Gap around the floating side panels (matches the left sidebar). */
+  const PANEL_GAP = 12
 
   useEffect(() => {
-    const width = isMobile ? 0 : ATTR_W + COMP_W
+    const width = isMobile ? 0 : ATTR_W + COMP_W + PANEL_GAP * 2
     document.documentElement.style.setProperty('--attr-sidebar-width', `${width}px`)
     return () => { document.documentElement.style.removeProperty('--attr-sidebar-width') }
   }, [ATTR_W, COMP_W, isMobile])
@@ -455,13 +457,18 @@ export default function TabGeneral({
   const [companyHasActiveTracker, setCompanyHasActiveTracker] = useState(false)
   const [companyActiveTrackerUser, setCompanyActiveTrackerUser] = useState<string | null>(null)
   const [companyActiveTrackerStart, setCompanyActiveTrackerStart] = useState<string | null>(null)
+  const [companyMissing, setCompanyMissing] = useState(false)
   const [companyActiveTrackers, setCompanyActiveTrackers] = useState<{ user_name: string | null; start_time: string; ticket_id?: number | null; ticket_title?: string | null }[]>([])
 
   useEffect(() => {
     const cid = ticketData?.company_id
     if (!cid || companyCollapsed) return
+    setCompanyMissing(false)
     fetch(`/api/companies/${cid}`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : null)
+      .then(r => {
+        if (r.status === 404) setCompanyMissing(true)
+        return r.ok ? r.json() : null
+      })
       .then(j => { if (j?.data) setCompanyDetail(j.data) })
       .catch(() => {})
     fetch(`/api/companies/${cid}/attributes`, { credentials: 'include' })
@@ -931,26 +938,22 @@ export default function TabGeneral({
         {/* Mobile drawer trigger buttons */}
         {isMobile && (
           <div style={{ position: 'fixed', bottom: 80, right: 16, zIndex: 200, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <Button shape="circle" icon={<ProfileOutlined />} onClick={() => setDrawerAttrOpen(true)} style={{ background: '#001529', color: '#fff', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }} />
+            <Button shape="circle" icon={<ProfileOutlined />} onClick={() => setDrawerAttrOpen(true)} style={{ background: '#0F172A', color: '#fff', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }} />
             {ticketData?.company_id && (
-              <Button shape="circle" icon={<UserOutlined />} onClick={() => setDrawerCompanyOpen(true)} style={{ background: '#001529', color: '#fff', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }} />
+              <Button shape="circle" icon={<UserOutlined />} onClick={() => setDrawerCompanyOpen(true)} style={{ background: '#0F172A', color: '#fff', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }} />
             )}
           </div>
         )}
 
         {/* Attributes sidebar — left of company */}
-        {!isMobile && createPortal(<div style={{
+        {!isMobile && createPortal(<div className="app-panel" style={{
             width: ATTR_W,
             position: 'fixed',
-            right: COMP_W,
-            top: 0,
-            bottom: 0,
-            background: '#001529',
+            right: COMP_W + PANEL_GAP * 2,
+            top: PANEL_GAP,
+            bottom: PANEL_GAP,
             zIndex: 200,
-            overflow: 'hidden',
             transition: 'width 0.2s, right 0.2s',
-            display: 'flex',
-            flexDirection: 'column',
           }}>
           <div style={{
             height: 64,
@@ -979,7 +982,7 @@ export default function TabGeneral({
           {sidebarDirty && (
             <div style={{ padding: '8px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}>
               <Flex gap={8}>
-                <Button type="primary" block loading={sidebarAttributesSaving} onClick={() => void onSaveSidebarAttributes(sidebarDraft)} style={{ background: '#1677ff', borderColor: '#1677ff', color: '#fff' }}>
+                <Button type="primary" block loading={sidebarAttributesSaving} onClick={() => void onSaveSidebarAttributes(sidebarDraft)}>
                   {sidebarAttributesSaving ? 'Saving…' : 'Save changes'}
                 </Button>
                 <Button block disabled={sidebarAttributesSaving} onClick={() => setSidebarDraft(sidebarBaseline)} style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)', color: '#fff' }}>Reset</Button>
@@ -1240,7 +1243,7 @@ export default function TabGeneral({
               <Flex gap={6} vertical>
                 <Input placeholder="Key" value={newAttributeKey} onChange={e => onNewAttributeKeyChange(e.target.value)} />
                 <Input placeholder="Value" value={newAttributeValue} onChange={e => onNewAttributeValueChange(e.target.value)} onPressEnter={onAddAttribute} />
-                <Button type="primary" icon={<PlusOutlined />} onClick={onAddAttribute} disabled={!newAttributeKey.trim()} loading={attributesLoading} block style={{ background: '#1677ff', borderColor: '#1677ff', color: '#fff' }}>Add</Button>
+                <Button type="primary" icon={<PlusOutlined />} onClick={onAddAttribute} disabled={!newAttributeKey.trim()} loading={attributesLoading} block>Add</Button>
               </Flex>
             </div>
 
@@ -1251,19 +1254,14 @@ export default function TabGeneral({
         </div>, document.body)}
 
         {/* Company Info sidebar — paling kanan, right: 0 */}
-        {!isMobile && createPortal(<div style={{
+        {!isMobile && createPortal(<div className="app-panel" style={{
             width: COMP_W,
             position: 'fixed',
-            right: 0,
-            top: 0,
-            bottom: 0,
-            background: '#0a1f3d',  /* sedikit lebih terang dari Attributes agar bisa dibedakan */
+            right: PANEL_GAP,
+            top: PANEL_GAP,
+            bottom: PANEL_GAP,
             zIndex: 199,
-            overflow: 'hidden',
             transition: 'width 0.2s',
-            display: 'flex',
-            flexDirection: 'column',
-            borderLeft: '1px solid rgba(255,255,255,0.08)',
           }}>
           <div style={{
             height: 64,
@@ -1292,6 +1290,8 @@ export default function TabGeneral({
             <div style={{ padding: 16, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
               {!ticketData?.company_id ? (
                 <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12 }}>No company linked</Text>
+              ) : companyMissing ? (
+                <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12 }}>Company not found — it may have been deleted.</Text>
               ) : !companyDetail ? (
                 <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12 }}>Loading...</Text>
               ) : (
@@ -1362,7 +1362,7 @@ export default function TabGeneral({
                             style={{ padding: '6px 8px', background: 'rgba(255,255,255,0.06)', borderRadius: 4, cursor: 'pointer' }}
                           >
                             <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 3 }}>
-                              <Text style={{ color: '#1677ff', fontSize: 11, flexShrink: 0, fontWeight: 600 }}>#{t.id}</Text>
+                              <Text style={{ color: '#5EEAD4', fontSize: 11, flexShrink: 0, fontWeight: 600 }}>#{t.id}</Text>
                               {t.priority != null && (
                                 <span style={{ fontSize: 10, background: 'rgba(22,119,255,0.2)', color: '#69b1ff', borderRadius: 3, padding: '0 4px', flexShrink: 0 }}>
                                   P{t.priority}
@@ -1402,7 +1402,7 @@ export default function TabGeneral({
                   <Button
                     block
                     onClick={() => window.open(`/companies/${ticketData.company_id}`, '_blank')}
-                    style={{ marginTop: 'auto', background: '#1677ff', borderColor: '#1677ff', color: '#fff' }}
+                    style={{ marginTop: 'auto' }}
                   >
                     View Company →
                   </Button>
@@ -1419,7 +1419,7 @@ export default function TabGeneral({
           open={isMobile && drawerAttrOpen}
           onClose={() => setDrawerAttrOpen(false)}
           width={Math.min(320, window?.innerWidth ?? 320)}
-          styles={{ body: { background: '#001529', padding: 16 }, header: { background: '#001529', borderBottom: '1px solid rgba(255,255,255,0.1)' }, wrapper: { background: '#001529' } }}
+          styles={{ body: { background: '#0F172A', padding: 16 }, header: { background: '#0F172A', borderBottom: '1px solid rgba(148,163,184,0.14)' }, wrapper: { background: '#0F172A' } }}
           closeIcon={<span style={{ color: '#fff' }}>✕</span>}
         >
           <div style={{ color: '#fff' }}>
@@ -1433,7 +1433,7 @@ export default function TabGeneral({
           open={isMobile && drawerCompanyOpen}
           onClose={() => setDrawerCompanyOpen(false)}
           width={Math.min(320, window?.innerWidth ?? 320)}
-          styles={{ body: { background: '#0a1f3d', padding: 16 }, header: { background: '#0a1f3d', borderBottom: '1px solid rgba(255,255,255,0.1)' }, wrapper: { background: '#0a1f3d' } }}
+          styles={{ body: { background: '#0F172A', padding: 16 }, header: { background: '#0F172A', borderBottom: '1px solid rgba(148,163,184,0.14)' }, wrapper: { background: '#0F172A' } }}
           closeIcon={<span style={{ color: '#fff' }}>✕</span>}
         >
           <div style={{ color: '#fff' }}>
