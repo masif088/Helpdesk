@@ -1,5 +1,5 @@
 /**
- * Seed Firestore: ticket_statuses, ticket_types, job_types, users (+ Firebase Auth accounts).
+ * Seed Firestore: ticket_statuses, ticket_types, job_types, message_templates, users (+ Firebase Auth accounts).
  * Run: npm run db:seed
  *
  * Env:
@@ -16,6 +16,7 @@ import { createAppUser, findUserByEmail } from '../lib/app-users'
 import { isFirebaseAdminConfigured } from '../lib/firebase/admin'
 import { count, insertMany, jobTypes, removeWhere, ticketStatuses, ticketTypes } from '../lib/fsdb'
 import { DEFAULT_JOB_TYPES } from '../lib/job-types-defaults'
+import { ensureDefaultMessageTemplates } from '../lib/message-templates-defaults'
 
 const STATUSES = [
   { slug: 'open', title: 'Open', customerTitle: 'Ticket received', description: 'Ticket has been received and is in the queue.', color: '#F1C232', showInKanban: true, sortOrder: 1 },
@@ -119,6 +120,8 @@ async function main() {
   await seedTicketStatuses()
   await seedTicketTypes()
   await seedJobTypes()
+  const createdTemplates = await ensureDefaultMessageTemplates()
+  if (createdTemplates.length) console.log(`Created message_templates: ${createdTemplates.join(', ')}`)
   await seedUsers()
 }
 

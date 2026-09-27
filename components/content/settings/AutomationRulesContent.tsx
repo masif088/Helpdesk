@@ -305,7 +305,7 @@ export default function AutomationRulesContent({ user: currentUser }: Automation
           </div>
 
           <Modal
-            title={editingRule ? 'Edit Rule' : 'Add Rule'}
+            title={editingRule ? 'Edit rule' : 'Add rule'}
             open={modalVisible}
             onCancel={() => {
               setModalVisible(false)
@@ -322,7 +322,7 @@ export default function AutomationRulesContent({ user: currentUser }: Automation
               <Space style={{ width: '100%', marginBottom: 16 }} wrap>
                 <Form.Item
                   name="event_type"
-                  label="Event Type"
+                  label="When"
                   rules={[{ required: true }]}
                   style={{ marginBottom: 0, minWidth: 180 }}
                 >
@@ -332,26 +332,26 @@ export default function AutomationRulesContent({ user: currentUser }: Automation
                       (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                     }
                     options={[
-                      { value: 'ticket_created', label: 'Ticket Created' },
-                      { value: 'ticket_updated', label: 'Ticket Updated' },
-                      { value: 'ticket_reply_added', label: 'New Reply (thread / email / client note)' },
-                      { value: 'ticket_note_added', label: 'New Internal Note' },
-                      { value: 'ticket_comment_added', label: 'New Reply or Note (any)' },
-                      { value: 'time_trigger', label: 'Time Trigger (cron-based)' },
+                      { value: 'ticket_created', label: 'Ticket created' },
+                      { value: 'ticket_updated', label: 'Ticket updated' },
+                      { value: 'ticket_reply_added', label: 'New reply (thread / email / client note)' },
+                      { value: 'ticket_note_added', label: 'New internal note' },
+                      { value: 'ticket_comment_added', label: 'New reply or note (any)' },
+                      { value: 'time_trigger', label: 'Time trigger (daily check)' },
                     ]}
                   />
                 </Form.Item>
                 <Form.Item name="priority" label="Priority" style={{ marginBottom: 0, minWidth: 100 }}>
                   <InputNumber min={0} placeholder="0" style={{ width: '100%' }} />
                 </Form.Item>
-                <Form.Item name="company_id" label="Company (optional)" style={{ marginBottom: 0, minWidth: 180 }}>
+                <Form.Item name="company_id" label="Applies to" style={{ marginBottom: 0, minWidth: 180 }}>
                   <Select
                     allowClear
                     showSearch
                     filterOption={(input, option) =>
                       (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                     }
-                    placeholder="Global"
+                    placeholder="All companies"
                     options={companies.map((c) => ({ value: c.id, label: c.name }))}
                   />
                 </Form.Item>
@@ -360,7 +360,19 @@ export default function AutomationRulesContent({ user: currentUser }: Automation
                 </Form.Item>
               </Space>
 
+              <Form.Item noStyle shouldUpdate={(a, b) => a.event_type !== b.event_type}>
+                {({ getFieldValue }) =>
+                  getFieldValue('event_type') === 'time_trigger' ? (
+                    <div className="billing-note" style={{ marginBottom: 16 }}>
+                      Checked once a day (06:00) for open support tickets idle for at least a day. Use the condition
+                      “Days since last updated”. Each rule fires once per ticket until the ticket is updated again.
+                    </div>
+                  ) : null
+                }
+              </Form.Item>
+
               <Form.Item
+                validateTrigger="onSubmit"
                 name="conditions"
                 label="Conditions"
                 rules={[
@@ -378,6 +390,7 @@ export default function AutomationRulesContent({ user: currentUser }: Automation
                 </Form.Item>
 
               <Form.Item
+                validateTrigger="onSubmit"
                 name="actions"
                 label="Actions"
                 rules={[
@@ -391,14 +404,14 @@ export default function AutomationRulesContent({ user: currentUser }: Automation
                 <ActionBuilder />
               </Form.Item>
 
-              <Form.Item>
-                <Space>
-                  <Button type="primary" htmlType="submit" loading={submitting}>
-                    {editingRule ? 'Update' : 'Create'}
-                  </Button>
-                  <Button onClick={() => setModalVisible(false)} disabled={submitting}>Cancel</Button>
-                </Space>
-              </Form.Item>
+              <div className="modal-footer-row">
+                <Button onClick={() => setModalVisible(false)} disabled={submitting}>
+                  Cancel
+                </Button>
+                <Button type="primary" htmlType="submit" loading={submitting}>
+                  {editingRule ? 'Save rule' : 'Create rule'}
+                </Button>
+              </div>
             </Form>
           </Modal>
         </Content>

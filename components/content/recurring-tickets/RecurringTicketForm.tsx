@@ -249,7 +249,7 @@ export default function RecurringTicketForm({ initialValues, onSaved, onCancel }
           <Input.TextArea rows={3} placeholder="Optional ticket description — template variables supported" />
         </Form.Item>
 
-        <Divider orientation="left" orientationMargin={0}>
+        <Divider titlePlacement="start" orientationMargin={0}>
           <Text type="secondary" style={{ fontSize: 12 }}>Schedule</Text>
         </Divider>
 
@@ -323,7 +323,7 @@ export default function RecurringTicketForm({ initialValues, onSaved, onCancel }
           </Col>
         </Row>
 
-        <Divider orientation="left" orientationMargin={0}>
+        <Divider titlePlacement="start" orientationMargin={0}>
           <Text type="secondary" style={{ fontSize: 12 }}>Ticket Assignment</Text>
         </Divider>
 
@@ -375,7 +375,7 @@ export default function RecurringTicketForm({ initialValues, onSaved, onCancel }
           </Col>
         </Row>
 
-        <Divider orientation="left" orientationMargin={0}>
+        <Divider titlePlacement="start" orientationMargin={0}>
           <Text type="secondary" style={{ fontSize: 12 }}>Ticket Settings</Text>
         </Divider>
 

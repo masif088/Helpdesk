@@ -79,11 +79,11 @@
   --ticket-thread-meta: rgba(0, 0, 0, 0.5);
   --ticket-thread-text: var(--foreground);
   /* Automation rules — ActionBuilder + ConditionBuilder panels */
-  --automation-builder-panel-bg: #fafafa;
-  --automation-builder-panel-border: #f0f0f0;
+  --automation-builder-panel-bg: #F8FAFC;
+  --automation-builder-panel-border: #E2E8F0;
   --automation-builder-card-bg: #ffffff;
-  --automation-builder-card-border: #e8e8e8;
-  --automation-builder-muted-text: #8c8c8c;
+  --automation-builder-card-border: #E2E8F0;
+  --automation-builder-muted-text: #64748B;
 }
 
 .dark {
@@ -154,11 +154,11 @@
   --ticket-thread-border-agent-reply: #71717a;
   --ticket-thread-meta: rgba(255, 255, 255, 0.68);
   --ticket-thread-text: var(--foreground);
-  --automation-builder-panel-bg: #1a1a1a;
-  --automation-builder-panel-border: #363636;
-  --automation-builder-card-bg: #262626;
-  --automation-builder-card-border: #434343;
-  --automation-builder-muted-text: #a3a3a3;
+  --automation-builder-panel-bg: #0F1729;
+  --automation-builder-panel-border: #26324A;
+  --automation-builder-card-bg: #16213A;
+  --automation-builder-card-border: #2A3752;
+  --automation-builder-muted-text: #94A3B8;
   color-scheme: dark;
 }
 
@@ -1122,6 +1122,54 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
   flex-shrink: 0;
 }
 .mt-group-info__text { flex: 1; min-width: 220px; }
+
+/* Settings forms on their own page (recurring ticket, message template…): one card, section headings */
+.settings-form {
+  padding: 20px 24px 8px;
+  background: var(--kanban-card-bg);
+  border: 1px solid var(--kanban-card-border);
+  border-radius: 18px;
+  box-shadow: var(--card-shadow);
+}
+.settings-form .ant-divider-horizontal.ant-divider-with-text {
+  margin: 20px 0 14px;
+  border-block-start-color: var(--kanban-card-border);
+}
+.settings-form .ant-divider-with-text .ant-divider-inner-text,
+.settings-form .ant-divider-with-text .ant-divider-inner-text .ant-typography {
+  font-size: 11px !important;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-primary) !important;
+}
+.settings-form__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 8px -24px 0;
+  padding: 14px 24px;
+  border-top: 1px solid var(--kanban-card-border);
+}
+
+/* Settings → Message template edit */
+.mt-edit-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .mt-edit-layout { grid-template-columns: 1fr; } }
+.mt-edit-main { display: flex; flex-direction: column; gap: 14px; }
+.mt-edit-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.mt-edit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.mt-field { display: flex; flex-direction: column; gap: 6px; }
+.mt-field__label { font-size: 13px; font-weight: 600; color: var(--kanban-card-title); }
+
+/* Modal forms: actions right-aligned under a divider */
+.modal-footer-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 8px -24px -8px;
+  padding: 14px 24px 4px;
+  border-top: 1px solid var(--kanban-card-border);
+}
 
 /* Settings → Connection status (checks) */
 .conn-banner {

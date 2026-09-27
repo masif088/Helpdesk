@@ -2,30 +2,13 @@
 
 import 'react-quill-new/dist/quill.snow.css'
 
-import {
-  Button,
-  Checkbox,
-  Col,
-  DatePicker,
-  Divider,
-  Form,
-  Input,
-  InputNumber,
-  message,
-  Popover,
-  Row,
-  Select,
-  Space,
-  Spin,
-  Tag,
-  TimePicker,
-  Typography,
-} from 'antd'
+import { Button, Checkbox, Col, DatePicker, Divider, Form, Input, InputNumber, message, Popover, Row, Select, Spin, Tag, TimePicker, Typography } from 'antd'
 import dayjs from 'dayjs'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+import BackLink from '@/components/common/BackLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import { useSession } from '@/lib/auth-client'
@@ -272,18 +255,25 @@ export default function RecurringTicketFormPage({ initialValues }: Props) {
           .rt-quill-wrapper .ql-container { border-radius: 0 0 6px 6px; min-height: 160px; }
           .rt-quill-wrapper .ql-editor { min-height: 160px; }
         `}</style>
-        <div style={{ padding: '24px 32px', maxWidth: 820 }}>
-          <Title level={4} style={{ marginBottom: 4 }}>
-            {isEdit ? 'Edit recurring ticket' : 'New recurring ticket'}
-          </Title>
-          <Text type="secondary" style={{ fontSize: 13 }}>
-            {isEdit ? `Editing: ${initialValues?.title}` : 'Configure a ticket that auto-creates on a schedule.'}
-          </Text>
+        <div className="settings-page" style={{ padding: 24, maxWidth: 920 }}>
+          <BackLink href="/settings/recurring-tickets" style={{ marginBottom: 12 }}>
+            Recurring tickets
+          </BackLink>
+          <div className="page-head">
+            <div>
+              <Title level={2} className="page-head__title">
+                {isEdit ? 'Edit recurring ticket' : 'New recurring ticket'}
+              </Title>
+              <Text className="page-head__sub">
+                {isEdit ? `Editing: ${initialValues?.title}` : 'A ticket that is created automatically on a schedule.'}
+              </Text>
+            </div>
+          </div>
 
           {loadingOptions ? (
             <div style={{ textAlign: 'center', padding: 48 }}><Spin /></div>
           ) : (
-            <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 24 }}>
+            <Form form={form} layout="vertical" onFinish={handleSubmit} className="settings-form">
 
               <Form.Item
                 name="title"
@@ -306,7 +296,7 @@ export default function RecurringTicketFormPage({ initialValues }: Props) {
                 </div>
               </Form.Item>
 
-              <Divider orientation="left" orientationMargin={0}>
+              <Divider titlePlacement="start" orientationMargin={0}>
                 <Text type="secondary" style={{ fontSize: 12 }}>Schedule</Text>
               </Divider>
 
@@ -370,7 +360,7 @@ export default function RecurringTicketFormPage({ initialValues }: Props) {
                 </Col>
               </Row>
 
-              <Divider orientation="left" orientationMargin={0}>
+              <Divider titlePlacement="start" orientationMargin={0}>
                 <Text type="secondary" style={{ fontSize: 12 }}>Ticket Assignment</Text>
               </Divider>
 
@@ -421,7 +411,7 @@ export default function RecurringTicketFormPage({ initialValues }: Props) {
                 </Col>
               </Row>
 
-              <Divider orientation="left" orientationMargin={0}>
+              <Divider titlePlacement="start" orientationMargin={0}>
                 <Text type="secondary" style={{ fontSize: 12 }}>Ticket Settings</Text>
               </Divider>
 
@@ -433,16 +423,12 @@ export default function RecurringTicketFormPage({ initialValues }: Props) {
                 </Col>
               </Row>
 
-              <Form.Item style={{ marginTop: 16 }}>
-                <Space>
-                  <Button type="primary" htmlType="submit" loading={saving} size="large">
-                    {isEdit ? 'Save changes' : 'Create recurring ticket'}
-                  </Button>
-                  <Button size="large" onClick={() => router.push('/settings/recurring-tickets')}>
-                    Cancel
-                  </Button>
-                </Space>
-              </Form.Item>
+              <div className="settings-form__footer">
+                <Button onClick={() => router.push('/settings/recurring-tickets')}>Cancel</Button>
+                <Button type="primary" htmlType="submit" loading={saving}>
+                  {isEdit ? 'Save changes' : 'Create recurring ticket'}
+                </Button>
+              </div>
             </Form>
           )}
         </div>

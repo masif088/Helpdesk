@@ -1,7 +1,7 @@
 'use client'
 
 import { EyeOutlined, SaveOutlined } from '@ant-design/icons'
-import { Button, Card, Input, Layout, message, Space, Spin, Typography } from 'antd'
+import { Button, Input, Layout, message, Spin, Typography } from 'antd'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -11,11 +11,12 @@ import AdminSidebar from '@/components/layout/AdminSidebar'
 import MessageTemplatePlaceholdersPanel from '@/components/message-template/MessageTemplatePlaceholdersPanel'
 import MessageTemplatePreviewModal from '@/components/message-template/MessageTemplatePreviewModal'
 import CommentWysiwyg from '@/components/ticket/detail/CommentWysiwyg'
+import { StatusPill } from '@/components/ticket/list/TicketChips'
 
 import type { MessageTemplateRow } from './MessageTemplatesContent'
 
 const { Content } = Layout
-const { Text } = Typography
+const { Text, Title } = Typography
 
 interface MessageTemplateEditContentProps {
   user: { id: string; email?: string | null; user_metadata?: { full_name?: string | null }; role?: string }
@@ -104,93 +105,72 @@ export default function MessageTemplateEditContent({
     }
   }
 
+  const backTab = searchParams.get('from_tab') ?? row?.group ?? ''
+  const backHref = backTab ? `/settings/message-templates?tab=${encodeURIComponent(backTab)}` : '/settings/message-templates'
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
-        <Content style={{ margin: 24 }}>
-          <Card>
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-              <Space wrap>
-                <BackLink
-                  href={
-                    searchParams.get('from_tab')
-                      ? `/settings/message-templates?tab=${encodeURIComponent(searchParams.get('from_tab') ?? '')}`
-                      : '/settings/message-templates'
-                  }
-                >
-                  Message templates
-                </BackLink>
-              </Space>
+        <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
+          <BackLink href={backHref} style={{ marginBottom: 12 }}>
+            Message templates
+          </BackLink>
 
-              {loading ? (
-                <Spin />
-              ) : !row ? (
-                <Text type="danger">Template not found.</Text>
-              ) : (
-                <>
-                  <div>
-                    <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                      <div>
-                        <Text strong style={{ display: 'block', marginBottom: 4 }}>Title</Text>
-                        <Input
-                          value={title}
-                          onChange={(e) => setTitle(e.target.value)}
-                          placeholder="Template title"
-                          disabled={row.status !== 'active'}
-                        />
-                      </div>
-                      <div>
-                        <Text strong style={{ display: 'block', marginBottom: 4 }}>Category (Group)</Text>
-                        <Input
-                          value={group}
-                          onChange={(e) => setGroup(e.target.value)}
-                          placeholder="e.g. agent_notifications, requester_notifications"
-                          disabled={row.status !== 'active'}
-                        />
-                      </div>
-                      <Space direction="vertical" size={0}>
-                        <Text type="secondary" copyable={{ text: row.key }}>
-                          <strong>Key:</strong> {row.key}
-                        </Text>
-                        <Text type="secondary">
-                          <strong>Type:</strong> {row.type}
-                        </Text>
-                        <Text type="secondary">
-                          <strong>Status:</strong> {row.status === 'active' ? 'Active' : 'Inactive'}
-                        </Text>
-                      </Space>
-                    </Space>
+          {loading ? (
+            <div style={{ padding: 48, textAlign: 'center' }}>
+              <Spin />
+            </div>
+          ) : !row ? (
+            <div className="tpl-empty">Template not found.</div>
+          ) : (
+            <>
+              <div className="page-head">
+                <div>
+                  <Title level={2} className="page-head__title">
+                    {title || row.title}
+                  </Title>
+                  <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+                    {row.status === 'active' ? <StatusPill color="#16A34A" title="Active" /> : <StatusPill color="#94A3B8" title="Off" />}
+                    <Text className="cell-muted" copyable={{ text: row.key, tooltips: ['Copy key', 'Copied'] }} style={{ fontSize: 12 }}>
+                      {row.key}
+                    </Text>
+                  </span>
+                </div>
+              </div>
+
+              {row.status !== 'active' ? (
+                <div className="billing-note" style={{ marginBottom: 16 }}>
+                  This template is off: it is not sent, and preview and editing are disabled. Turn it on in the list first.
+                </div>
+              ) : null}
+
+              <div className="mt-edit-layout">
+                <div className="settings-form mt-edit-main">
+                  <div className="mt-edit-grid">
+                    <label className="mt-field">
+                      <span className="mt-field__label">Title</span>
+                      <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Template title" disabled={row.status !== 'active'} />
+                    </label>
+                    <label className="mt-field">
+                      <span className="mt-field__label">Category</span>
+                      <Input value={group} onChange={(e) => setGroup(e.target.value)} placeholder="e.g. Requester Notification" disabled={row.status !== 'active'} />
+                    </label>
                   </div>
-
-                  <MessageTemplatePlaceholdersPanel />
-
-                  {row.status !== 'active' && (
-                    <Text type="warning" style={{ display: 'block' }}>
-                      This template is inactive. Preview and edit are temporarily disabled.
-                    </Text>
-                  )}
-
-                  <div style={{ marginTop: 20 }}>
-                    <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                      Email Subject
-                    </Text>
+                  <label className="mt-field">
+                    <span className="mt-field__label">Email subject</span>
                     <Input
                       value={emailSubject}
                       onChange={(e) => setEmailSubject(e.target.value)}
                       placeholder="Leave empty to use the default subject"
                       disabled={row.status !== 'active'}
-                      style={{ marginBottom: 4 }}
                     />
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      Supports merge fields e.g. <code>{'{{ recipient.full_name }}'}</code>, <code>{'{{ ticket_id }}'}</code>
-                    </Text>
-                  </div>
-
-                  <div style={{ paddingBottom: 20 }}>
-                    <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                      Body (rich text)
-                    </Text>
+                    <span className="cell-muted" style={{ fontSize: 12 }}>
+                      Subjects support <code>{'{{ ticket_id }}'}</code> and <code>{'{{ ticket_title }}'}</code>.
+                    </span>
+                  </label>
+                  <div className="mt-field">
+                    <span className="mt-field__label">Body</span>
                     <CommentWysiwyg
                       value={content}
                       onChange={setContent}
@@ -200,15 +180,12 @@ export default function MessageTemplateEditContent({
                       useSemanticHTML={false}
                     />
                   </div>
-
-                  <Space wrap>
-                    <Button
-                      icon={<EyeOutlined />}
-                      disabled={row.status !== 'active'}
-                      onClick={() => setPreviewOpen(true)}
-                    >
+                  <div className="settings-form__footer">
+                    <Button icon={<EyeOutlined />} disabled={row.status !== 'active'} onClick={() => setPreviewOpen(true)}>
                       Preview
                     </Button>
+                    <span style={{ flex: 1 }} />
+                    <Button onClick={() => router.push(backHref)}>Cancel</Button>
                     <Button
                       type="primary"
                       icon={<SaveOutlined />}
@@ -216,26 +193,34 @@ export default function MessageTemplateEditContent({
                       disabled={row.status !== 'active'}
                       onClick={() => void save()}
                     >
-                      Save and return to list
+                      Save
                     </Button>
-                    <Button onClick={() => {
-                      const fromTab = searchParams.get('from_tab') ?? row?.group
-                      const backUrl = fromTab
-                        ? `/settings/message-templates?tab=${encodeURIComponent(fromTab)}`
-                        : '/settings/message-templates'
-                      router.push(backUrl)
-                    }}>Cancel</Button>
-                  </Space>
+                  </div>
+                </div>
 
-                  <MessageTemplatePreviewModal
-                    open={previewOpen}
-                    onClose={() => setPreviewOpen(false)}
-                    templateBody={content}
-                  />
-                </>
-              )}
-            </Space>
-          </Card>
+                <aside className="mt-edit-side">
+                  <section className="ticket-surface billing-section">
+                    <header className="billing-section__head">
+                      <span>Details</span>
+                    </header>
+                    <div className="info-grid">
+                      <div className="info-field">
+                        <div className="info-field__label">Type</div>
+                        <div className="info-field__value">{row.type.replace(/_/g, ' ')}</div>
+                      </div>
+                      <div className="info-field">
+                        <div className="info-field__label">Key</div>
+                        <div className="info-field__value" style={{ overflowWrap: 'anywhere' }}>{row.key}</div>
+                      </div>
+                    </div>
+                  </section>
+                  <MessageTemplatePlaceholdersPanel />
+                </aside>
+              </div>
+
+              <MessageTemplatePreviewModal open={previewOpen} onClose={() => setPreviewOpen(false)} templateBody={content} />
+            </>
+          )}
         </Content>
       </AdminMainColumn>
     </Layout>

@@ -1,7 +1,7 @@
 'use client'
 
 import { BellOutlined, EditOutlined, EyeOutlined, FileTextOutlined, MailOutlined, TeamOutlined } from '@ant-design/icons'
-import { Button, Card, Flex, Layout, message, Space, Switch, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { Button, Flex, Layout, message, Space, Switch, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -13,6 +13,7 @@ import MessageTemplatePreviewModal from '@/components/message-template/MessageTe
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import { StatusPill } from '@/components/ticket/list/TicketChips'
 import { APP_TABLE_PAGE_SIZE_OPTIONS } from '@/lib/app-table'
+import { MESSAGE_TEMPLATE_KEYS } from '@/lib/message-template-keys'
 
 const { Content } = Layout
 
@@ -167,6 +168,25 @@ export default function MessageTemplatesContent({ user: currentUser }: MessageTe
     }
   }, [])
 
+  /** Keys the app sends that have no template row (their emails are skipped) */
+  const missingKeys = useMemo(() => {
+    const have = new Set(rows.map((r) => r.key))
+    return MESSAGE_TEMPLATE_KEYS.filter((k) => !have.has(k))
+  }, [rows])
+  const [creatingDefaults, setCreatingDefaults] = useState(false)
+  const createDefaults = async () => {
+    setCreatingDefaults(true)
+    try {
+      const res = await apiFetch<{ created: string[] }>('/api/message-templates', { method: 'POST' })
+      message.success(res.created.length ? `Created ${res.created.length} templates` : 'All default templates already exist')
+      await load()
+    } catch (e) {
+      message.error((e as Error).message || 'Could not create templates')
+    } finally {
+      setCreatingDefaults(false)
+    }
+  }
+
   useEffect(() => {
     void load()
   }, [load])
@@ -311,6 +331,15 @@ export default function MessageTemplatesContent({ user: currentUser }: MessageTe
             title="Message templates"
             description="Notification emails and reply templates. Toggle a template to enable or disable sending; the key is what code and automations refer to."
             count={`${rows.length} templates`}
+            actions={
+              missingKeys.length > 0 && rows.length > 0 ? (
+                <Tooltip title={`Missing: ${missingKeys.join(', ')}`}>
+                  <Button loading={creatingDefaults} onClick={() => void createDefaults()}>
+                    Add {missingKeys.length} missing default{missingKeys.length > 1 ? 's' : ''}
+                  </Button>
+                </Tooltip>
+              ) : undefined
+            }
           />
           <div>
               {groupsInOrder.length > 0 ? (
@@ -325,15 +354,15 @@ export default function MessageTemplatesContent({ user: currentUser }: MessageTe
                   className="company-tabs"
                 />
               ) : (
-                <Card size="small" styles={{ body: { padding: 16 } }}>
-                  <Table<MessageTemplateRow>
-                    rowKey="id"
-                    loading={loading}
-                    columns={columns}
-                    dataSource={[]}
-                    pagination={false}
-                  />
-                </Card>
+                <div className="tpl-empty">
+                  <FileTextOutlined />
+                  <div>{loading ? 'Loading templates…' : 'No message templates yet — notification emails are not sent until they exist.'}</div>
+                  {!loading ? (
+                    <Button type="primary" loading={creatingDefaults} onClick={() => void createDefaults()}>
+                      Create default templates
+                    </Button>
+                  ) : null}
+                </div>
               )}
           </div>
         </Content>
