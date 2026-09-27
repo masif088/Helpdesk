@@ -23,6 +23,7 @@ import { useEffect,useState } from 'react'
 import { KanbanTagPreview, tagPreviewFillHex } from '@/components/common/KanbanTagPreview'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 import { kanbanTagStyle } from '@/lib/kanban-tag-chip-style'
 import { isLockedTicketStatusSlug } from '@/lib/ticket-status-locked-slugs'
 
@@ -316,6 +317,7 @@ export default function TicketStatusesContent({ user: currentUser }: TicketStatu
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content style={{ margin: '24px' }}>
+          <SettingsBackLink />
        
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <Title level={4} style={{ margin: 0 }}>

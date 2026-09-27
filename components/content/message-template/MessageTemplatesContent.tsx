@@ -30,6 +30,7 @@ import { shouldOpenHrefInNewTab } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import MessageTemplatePreviewModal from '@/components/message-template/MessageTemplatePreviewModal'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 import { APP_TABLE_PAGE_SIZE_OPTIONS } from '@/lib/app-table'
 
 const { Content } = Layout
@@ -357,6 +358,7 @@ export default function MessageTemplatesContent({ user: currentUser }: MessageTe
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content style={{ margin: 24 }}>
+          <SettingsBackLink />
           <Card>
             <Space orientation="vertical" size="large" style={{ width: '100%' }}>
               <div>

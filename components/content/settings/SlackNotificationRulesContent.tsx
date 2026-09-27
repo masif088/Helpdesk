@@ -25,6 +25,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 
 const { Content } = Layout
 const { Title, Text, Paragraph } = Typography
@@ -395,6 +396,7 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
       <AdminSidebar user={{ ...user, role: user.role ?? undefined }} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={{ id: user.id, role: user.role ?? undefined }}>
         <Content style={{ padding: 24 }}>
+          <SettingsBackLink />
           <div style={{ marginBottom: 24 }}>
             <Title level={2} style={{ margin: 0 }}>
               Slack notifications

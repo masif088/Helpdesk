@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 import { BRANDING } from '@/lib/branding'
 
 const { Content } = Layout
@@ -76,9 +77,7 @@ export default function AppBrandingContent({ user }: Props) {
       <AdminSidebar user={user} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={user}>
         <Content className="settings-page" style={{ padding: 24, maxWidth: 600 }}>
-          <Button type="link" icon={<ArrowLeftOutlined />} style={{ paddingLeft: 0, marginBottom: 8 }}>
-            <Link href="/settings">Back to Settings</Link>
-          </Button>
+          <SettingsBackLink />
 
           <Title level={3} className="settings-section-heading" style={{ margin: '0 0 4px' }}>
             App Branding

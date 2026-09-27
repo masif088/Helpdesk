@@ -29,6 +29,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
 
 const { Content } = Layout
@@ -221,12 +222,7 @@ export default function JobTypesCatalogAdminContent({ user: currentUser }: JobTy
 
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content style={{ padding: 24, maxWidth: 1100 }}>
-          <Link href="/settings" style={{ display: 'inline-block', marginBottom: 16, color: 'inherit' }}>
-            <Space style={{ opacity: 0.85 }}>
-              <ArrowLeftOutlined />
-              Back to Settings
-            </Space>
-          </Link>
+          <SettingsBackLink />
 
           <Title level={2}>Job types</Title>
           <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>

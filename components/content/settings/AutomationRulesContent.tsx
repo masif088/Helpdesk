@@ -25,6 +25,7 @@ import ActionBuilder from '@/components/automation/ActionBuilder'
 import ConditionBuilder from '@/components/automation/ConditionBuilder'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
 import type { AutomationActions } from '@/lib/automation-actions-types'
 import type { OurConditionGroup } from '@/lib/condition-builder-utils'
@@ -268,6 +269,7 @@ export default function AutomationRulesContent({ user: currentUser }: Automation
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content style={{ margin: '24px' }}>
+          <SettingsBackLink />
           
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <Title level={4} style={{ margin: 0 }}>

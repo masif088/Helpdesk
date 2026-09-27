@@ -7,6 +7,7 @@ import { useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 
 const { Content } = Layout
 const { Title, Text } = Typography
@@ -87,9 +88,7 @@ export default function FeatureAccessContent({ user: currentUser }: Props) {
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
-          <Button type="link" icon={<ArrowLeftOutlined />} style={{ paddingLeft: 0, marginBottom: 8 }}>
-            <Link href="/settings">Back to Settings</Link>
-          </Button>
+          <SettingsBackLink />
 
           <Title level={3} className="settings-section-heading" style={{ margin: '0 0 4px' }}>
             Feature Access

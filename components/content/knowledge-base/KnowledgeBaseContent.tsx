@@ -16,6 +16,7 @@ import { useEffect,useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 import { APP_TABLE_PAGE_SIZE_OPTIONS } from '@/lib/app-table'
 import { labelForKnowledgeBaseRoles } from '@/lib/knowledge-base-article-roles'
 
@@ -159,6 +160,7 @@ export default function KnowledgeBaseContent({ user: currentUser }: KnowledgeBas
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content style={{ padding: 24 }}>
+          <SettingsBackLink />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
             <Title level={2} style={{ margin: 0 }}>
               Knowledge Base

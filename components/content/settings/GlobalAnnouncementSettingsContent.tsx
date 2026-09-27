@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 
 const { Content } = Layout
 const { Title, Text } = Typography
@@ -123,6 +124,7 @@ export default function GlobalAnnouncementSettingsContent({
       />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content style={{ padding: 24, background: 'var(--layout-bg)', minHeight: '100vh' }}>
+          <SettingsBackLink />
           <Card loading={loading}>
             <Space direction="vertical" size="large" style={{ width: '100%' }}>
               <div>

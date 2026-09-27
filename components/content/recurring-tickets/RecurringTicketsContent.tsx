@@ -34,6 +34,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
 import { normalizeSpecificDates } from '@/lib/recurring-ticket-schedule'
 
@@ -322,6 +323,7 @@ export default function RecurringTicketsContent({ user }: Props) {
       <AdminSidebar user={user} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={user}>
         <div style={{ padding: '24px 32px' }}>
+          <SettingsBackLink />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <div>
               <Title level={4} style={{ margin: 0 }}>Recurring Tickets</Title>

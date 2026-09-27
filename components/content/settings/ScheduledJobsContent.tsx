@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeftOutlined, CopyOutlined, PlayCircleOutlined } from '@ant-design/icons'
+import { CopyOutlined, PlayCircleOutlined } from '@ant-design/icons'
 import { App, Button, Layout, Tooltip, Typography } from 'antd'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 import { StatusPill } from '@/components/ticket/list/TicketChips'
 import { type JobRun, SCHEDULED_JOBS, type ScheduledJobKey } from '@/lib/scheduled-jobs'
 
@@ -78,10 +79,8 @@ export default function ScheduledJobsContent({ user, runs: initialRuns, appUrl, 
     <Layout style={{ minHeight: '100vh' }}>
       <AdminSidebar user={{ ...user, role: user.role ?? undefined }} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={user}>
-        <Content className="settings-page" style={{ padding: 24, maxWidth: 1100 }}>
-          <SpaNavLink href="/settings" className="settings-back">
-            <ArrowLeftOutlined /> Settings
-          </SpaNavLink>
+        <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
+          <SettingsBackLink />
           <div className="page-head">
             <div>
               <Title level={2} className="page-head__title">

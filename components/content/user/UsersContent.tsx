@@ -61,6 +61,7 @@ import { shouldOpenHrefInNewTab,SpaNavLink } from '@/components/common/SpaNavLin
 import { confirmUserCompanyMove } from '@/components/company/confirm-user-company-move'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 
 const { Content } = Layout
 const { Title, Text } = Typography
@@ -707,6 +708,7 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
 
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content className="settings-page" style={{ padding: 24, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+          {audience === 'staff' && !isCustomer ? <SettingsBackLink /> : null}
           <div className="page-head">
             <div>
               <Title level={2} className="page-head__title">

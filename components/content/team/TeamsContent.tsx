@@ -39,6 +39,7 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
 import type { ColumnsType } from 'antd/es/table'
 
 import DateDisplay from '@/components/common/DateDisplay'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
 import { canAdminTeams } from '@/lib/auth-utils'
 import {
@@ -429,6 +430,7 @@ export default function TeamsContent({ user: currentUser }: TeamsContentProps) {
 
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content style={{ padding: '24px', background: 'var(--layout-bg)', minHeight: '100vh' }}>
+          <SettingsBackLink />
           <Card>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
               <Title level={2} style={{ margin: 0 }}>

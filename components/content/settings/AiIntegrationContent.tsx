@@ -34,6 +34,7 @@ import { useEffect, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 import type { AiChatPublicConfig } from '@/lib/ai-chat-config'
 
 const { Content } = Layout
@@ -254,9 +255,7 @@ export default function AiIntegrationContent({ user: currentUser, config }: Prop
       <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
-          <Button type="link" icon={<ArrowLeftOutlined />} style={{ paddingLeft: 0, marginBottom: 8 }}>
-            <Link href="/settings">Back to Settings</Link>
-          </Button>
+          <SettingsBackLink />
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <div>

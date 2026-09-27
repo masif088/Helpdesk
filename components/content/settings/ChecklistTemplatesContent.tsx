@@ -31,6 +31,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 
 const { Content } = Layout
 const { Title, Text } = Typography
@@ -458,11 +459,10 @@ export default function ChecklistTemplatesContent({ user: currentUser }: Props) 
       />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
+          <SettingsBackLink />
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
             <Space style={{ justifyContent: 'space-between', width: '100%' }}>
-              <SpaNavLink href="/settings" style={{ fontSize: 14 }}>
-                <ArrowLeftOutlined /> Back to Settings
-              </SpaNavLink>
+              <span />
               <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                 New Template
               </Button>

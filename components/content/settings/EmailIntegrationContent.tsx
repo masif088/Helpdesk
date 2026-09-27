@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import SettingsBackLink from '@/components/settings/SettingsBackLink'
 
 const { Content } = Layout
 const { Title, Text } = Typography
@@ -124,6 +125,7 @@ export default function EmailIntegrationContent({
       <AdminSidebar user={user} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={user}>
         <Content style={{ padding: '24px', background: 'var(--layout-bg)', minHeight: '100vh' }}>
+          <SettingsBackLink />
           <Card style={{ maxWidth: 600 }}>
             <Space orientation="vertical" size="large" style={{ width: '100%' }}>
               <div>
