@@ -1,7 +1,8 @@
 import { auth } from '@/auth'
 import CustomerDashboardContent from '@/components/content/customer/CustomerDashboardContent'
 import DashboardContent from '@/components/content/dashboard/DashboardContent'
-import { count, teams, tickets, users } from '@/lib/fsdb'
+import { type AdminDashboardData, getAdminDashboardData } from '@/lib/admin-dashboard'
+import { isAdminOrManager } from '@/lib/auth-utils'
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -23,32 +24,14 @@ export default async function DashboardPage() {
     )
   }
 
-  // Admin / other roles: show admin dashboard
-  let usersCount = 0
-  let teamsCount = 0
-  let completedTicketsCount = 0
-  let totalTicketsCount = 0
-
+  // Admin / staff: team-wide dashboard (billing figures for admin / manager only)
+  const includeBilling = isAdminOrManager(role)
+  let data: AdminDashboardData | null = null
   try {
-    ;[usersCount, teamsCount, completedTicketsCount, totalTicketsCount] = await Promise.all([
-      count(users),
-      count(teams),
-      count(tickets, [['status', 'in', ['resolved', 'closed', 'completed']]]),
-      count(tickets),
-    ])
+    data = await getAdminDashboardData({ includeBilling })
   } catch (err) {
     console.error('Dashboard query failed (check Firebase Admin credentials / Firestore).', err)
   }
 
-  return (
-    <DashboardContent
-      user={user}
-      stats={{
-        totalUsers: usersCount,
-        totalTeams: teamsCount,
-        completedTickets: completedTicketsCount,
-        totalTickets: totalTicketsCount,
-      }}
-    />
-  )
+  return <DashboardContent user={user} data={data} />
 }

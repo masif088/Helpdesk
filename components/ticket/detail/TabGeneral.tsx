@@ -546,7 +546,7 @@ export default function TabGeneral({
                             {(ticketData.created_via === 'recurring' || ticketData.created_via === 'automation') ? (
                               <Avatar
                                 size="small"
-                                style={{ backgroundColor: '#722ed1', flexShrink: 0 }}
+                                style={{ backgroundColor: '#0E7490', flexShrink: 0 }}
                                 icon={ticketData.created_via === 'recurring' ? <SyncOutlined /> : <RobotOutlined />}
                               />
                             ) : (
@@ -568,7 +568,7 @@ export default function TabGeneral({
                               >
                                 Created By{' '}
                                 {isAutomationCreated ? (
-                                  <Text style={{ color: '#722ed1', fontWeight: 500 }}>{createdByPersonLabel}</Text>
+                                  <Text style={{ color: '#0E7490', fontWeight: 500 }}>{createdByPersonLabel}</Text>
                                 ) : (
                                   <TicketUserMention userId={creatorId} email={creatorEmail} className="ml-1">
                                     <Text
@@ -734,7 +734,7 @@ export default function TabGeneral({
                       <Flex justify="space-between" align="center" wrap="wrap" gap="small">
                           <Space>
                           {isAutomation ? (
-                            <Avatar size="small" style={{ backgroundColor: '#722ed1' }} icon={<ThunderboltOutlined />} />
+                            <Avatar size="small" style={{ backgroundColor: '#0E7490' }} icon={<ThunderboltOutlined />} />
                           ) : (
                             <TicketUserMention userId={comment.user_id} email={comment.user?.email}>
                               <Avatar

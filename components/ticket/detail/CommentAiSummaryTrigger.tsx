@@ -60,7 +60,7 @@ export default function CommentAiSummaryTrigger({
           disabled={disabled || addCommentLoading}
           onClick={() => setOpen(true)}
           aria-label="AI summary"
-          style={isTicketVariant ? { color: '#722ed1', borderColor: '#722ed1' } : undefined}
+          style={isTicketVariant ? { color: '#0E7490', borderColor: '#0E7490' } : undefined}
         />
       </Tooltip>
       <CommentAiSummaryModal

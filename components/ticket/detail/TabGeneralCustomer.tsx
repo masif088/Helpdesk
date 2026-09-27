@@ -319,7 +319,7 @@ export default function TabGeneralCustomer({
                   >
                   <Flex gap="middle" align="flex-start" style={{ width: '100%' }}>
                     {isAutomation ? (
-                      <Avatar style={{ backgroundColor: '#722ed1' }} icon={<ThunderboltOutlined />} />
+                      <Avatar style={{ backgroundColor: '#0E7490' }} icon={<ThunderboltOutlined />} />
                     ) : (
                       <TicketUserMention userId={comment.user_id} email={comment.user?.email}>
                         <Avatar

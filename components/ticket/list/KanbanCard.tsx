@@ -261,10 +261,10 @@ export default function KanbanCard({
             )}
             #{ticket.id} {ticket.title}
             {ticket.created_via === 'recurring' && (
-              <SyncOutlined title="Created by recurring ticket" style={{ fontSize: 11, color: '#722ed1', marginLeft: 5, verticalAlign: 'middle' }} />
+              <SyncOutlined title="Created by recurring ticket" style={{ fontSize: 11, color: '#0E7490', marginLeft: 5, verticalAlign: 'middle' }} />
             )}
             {ticket.created_via === 'automation' && (
-              <RobotOutlined title="Created by automation" style={{ fontSize: 11, color: '#722ed1', marginLeft: 5, verticalAlign: 'middle' }} />
+              <RobotOutlined title="Created by automation" style={{ fontSize: 11, color: '#0E7490', marginLeft: 5, verticalAlign: 'middle' }} />
             )}
           </Text>
           {ticket.by_label && (

@@ -122,7 +122,7 @@ export default function CustomerNavbar({ user }: CustomerNavbarProps) {
             width: 40,
             height: 40,
             borderRadius: 8,
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            background: 'linear-gradient(135deg, #0F9D8A 0%, #0B7A6B 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

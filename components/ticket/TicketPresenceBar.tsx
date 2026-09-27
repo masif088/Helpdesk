@@ -153,7 +153,7 @@ export default function TicketPresenceBar({ ticketId, currentUser }: Props) {
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
       <Tooltip title={`Also viewing: ${label}`}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <EyeOutlined style={{ color: '#722ed1', fontSize: 18 }} />
+          <EyeOutlined style={{ color: '#0E7490', fontSize: 18 }} />
           <Avatar.Group max={{ count: 4 }} size="small">
             {otherViewers.map((v) => (
               <Tooltip key={v.userId} title={v.displayName}>

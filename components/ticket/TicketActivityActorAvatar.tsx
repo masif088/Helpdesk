@@ -44,7 +44,7 @@ export default function TicketActivityActorAvatar({
       <Avatar
         size={size}
         className={className}
-        style={{ backgroundColor: '#722ed1', flexShrink: 0, ...style }}
+        style={{ backgroundColor: '#0E7490', flexShrink: 0, ...style }}
         icon={<RobotOutlined />}
       />
     )

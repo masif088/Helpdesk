@@ -100,7 +100,7 @@ export default function TicketsHeader({
         {!inJunkFolder && (
           <Flex align="center" justify="space-between" gap={12} wrap="wrap">
             <Flex align="center" gap={12} wrap="wrap">
-              <ConfigProvider theme={{ components: { Segmented: { trackBg: token.colorBgContainer, itemSelectedBg: '#667eea', itemSelectedColor: '#fff' } } }}>
+              <ConfigProvider theme={{ components: { Segmented: { trackBg: token.colorBgContainer, itemSelectedBg: '#0F9D8A', itemSelectedColor: '#fff' } } }}>
                 <Segmented
                   value={isCustomer && viewMode === 'roundrobin' ? 'kanban' : viewMode}
                   onChange={(v) => handleViewModeChange(v as ViewMode)}

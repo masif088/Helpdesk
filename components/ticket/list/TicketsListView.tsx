@@ -355,8 +355,8 @@ export default function TicketsListView({
               onClick={(e) => { if (e.button !== 0 || e.ctrlKey || e.metaKey) return; e.preventDefault(); router.push(`/tickets/${record.id}`) }}>
               {record.has_unread_replies && <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', backgroundColor: '#ff4d4f', marginRight: 6, verticalAlign: 'middle' }} title="Unread replies" />}
               {title && title.length > 50 ? title.slice(0, 50) + '...' : title}
-              {record.created_via === 'recurring' && <SyncOutlined title="Created by recurring ticket" style={{ fontSize: 11, color: '#722ed1', marginLeft: 6, verticalAlign: 'middle' }} />}
-              {record.created_via === 'automation' && <RobotOutlined title="Created by automation" style={{ fontSize: 11, color: '#722ed1', marginLeft: 6, verticalAlign: 'middle' }} />}
+              {record.created_via === 'recurring' && <SyncOutlined title="Created by recurring ticket" style={{ fontSize: 11, color: '#0E7490', marginLeft: 6, verticalAlign: 'middle' }} />}
+              {record.created_via === 'automation' && <RobotOutlined title="Created by automation" style={{ fontSize: 11, color: '#0E7490', marginLeft: 6, verticalAlign: 'middle' }} />}
               {!isCustomer && record.short_note && <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2, lineHeight: 1.3 }}>{record.short_note}</div>}
             </a>
           ),

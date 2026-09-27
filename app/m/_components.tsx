@@ -12,7 +12,7 @@ export function BottomNav() {
       label: 'Dashboard',
       href: '/m/dashboard',
       icon: (active: boolean) => (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? '#7c3aed' : '#8c8c8c'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? '#0F9D8A' : '#8c8c8c'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
           <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
         </svg>
@@ -23,7 +23,7 @@ export function BottomNav() {
       label: 'Tickets',
       href: '/m/tickets',
       icon: (active: boolean) => (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? '#7c3aed' : '#8c8c8c'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? '#0F9D8A' : '#8c8c8c'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
           <rect x="9" y="3" width="6" height="4" rx="1" />
           <line x1="9" y1="12" x2="15" y2="12" /><line x1="9" y1="16" x2="13" y2="16" />
@@ -35,7 +35,7 @@ export function BottomNav() {
       label: 'Profile',
       href: '/m/profile',
       icon: (active: boolean) => (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? '#7c3aed' : '#8c8c8c'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? '#0F9D8A' : '#8c8c8c'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
           <circle cx="12" cy="7" r="4" />
         </svg>
@@ -58,8 +58,8 @@ export function BottomNav() {
           <Link key={item.key} href={item.href} style={{
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
             padding: '8px 0 10px', textDecoration: 'none',
-            color: isActive ? '#7c3aed' : '#8c8c8c',
-            borderTop: isActive ? '2px solid #7c3aed' : '2px solid transparent',
+            color: isActive ? '#0F9D8A' : '#8c8c8c',
+            borderTop: isActive ? '2px solid #0F9D8A' : '2px solid transparent',
           }}>
             {item.icon(isActive)}
             <span style={{ fontSize: 10, marginTop: 3, fontWeight: isActive ? 600 : 400 }}>{item.label}</span>

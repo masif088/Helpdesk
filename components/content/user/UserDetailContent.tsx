@@ -1092,7 +1092,7 @@ export default function UserDetailContent({ user: currentUser, userData: initial
                               title="This Month"
                               value={formatDuration(overviewData.thisMonth)}
                               prefix={<ClockCircleOutlined />}
-                              styles={{ content : { color: '#722ed1'} }}
+                              styles={{ content : { color: '#0E7490'} }}
                             />
                           </Card>
                         </Col>

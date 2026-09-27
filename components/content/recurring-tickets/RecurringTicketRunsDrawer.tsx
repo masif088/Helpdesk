@@ -63,7 +63,7 @@ export default function RecurringTicketRunsDrawer({ ruleId }: { ruleId: string }
             <Avatar
               size={20}
               icon={<SyncOutlined />}
-              style={{ backgroundColor: '#722ed1', flexShrink: 0 }}
+              style={{ backgroundColor: '#0E7490', flexShrink: 0 }}
             />
             <a href={`/tickets/${v}`} target="_blank" rel="noopener noreferrer">
               #{v}

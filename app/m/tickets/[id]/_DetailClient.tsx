@@ -72,7 +72,7 @@ export default function DetailClient({ ticket, isCustomer }: Props) {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', paddingBottom: 60 }}>
       {/* Header */}
       <div style={{ background: '#1a1a2e', padding: '12px 14px', borderBottom: '1px solid #2a2a3e', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <Link href="/m/tickets" style={{ color: '#7c3aed', textDecoration: 'none', fontSize: 22, lineHeight: 1, marginRight: 2 }}>‹</Link>
+        <Link href="/m/tickets" style={{ color: '#0F9D8A', textDecoration: 'none', fontSize: 22, lineHeight: 1, marginRight: 2 }}>‹</Link>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 11, color: '#8c8c8c' }}>#{ticket.id}</div>
           <div style={{ fontSize: 14, fontWeight: 600, color: '#f0f0f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.title}</div>
@@ -126,7 +126,7 @@ export default function DetailClient({ ticket, isCustomer }: Props) {
               // replies: white bg dark text; notes: dark purple like desktop; my replies: light purple
               const isDark = c.isNote
               const bg = c.isNote ? '#2d1b5e' : isMe ? '#ede9fb' : '#fff'
-              const border = c.isNote ? '#7c3aed44' : isMe ? '#c4b5fd' : '#e0e0e0'
+              const border = c.isNote ? '#0F9D8A44' : isMe ? '#99E0D5' : '#e0e0e0'
               return (
                 <div key={c.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
                   <div style={{ fontSize: 11, color: '#8c8c8c', marginBottom: 3, paddingLeft: 4, paddingRight: 4 }}>
@@ -135,7 +135,7 @@ export default function DetailClient({ ticket, isCustomer }: Props) {
                   </div>
                   <div
                     className={isDark ? 'mobile-note-bubble' : undefined}
-                    style={{ maxWidth: '90%', background: bg, border: `1px solid ${border}`, borderRadius: isMe ? '12px 12px 4px 12px' : '12px 12px 12px 4px', padding: '10px 12px', fontSize: 13, color: isDark ? '#e8e0ff' : '#1a1a1a', lineHeight: 1.5, wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                    style={{ maxWidth: '90%', background: bg, border: `1px solid ${border}`, borderRadius: isMe ? '12px 12px 4px 12px' : '12px 12px 12px 4px', padding: '10px 12px', fontSize: 13, color: isDark ? '#CCFBF1' : '#1a1a1a', lineHeight: 1.5, wordBreak: 'break-word', overflowWrap: 'break-word' }}
                     dangerouslySetInnerHTML={{ __html: c.body }}
                   />
                 </div>
@@ -164,7 +164,7 @@ export default function DetailClient({ ticket, isCustomer }: Props) {
           <button
             onClick={handleSend}
             disabled={!replyText.trim() || sending}
-            style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 10, background: replyText.trim() ? '#7c3aed' : '#2a2a3e', border: 'none', cursor: replyText.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 10, background: replyText.trim() ? '#0F9D8A' : '#2a2a3e', border: 'none', cursor: replyText.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={replyText.trim() ? '#fff' : '#555'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />

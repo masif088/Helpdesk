@@ -186,7 +186,7 @@ export default function TicketNotificationBell() {
               style={{
                 cursor: 'pointer',
                 padding: '10px 8px',
-                background: n.read ? undefined : 'rgba(102, 126, 234, 0.06)',
+                background: n.read ? undefined : 'rgba(15, 157, 138, 0.07)',
                 borderRadius: 6,
               }}
               onClick={() => onItemClick(n)}

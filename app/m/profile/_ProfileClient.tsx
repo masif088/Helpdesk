@@ -17,7 +17,7 @@ export default function ProfileClient({ name, email, role }: Props) {
 
       <div style={{ padding: '20px 14px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '20px 0 8px' }}>
-          <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 700, color: '#fff' }}>
+          <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#0F9D8A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 700, color: '#fff' }}>
             {initials}
           </div>
           <div style={{ textAlign: 'center' }}>

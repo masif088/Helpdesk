@@ -32,7 +32,7 @@ export default async function MobileDashboard() {
       <div style={{ padding: '16px 14px 0' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ fontSize: 14, fontWeight: 600 }}>Recent Tickets</div>
-          <Link href="/m/tickets" style={{ fontSize: 12, color: '#7c3aed', textDecoration: 'none' }}>See all →</Link>
+          <Link href="/m/tickets" style={{ fontSize: 12, color: '#0F9D8A', textDecoration: 'none' }}>See all →</Link>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {recentTickets.length === 0 && (

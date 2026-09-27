@@ -59,13 +59,13 @@ export default function TicketsClient({ tickets, isAgent, companies, teams }: Pr
           {isAgent && (
             <button
               onClick={() => setDrawerOpen(true)}
-              style={{ position: 'relative', background: activeFilterCount > 0 ? '#7c3aed22' : 'transparent', border: `1px solid ${activeFilterCount > 0 ? '#7c3aed' : '#2a2a3e'}`, borderRadius: 8, padding: '7px 9px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: activeFilterCount > 0 ? '#7c3aed' : '#8c8c8c' }}
+              style={{ position: 'relative', background: activeFilterCount > 0 ? '#0F9D8A22' : 'transparent', border: `1px solid ${activeFilterCount > 0 ? '#0F9D8A' : '#2a2a3e'}`, borderRadius: 8, padding: '7px 9px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: activeFilterCount > 0 ? '#0F9D8A' : '#8c8c8c' }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
               </svg>
               {activeFilterCount > 0 && (
-                <span style={{ position: 'absolute', top: -6, right: -6, width: 16, height: 16, borderRadius: '50%', background: '#7c3aed', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ position: 'absolute', top: -6, right: -6, width: 16, height: 16, borderRadius: '50%', background: '#0F9D8A', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {activeFilterCount}
                 </span>
               )}
@@ -74,7 +74,7 @@ export default function TicketsClient({ tickets, isAgent, companies, teams }: Pr
         </div>
         <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 2 }}>
           {FILTER_PILLS.map((f) => (
-            <button key={f.key} onClick={() => setFilter(f.key)} style={{ flexShrink: 0, padding: '4px 14px', borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: 'pointer', border: 'none', background: filter === f.key ? '#7c3aed' : '#2a2a3e', color: filter === f.key ? '#fff' : '#8c8c8c' }}>
+            <button key={f.key} onClick={() => setFilter(f.key)} style={{ flexShrink: 0, padding: '4px 14px', borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: 'pointer', border: 'none', background: filter === f.key ? '#0F9D8A' : '#2a2a3e', color: filter === f.key ? '#fff' : '#8c8c8c' }}>
               {f.label}
             </button>
           ))}
@@ -141,7 +141,7 @@ export default function TicketsClient({ tickets, isAgent, companies, teams }: Pr
               <button onClick={() => { setCompany(''); setTeam(''); setCompanySearch('') }} style={{ flex: 1, padding: '10px', borderRadius: 8, border: '1px solid #2a2a3e', background: 'transparent', color: '#8c8c8c', fontSize: 13, cursor: 'pointer' }}>
                 Reset
               </button>
-              <button onClick={() => setDrawerOpen(false)} style={{ flex: 2, padding: '10px', borderRadius: 8, border: 'none', background: '#7c3aed', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              <button onClick={() => setDrawerOpen(false)} style={{ flex: 2, padding: '10px', borderRadius: 8, border: 'none', background: '#0F9D8A', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 Apply
               </button>
             </div>
@@ -165,7 +165,7 @@ function FilterSection({ label, children }: { label: string; children: React.Rea
 
 function FilterOption({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 8, border: 'none', background: active ? '#7c3aed22' : 'transparent', color: active ? '#7c3aed' : '#d0d0d0', fontSize: 13, cursor: 'pointer', textAlign: 'left' }}>
+    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 8, border: 'none', background: active ? '#0F9D8A22' : 'transparent', color: active ? '#0F9D8A' : '#d0d0d0', fontSize: 13, cursor: 'pointer', textAlign: 'left' }}>
       {label}
       {active && <span style={{ fontSize: 14 }}>✓</span>}
     </button>

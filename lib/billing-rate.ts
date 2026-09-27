@@ -8,16 +8,20 @@ export function isRateCurrency(v: unknown): v is RateCurrency {
   return typeof v === 'string' && (RATE_CURRENCIES as readonly string[]).includes(v)
 }
 
-/** e.g. "Rp150.000/h" or "$25.00/h" */
-export function formatHourlyRate(rate: number | null | undefined, currency: string | null | undefined): string {
-  if (rate == null) return '—'
+/** e.g. "Rp150.000" or "$25.00" */
+export function formatMoney(amount: number, currency: string | null | undefined): string {
   const cur = isRateCurrency(currency) ? currency : DEFAULT_RATE_CURRENCY
-  const amount = new Intl.NumberFormat(cur === 'IDR' ? 'id-ID' : 'en-US', {
+  return new Intl.NumberFormat(cur === 'IDR' ? 'id-ID' : 'en-US', {
     style: 'currency',
     currency: cur,
     maximumFractionDigits: cur === 'IDR' ? 0 : 2,
-  }).format(rate)
-  return `${amount}/h`
+  }).format(amount)
+}
+
+/** e.g. "Rp150.000/h" or "$25.00/h" */
+export function formatHourlyRate(rate: number | null | undefined, currency: string | null | undefined): string {
+  if (rate == null) return '—'
+  return `${formatMoney(rate, currency)}/h`
 }
 
 /**

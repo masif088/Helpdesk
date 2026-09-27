@@ -114,10 +114,10 @@ export default function CardViewCard({
           )}
           #{ticket.id} {ticket.title}
           {ticket.created_via === 'recurring' && (
-            <SyncOutlined title="Created by recurring ticket" style={{ fontSize: 12, color: '#722ed1', marginLeft: 6, verticalAlign: 'middle' }} />
+            <SyncOutlined title="Created by recurring ticket" style={{ fontSize: 12, color: '#0E7490', marginLeft: 6, verticalAlign: 'middle' }} />
           )}
           {ticket.created_via === 'automation' && (
-            <RobotOutlined title="Created by automation" style={{ fontSize: 12, color: '#722ed1', marginLeft: 6, verticalAlign: 'middle' }} />
+            <RobotOutlined title="Created by automation" style={{ fontSize: 12, color: '#0E7490', marginLeft: 6, verticalAlign: 'middle' }} />
           )}
         </Text>
         <Text style={{ fontSize: 13, color: '#1890ff', display: 'block' }}>

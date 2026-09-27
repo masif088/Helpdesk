@@ -11,7 +11,6 @@ import {
   WarningOutlined,
 } from '@ant-design/icons'
 import { Layout, Menu } from 'antd'
-import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -25,7 +24,7 @@ import {
 
 const { Sider } = Layout
 
-const SIDEBAR_BG = '#2b1252'
+const SIDEBAR_BG = '#0F172A'
 
 interface SessionUser {
   id: string
@@ -181,7 +180,6 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
         height: undefined,
         minHeight: '100dvh',
         background: SIDEBAR_BG,
-        paddingLeft: 5,
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -190,11 +188,10 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
         style={{
           height: 64,
           display: 'flex',
-          margin: '0 20px',
           alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'space-between',
-          padding: collapsed ? '0 16px' : '0 24px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
+          padding: collapsed ? '0 16px' : '0 16px 0 20px',
+          borderBottom: '1px solid rgba(148, 163, 184, 0.12)',
           gap: 8,
         }}
       >
@@ -208,13 +205,38 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
                 style={{ flexShrink: 0, objectFit: 'contain', width: '100%', height: 36, maxHeight: 36 }}
               />
             ) : (
-              <Image
-                src="/deskteam360-logo-white%201.png"
-                alt={appName}
-                height={36}
-                width={1000}
-                style={{ flexShrink: 0, objectFit: 'contain', width: '100%', height: '100%' }}
-              />
+              <>
+                <span
+                  aria-hidden
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: 8,
+                    flexShrink: 0,
+                    display: 'grid',
+                    placeItems: 'center',
+                    background: 'linear-gradient(135deg, #14B8A6 0%, #0F9D8A 55%, #0B7A6B 100%)',
+                    color: '#fff',
+                    fontWeight: 800,
+                    fontSize: 15,
+                  }}
+                >
+                  {(appName || 'D').trim().charAt(0).toUpperCase()}
+                </span>
+                <span
+                  style={{
+                    color: '#F8FAFC',
+                    fontWeight: 700,
+                    fontSize: 16,
+                    letterSpacing: '-0.01em',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {appName}
+                </span>
+              </>
             )}
           </div>
         )}
@@ -223,7 +245,7 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
             onClick={() => onCollapse(!collapsed)}
             style={{
               cursor: 'pointer',
-              color: '#fff',
+              color: 'rgba(226, 232, 240, 0.7)',
               fontSize: 16,
             }}
           >
@@ -252,7 +274,7 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
           items={menuItems}
           style={{
             borderRight: 0,
-            marginTop: 16,
+            marginTop: 12,
             marginBottom: 24,
             background: 'transparent',
           }}

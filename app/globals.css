@@ -3,7 +3,14 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  --layout-bg: #f0f2f5;
+  --layout-bg: #F6F8FA;
+  /* Brand (teal + slate); keep in sync with BRAND in components/providers/AntdProvider.tsx */
+  --brand-primary: #0F9D8A;
+  --brand-primary-dark: #0B7A6B;
+  --brand-primary-soft: #E6F6F3;
+  --brand-accent: #F59E0B;
+  --brand-sidebar: #0F172A;
+  --card-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.05);
   --settings-hub-tile-bg: #ffffff;
   --settings-hub-tile-border: #f0f0f0;
   --settings-hub-tile-title: rgba(0, 0, 0, 0.88);
@@ -12,10 +19,10 @@
   /* Top ticket search bar (TicketSearchNavbar) */
   --ticket-nav-bg: #ffffff;
   --ticket-nav-border: #f0f0f0;
-  --ticket-nav-brand: #2b1252;
+  --ticket-nav-brand: #0F172A;
   --ticket-nav-icon-btn-bg: #ffffff;
   --ticket-nav-icon-btn-border: #d9d9d9;
-  --ticket-nav-icon-btn-color: #2b1252;
+  --ticket-nav-icon-btn-color: #0F172A;
   --ticket-nav-icon-hover-bg: #fafafa;
   --ticket-nav-panel-bg: #ffffff;
   --ticket-nav-panel-border: #f0f0f0;
@@ -23,9 +30,9 @@
   --ticket-nav-muted: #8c8c8c;
   --ticket-nav-text: #262626;
   --ticket-nav-text-secondary: #595959;
-  --ticket-nav-filter-bg: #f5f0ff;
-  --ticket-nav-filter-border: #d3adf7;
-  --ticket-nav-filter-link: #2b1252;
+  --ticket-nav-filter-bg: #E6F6F3;
+  --ticket-nav-filter-border: #99E0D5;
+  --ticket-nav-filter-link: #0B7A6B;
   --ticket-nav-shadow: rgba(0, 0, 0, 0.12);
   /* Global announcement marquee (under top nav) */
   --global-announcement-bg: #fff7e6;
@@ -50,7 +57,7 @@
   --ticket-row-chip-neutral-bg: #e9ecef;
   --ticket-row-chip-neutral-fg: #495057;
   /* Customer dashboard charts / panels */
-  --customer-dash-chart-surface: #f4f5ff;
+  --customer-dash-chart-surface: #F0FBF9;
   --customer-dash-chart-legend-bg: #f8f9fb;
   --customer-dash-priority-track: #f0f0f0;
   --customer-dash-eta-banner: #ffe0e5;
@@ -60,11 +67,11 @@
   /* Ticket thread bubbles (TabGeneral / TabGeneralCustomer) */
   --ticket-thread-divider: rgba(0, 0, 0, 0.12);
   --ticket-thread-bubble-outline: rgba(0, 0, 0, 0.1);
-  --ticket-thread-bubble-automation: rgba(246, 240, 255, 0.75);
+  --ticket-thread-bubble-automation: rgba(230, 246, 243, 0.8);
   --ticket-thread-bubble-customer: rgba(230, 247, 255, 0.65);
   --ticket-thread-bubble-agent-note: rgba(255, 248, 220, 0.85);
   --ticket-thread-bubble-agent-reply: #f0f0f0;
-  --ticket-thread-border-automation: rgba(179, 127, 235, 0.75);
+  --ticket-thread-border-automation: rgba(15, 157, 138, 0.6);
   --ticket-thread-border-customer: rgba(100, 170, 230, 0.9);
   --ticket-thread-border-agent-note: rgba(217, 165, 32, 0.85);
   --ticket-thread-border-agent-reply: #bfbfbf;
@@ -81,51 +88,53 @@
 .dark {
   --background: #0a0a0a;
   --foreground: #ededed;
-  --layout-bg: #141414;
-  --settings-hub-tile-bg: #1f1f1f;
-  --settings-hub-tile-border: #424242;
+  --layout-bg: #0B1220;
+  --brand-primary-soft: rgba(15, 157, 138, 0.16);
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --settings-hub-tile-bg: #111A2E;
+  --settings-hub-tile-border: #26324A;
   --settings-hub-tile-title: rgba(255, 255, 255, 0.88);
   --settings-hub-tile-desc: rgba(255, 255, 255, 0.45);
-  --settings-hub-tile-hover-bg: #2a2a2a;
-  --ticket-nav-bg: #141414;
-  --ticket-nav-border: #303030;
-  --ticket-nav-brand: #d4c8f0;
-  --ticket-nav-icon-btn-bg: #1f1f1f;
-  --ticket-nav-icon-btn-border: #434343;
-  --ticket-nav-icon-btn-color: #e8e0ff;
-  --ticket-nav-icon-hover-bg: #2a2a2a;
-  --ticket-nav-panel-bg: #1f1f1f;
-  --ticket-nav-panel-border: #434343;
-  --ticket-nav-panel-row-border: #333333;
+  --settings-hub-tile-hover-bg: #16213A;
+  --ticket-nav-bg: #0B1220;
+  --ticket-nav-border: #1E293B;
+  --ticket-nav-brand: #99F6E4;
+  --ticket-nav-icon-btn-bg: #111A2E;
+  --ticket-nav-icon-btn-border: #26324A;
+  --ticket-nav-icon-btn-color: #CCFBF1;
+  --ticket-nav-icon-hover-bg: #16213A;
+  --ticket-nav-panel-bg: #111A2E;
+  --ticket-nav-panel-border: #26324A;
+  --ticket-nav-panel-row-border: #1E293B;
   --ticket-nav-muted: #a3a3a3;
   --ticket-nav-text: #e8e8e8;
   --ticket-nav-text-secondary: #bfbfbf;
-  --ticket-nav-filter-bg: #2a2438;
-  --ticket-nav-filter-border: #553e7a;
-  --ticket-nav-filter-link: #d4c4f5;
+  --ticket-nav-filter-bg: rgba(15, 157, 138, 0.16);
+  --ticket-nav-filter-border: #0F766E;
+  --ticket-nav-filter-link: #5EEAD4;
   --ticket-nav-shadow: rgba(0, 0, 0, 0.45);
   --global-announcement-bg: #2b2111;
   --global-announcement-border: #594214;
   --global-announcement-text: #ffe7ba;
   --kanban-board-bg: var(--layout-bg);
-  --kanban-column-bg: #1f1f1f;
+  --kanban-column-bg: #111A2E;
   --kanban-column-head-title: #ffffff;
-  --kanban-badge-bg: #2a2a2a;
+  --kanban-badge-bg: #16213A;
   --kanban-badge-color: #e8e8e8;
-  --kanban-card-bg: #2a2a2a;
+  --kanban-card-bg: #16213A;
   --kanban-card-border: rgba(255, 255, 255, 0.12);
   --kanban-card-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
   --kanban-card-title: #e8e8e8;
   --kanban-card-muted: #a3a3a3;
   --kanban-card-divider: rgba(255, 255, 255, 0.12);
-  --kanban-drag-overlay-bg: #2a2a2a;
+  --kanban-drag-overlay-bg: #16213A;
   /** Stronger than card border so pill outlines stay obvious on dark fills */
   --kanban-chip-border: rgba(255, 255, 255, 0.48);
   --ticket-row-chip-neutral-bg: #3a3a46;
   --ticket-row-chip-neutral-fg: #e8e8e8;
-  --customer-dash-chart-surface: #1e1e26;
-  --customer-dash-chart-legend-bg: #252530;
-  --customer-dash-priority-track: #33333f;
+  --customer-dash-chart-surface: #111A2E;
+  --customer-dash-chart-legend-bg: #16213A;
+  --customer-dash-priority-track: #1E293B;
   --customer-dash-eta-banner: #352428;
   --customer-dash-subtle-border: rgba(255, 255, 255, 0.12);
   --customer-dash-recharts-grid: #434343;
@@ -133,11 +142,11 @@
   --ticket-thread-divider: rgba(255, 255, 255, 0.22);
   --ticket-thread-bubble-outline: rgba(255, 255, 255, 0.2);
   /* Solid tints — clearly distinct from --layout-bg / card (#1f1f1f) */
-  --ticket-thread-bubble-automation: #3d2d55;
+  --ticket-thread-bubble-automation: #123B3A;
   --ticket-thread-bubble-customer: #1b4558;
   --ticket-thread-bubble-agent-note: #4a3d2a;
   --ticket-thread-bubble-agent-reply: #34343f;
-  --ticket-thread-border-automation: rgba(200, 160, 255, 0.75);
+  --ticket-thread-border-automation: rgba(94, 234, 212, 0.6);
   --ticket-thread-border-customer: rgba(120, 195, 245, 0.8);
   --ticket-thread-border-agent-note: rgba(240, 200, 100, 0.75);
   --ticket-thread-border-agent-reply: #71717a;
@@ -177,7 +186,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 /* Quill Snow — dark mode (class on html from ThemeProvider) */
@@ -356,7 +365,7 @@ html.dark .ql-editor.comment-html {
 /* ticket thread: links must read as links (Quill may omit underline in saved HTML) */
 .comment-html a,
 .ql-editor.comment-html a {
-  color: #1677ff !important;
+  color: var(--brand-primary) !important;
   text-decoration: underline !important;
   text-underline-offset: 2px !important;
 }
@@ -427,7 +436,7 @@ html.dark .ql-snow .ql-background .ql-picker-item:hover {
   color: var(--ticket-thread-meta) !important;
 }
 .ticket-thread-bubble a:not(.ant-btn) {
-  color: var(--ticket-nav-filter-link, #1677ff);
+  color: var(--ticket-nav-filter-link, #0B7A6B);
 }
 
 /* Thread bubble fill: wrapper div + class; html.dark bumps specificity for theme vars */
@@ -448,86 +457,14 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
   background-color: var(--ticket-thread-bubble-agent-reply) !important;
 }
 
-/* Admin sidebar - DeskTeam360 style: purple bg, active item light gray with rounded right */
-.admin-sidebar-deskteam-2.ant-layout-sider {
-  background: #2B1251 !important;
-  border-radius: 0px 30px 0px 0px !important;
-}
-.admin-sidebar-deskteam-2 .ant-menu-dark {
-  background: transparent !important;
-}
-.admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-item,
-.admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-submenu-title {
-  color: #f0f2f5 !important;
-}
-.admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-item:hover,
-.admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-submenu-title:hover {
-  color: #fff !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-}
-
-
-.admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-item-selected {
-  background: #f0f2f5 !important;
-  color: #35165c !important;
-  border-radius: 40px 0 0 40px;
-  position: relative;
-  margin: 10px 8px 10px 0 !important;
-  width: calc(100%) !important;
-  overflow: visible !important;
-}
-.admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-item-selected .anticon {
-  color: #35165c !important;
-}
-
-.ant-menu.ant-menu-sub.ant-menu-inline {
-  background: #2B1251 !important;
-  /* margin-left: -5px !important;
-  padding-left: 10px; */
-}
-/* cekungan atas */
-.admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-item-selected::before {
-  content: "";
-  position: absolute;
-  top: -30px;
-  right: 0;
-  width: 30px;
-  height: 30px;
-  background: transparent;
-  border-bottom-right-radius: 30px;
-  box-shadow: 15px 15px 0 var(--layout-bg);
-  pointer-events: none;
-}
-/* cekungan bawah */
-.admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-item-selected::after {
-  content: "";
-  position: absolute;
-  bottom: -30px;
-  right: 0;
-  width: 30px;
-  height: 30px;
-  background: transparent;
-  border-top-right-radius: 30px;
-  box-shadow: 15px -15px 0 var(--layout-bg);
-  pointer-events: none;
-}
-.admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-submenu .ant-menu-item-selected {
-  margin-left: 10px !important;
-  width: 100% !important;
-  margin-top: 8px !important;
-  margin-bottom: 8px !important;
-}
-.admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-submenu .ant-menu-item-selected .anticon {
-  color: #35165c !important;
-}
-
-/* Admin sidebar — penuh ke bawah viewport, hindari scrollbar ganda / gap 100vh */
+/* Admin sidebar — slate panel, teal selection (menu colors come from the antd Menu tokens) */
 .deskteam-app-sidebar.ant-layout-sider {
   top: 0 !important;
   bottom: 0 !important;
   height: auto !important;
   min-height: 100vh;
   min-height: 100dvh;
+  border-right: 1px solid rgba(148, 163, 184, 0.12);
 }
 .deskteam-app-sidebar.ant-layout-sider > .ant-layout-sider-children {
   flex: 1 !important;
@@ -537,103 +474,46 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
   display: flex !important;
   flex-direction: column !important;
 }
-
-/* Admin sidebar - inline styles (menggantikan injeksi JS di AdminSidebar.tsx) */
-.admin-sidebar-deskteam .ant-menu-item-selected,
-.admin-sidebar-deskteam li.ant-menu-item-selected,
-.admin-sidebar-deskteam [class*="item-selected"],
-.admin-sidebar-deskteam [class*="ant-menu-item"][class*="selected"],
-.admin-sidebar-deskteam li[aria-selected="true"] {
-  background: #f0f2f5 !important;
-  color: #35165c !important;
-  border-radius: 40px 0 0 40px !important;
-  position: relative !important;
-  margin: 10px 8px 10px 0 !important;
-  width: calc(100%) !important;
-  overflow: visible !important;
+.admin-sidebar-deskteam .ant-menu-dark .ant-menu-item,
+.admin-sidebar-deskteam .ant-menu-dark .ant-menu-submenu-title {
+  height: 40px !important;
+  line-height: 40px !important;
+  font-weight: 500;
 }
-.admin-sidebar-deskteam .ant-menu-item-selected .anticon,
-.admin-sidebar-deskteam li.ant-menu-item-selected .anticon,
-.admin-sidebar-deskteam [class*="item-selected"] .anticon {
-  color: #35165c !important;
+.admin-sidebar-deskteam .ant-menu-dark .ant-menu-item-selected {
+  position: relative;
+  font-weight: 600;
 }
-
-/*
- * Dark mode (Ant Design darkAlgorithm): menu-dark selected item otherwise gets light text on light pill.
- * Force dark text + icons on the active “pill” (and links inside SpaNavLink).
- */
-.dark .admin-sidebar-deskteam .ant-menu-dark .ant-menu-item-selected,
-.dark .admin-sidebar-deskteam .ant-menu-dark .ant-menu-submenu .ant-menu-item-selected {
-  background: #141414 !important;
-  color: #f0f2f5 !important;
+/* Teal accent bar on the active item */
+.admin-sidebar-deskteam .ant-menu-dark .ant-menu-item-selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--brand-primary);
 }
-
-.dark .admin-sidebar-deskteam .ant-menu-dark .ant-menu-item-selected .ant-menu-title-content a,
-.dark .admin-sidebar-deskteam .ant-menu-dark .ant-menu-item-selected .ant-menu-title-content{
-  color: #f0f2f5 !important;
+.admin-sidebar-deskteam .ant-menu-dark .ant-menu-item-selected a,
+.admin-sidebar-deskteam .ant-menu-dark .ant-menu-item-selected .admin-sidebar-menu-link,
+.admin-sidebar-deskteam .ant-menu-dark .ant-menu-item-selected .anticon {
+  color: #5EEAD4 !important;
 }
-.dark .admin-sidebar-deskteam .ant-menu-dark .ant-menu-item-selected a,
-.dark .admin-sidebar-deskteam .ant-menu-dark .ant-menu-item-selected .admin-sidebar-menu-link {
-  color: #f0f2f5 !important;
-}
-.dark .admin-sidebar-deskteam .ant-menu-dark .ant-menu-item-selected .anticon,
-.dark .admin-sidebar-deskteam .ant-menu-dark .ant-menu-submenu .ant-menu-item-selected .anticon {
-  color: #f0f2f5 !important;
-}
-
-.dark .admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-item-selected,
-.dark .admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-submenu .ant-menu-item-selected {
-  background: #141414 !important;
-  color: #f0f2f5 !important;
-}
-.dark .admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-item-selected .ant-menu-title-content a,
-.dark .admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-item-selected .ant-menu-title-content{
-  color: #f0f2f5 !important;
-}
-.dark .admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-item-selected a,
-.dark .admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-item-selected .admin-sidebar-menu-link {
-  color: #f0f2f5 !important;
-}
-.dark .admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-item-selected .anticon,
-.dark .admin-sidebar-deskteam-2 .ant-menu-dark .ant-menu-submenu .ant-menu-item-selected .anticon {
-  color: #f0f2f5 !important;
-}
-
-/* Backup if any link/span still inherits light text on selected pill */
-html.dark .deskteam-app-sidebar .ant-menu-dark .ant-menu-item-selected a,
-html.dark .deskteam-app-sidebar .ant-menu-dark .ant-menu-item-selected .admin-sidebar-menu-link {
-  color: #f0f2f5 !important;
-}
-.admin-sidebar-deskteam .ant-menu-item-selected::before,
-.admin-sidebar-deskteam li.ant-menu-item-selected::before,
-.admin-sidebar-deskteam [class*="item-selected"]::before {
-  content: "" !important;
-  position: absolute !important;
-  top: -50px !important;
-  right: 0 !important;
-  width: 50px !important;
-  height: 50px !important;
+.admin-sidebar-deskteam .ant-menu.ant-menu-sub.ant-menu-inline {
   background: transparent !important;
-  border-bottom-right-radius: 30px !important;
-  box-shadow: 15px 15px 0 var(--layout-bg) !important;
-  pointer-events: none !important;
 }
-/* cekungan bawah */
-.admin-sidebar-deskteam .ant-menu-item-selected::after,
-.admin-sidebar-deskteam li.ant-menu-item-selected::after,
-.admin-sidebar-deskteam [class*="item-selected"]::after {
-  content: "" !important;
-  position: absolute !important;
-  top: 40px !important;
-  right: 0 !important;
-  width: 50px !important;
-  height: 50px !important;
-  background: transparent !important;
-  border-top-right-radius: 30px !important;
-  box-shadow: 15px -15px 0 var(--layout-bg) !important;
-  pointer-events: none !important;
+.admin-sidebar-deskteam .ant-menu-dark .ant-menu-item-group-title {
+  color: rgba(148, 163, 184, 0.7);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
+/* Cards: softer border + shadow for the new look */
+.ant-card.ant-card-bordered {
+  box-shadow: var(--card-shadow);
+}
 
 .ant-segmented-group{
   gap: 10px !important;
@@ -655,7 +535,7 @@ html.dark .deskteam-app-sidebar .ant-menu-dark .ant-menu-item-selected .admin-si
 .kb-article-content ul { list-style: disc; }
 .kb-article-content ol { list-style: decimal; }
 .kb-article-content li { display: list-item; margin-bottom: 0.25em; }
-.kb-article-content a { color: #1890ff; text-decoration: none; }
+.kb-article-content a { color: var(--brand-primary); text-decoration: none; }
 .kb-article-content a:hover { text-decoration: underline; }
 .kb-article-content strong { font-weight: 600; }
 .kb-article-content img { max-width: 100%; height: auto; }
