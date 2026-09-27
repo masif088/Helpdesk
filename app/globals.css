@@ -627,8 +627,8 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
   position: absolute;
   left: -25px;
   right: -25px;
-  top: -10px;
-  height: 9px;
+  top: -14px;
+  height: 13px;
   background: var(--layout-bg);
 }
 /* Panel toggles sit after Trash, separated by a thin divider */

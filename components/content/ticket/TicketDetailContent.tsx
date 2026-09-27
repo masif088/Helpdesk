@@ -4,6 +4,7 @@ import 'react-quill-new/dist/quill.snow.css'
 
 import {
     ArrowLeftOutlined,
+    BankOutlined,
     DeleteOutlined,
     DeleteTwoTone,
     EditOutlined,
@@ -1497,14 +1498,13 @@ export default function TicketDetailContent({
                 <Content style={{ padding: '0', background: 'var(--layout-bg)', minHeight: 'calc(100vh - 56px)' }}>
                     <div className="ticket-header-bar" style={{
                         position: 'sticky',
-                        top: isMobile ? 0 : 76,
+                        top: isMobile ? 0 : 80,
                         zIndex: 99,
                         background: 'var(--ticket-nav-bg)',
                         border: '1px solid var(--ticket-nav-border)',
-                        borderRadius: isMobile ? 0 : 16,
-                        boxShadow: isMobile ? undefined : 'var(--card-shadow)',
-                        padding: isMobile ? '8px 12px' : '10px 16px',
-                        margin: isMobile ? 0 : '8px 24px 0 24px',
+                        borderRadius: isMobile ? 0 : '16px 16px 0 0',
+                        padding: isMobile ? '8px 12px' : '12px 20px',
+                        margin: isMobile ? 0 : '12px 24px 0 24px',
                         marginRight: isMobile ? 0 : 'calc(var(--attr-sidebar-width, 0px) + 24px)',
                         transition: 'margin-right 0.2s',
                     }}>
@@ -1690,19 +1690,24 @@ export default function TicketDetailContent({
                                             )}
                                             {!isMobile && (
                                                 <span className="ticket-panel-toggles">
-                                                    <Tooltip title={attrSidebarCollapsed && companySidebarCollapsed ? 'Show attributes & company info' : 'Hide side panels'}>
+                                                    <Tooltip title={attrSidebarCollapsed ? 'Show attributes' : 'Hide attributes'}>
                                                         <Button
                                                             icon={<ProfileOutlined />}
-                                                            type={attrSidebarCollapsed && companySidebarCollapsed ? 'default' : 'primary'}
-                                                            aria-pressed={!(attrSidebarCollapsed && companySidebarCollapsed)}
-                                                            onClick={() => {
-                                                                const open = attrSidebarCollapsed && companySidebarCollapsed
-                                                                setAttrSidebarCollapsed(!open)
-                                                                setCompanySidebarCollapsed(!open)
-                                                            }}
+                                                            type={attrSidebarCollapsed ? 'default' : 'primary'}
+                                                            onClick={() => setAttrSidebarCollapsed(!attrSidebarCollapsed)}
+                                                            aria-pressed={!attrSidebarCollapsed}
                                                         >
-                                                            Details
+                                                            Attributes
                                                         </Button>
+                                                    </Tooltip>
+                                                    <Tooltip title={companySidebarCollapsed ? 'Show company info' : 'Hide company info'}>
+                                                        <Button
+                                                            icon={<BankOutlined />}
+                                                            type={companySidebarCollapsed ? 'default' : 'primary'}
+                                                            onClick={() => setCompanySidebarCollapsed(!companySidebarCollapsed)}
+                                                            aria-pressed={!companySidebarCollapsed}
+                                                            aria-label="Company info"
+                                                        />
                                                     </Tooltip>
                                                 </span>
                                             )}
@@ -1733,8 +1738,15 @@ export default function TicketDetailContent({
                             </div>
                         </Flex>
                     </div>
-                    <div style={{ padding: isMobile ? '12px' : '24px', paddingRight: isMobile ? '12px' : 'calc(var(--attr-sidebar-width, 0px) + 24px)', transition: 'padding-right 0.2s' }}>
-                    <Card style={{ margin: '0 auto' }}>
+                    <div style={{ padding: isMobile ? '12px' : '0 24px 24px', paddingRight: isMobile ? '12px' : 'calc(var(--attr-sidebar-width, 0px) + 24px)', transition: 'padding-right 0.2s' }}>
+                    <Card
+                        style={{
+                            margin: '0 auto',
+                            ...(isMobile
+                                ? {}
+                                : { borderTop: 'none', borderTopLeftRadius: 0, borderTopRightRadius: 0 }),
+                        }}
+                    >
 
                         {isCustomer ? (
                             <TabGeneralCustomer
