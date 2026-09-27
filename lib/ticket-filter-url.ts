@@ -128,10 +128,12 @@ export function parseFiltersFromUrl(
   const filterScope: TicketScope | null = !isCustomer && !inJunkFolder && isTicketScope(scopeRaw) ? scopeRaw : null
 
   const junkViewMode: 'kanban' | 'list' | 'card' | 'roundrobin' = 'card'
-  const resolvedViewMode = inJunkFolder ? junkViewMode : viewMode
+  /** Inbox behaves like a folder (spam / trash / notifications): card view, no status filter */
+  const folderLike = inJunkFolder || filterScope === 'inbox'
+  const resolvedViewMode = folderLike ? junkViewMode : viewMode
 
   return {
-    filterStatus: inJunkFolder
+    filterStatus: folderLike
       ? []
       : status.length > 0
         ? status
@@ -174,6 +176,7 @@ export function buildSearchStringFromFilters(state: {
     p.set(URL_PARAMS.view, 'card')
   }
   if (!inJunk && state.filterScope) p.set(URL_PARAMS.scope, state.filterScope)
+  if (!inJunk && state.filterScope === 'inbox') p.set(URL_PARAMS.view, 'card')
   if (state.filterStatus.length > 0) p.set(URL_PARAMS.status, state.filterStatus.join(','))
   if (state.filterTypeIds.length > 0) p.set(URL_PARAMS.type_ids, state.filterTypeIds.join(','))
   if (state.filterCompanyIds.length > 0) p.set(URL_PARAMS.company_ids, state.filterCompanyIds.join(','))

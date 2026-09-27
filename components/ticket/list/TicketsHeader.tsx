@@ -82,7 +82,8 @@ export default function TicketsHeader({
     try { localStorage.setItem('ticket-search-prefs', JSON.stringify(Object.fromEntries(SEARCH_FIELD_OPTIONS.map(f => [f.key, next.has(f.key)])))) } catch { /* ignore */ }
   }
 
-  const inJunkFolder = !isCustomer && isTicketFolder(filterTicketType)
+  /** Folder pages (spam / trash / notifications / inbox): card only, no view switcher */
+  const inJunkFolder = !isCustomer && (isTicketFolder(filterTicketType) || filterScope === 'inbox')
   const junkTitle = isTicketFolder(filterTicketType) ? TICKET_FOLDER_LABELS[filterTicketType] : null
   const viewOptions = [
     { label: <span style={{ marginRight: 8 }}><AppstoreOutlined /> Kanban</span>, value: 'kanban' },
@@ -108,11 +109,9 @@ export default function TicketsHeader({
         <Typography.Title level={2} style={{ margin: 0 }}>
           {junkTitle ?? (filterScope ? TICKET_SCOPE_LABELS[filterScope] : isCustomer ? 'My Tickets' : 'All tickets')}
         </Typography.Title>
-        {!inJunkFolder && filterScope ? (
+        {!inJunkFolder && filterScope === 'mine' ? (
           <Typography.Text type="secondary" style={{ marginTop: -8 }}>
-            {filterScope === 'inbox'
-              ? 'Open tickets nobody is assigned to yet, newest first. Assign one to take it out of the Inbox.'
-              : 'Open tickets assigned to you.'}
+            Open tickets assigned to you.
           </Typography.Text>
         ) : null}
 

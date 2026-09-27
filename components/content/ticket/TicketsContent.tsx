@@ -188,6 +188,15 @@ export default function TicketsContent({ user: currentUser }: TicketsContentProp
             hasActiveFilters={hasActiveFilters}
           />
 
+          {!isCustomer && !filterTicketType && filterScope === 'inbox' && (
+            <Alert
+              type="warning"
+              showIcon
+              message="Inbox"
+              description="New tickets nobody is assigned to yet, newest first. Assign a ticket to take it out of the Inbox."
+              style={{ marginLeft: '24px', marginRight: '48px', marginBottom: '12px' }}
+            />
+          )}
           {!isCustomer && filterTicketType === 'notification' && (
             <Alert
               type="info"
@@ -229,8 +238,8 @@ export default function TicketsContent({ user: currentUser }: TicketsContentProp
               onDelete={handleDelete}
               canDeleteTicket={canDeleteTicket}
               isCustomer={isCustomer}
-              sortBy={sortBy}
-              sortOrder={sortOrder}
+              sortBy={!isCustomer && !filterTicketType && filterScope === 'inbox' ? 'created_at' : sortBy}
+              sortOrder={!isCustomer && !filterTicketType && filterScope === 'inbox' ? 'desc' : sortOrder}
               onFilterByStatus={filterByStatusFromChip}
               onFilterByTag={filterByTagFromChip}
               onFilterByCompany={filterByCompanyFromChip}

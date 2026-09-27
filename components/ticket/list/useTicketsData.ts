@@ -408,6 +408,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
         !isCustomer && isTicketFolder(filterTicketType)
       if (inJunkFolder) params.set('ticket_type', filterTicketType!)
       else if (!isCustomer && filterScope) params.set('scope', filterScope)
+      const inInbox = !isCustomer && !inJunkFolder && filterScope === 'inbox'
       if (!isCustomer) {
         const noCompany = filterCompanyIds.includes('__none__')
         const realCompanyIds = filterCompanyIds.filter((id) => id !== '__none__')
@@ -431,6 +432,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
       const sendStatusToApi =
         filterStatus.length > 0 &&
         !inJunkFolder &&
+        !inInbox &&
         (isCustomer ? lookupReady && !customerShowsAllStatuses : true)
       if (sendStatusToApi) params.set('status', filterStatus.join(','))
       if (filterTypeIds.length > 0) params.set('type_ids', filterTypeIds.join(','))
@@ -654,7 +656,8 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
       ) {
         parsed = { ...parsed, filterTicketType: null }
       }
-      const isJunkUrl = isTicketFolder(parsed.filterTicketType)
+      // Inbox is folder-like too: apply every field (card view, no status filter)
+      const isJunkUrl = isTicketFolder(parsed.filterTicketType) || parsed.filterScope === 'inbox'
 
       const applyStatusFromParsed = () => {
         let statuses = parsed.filterStatus
@@ -691,7 +694,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
         setViewMode(parsed.viewMode)
         setFilterSidebarCollapsed(parsed.filterSidebarCollapsed)
         setFilterTicketType(parsed.filterTicketType ?? null)
-        setFilterScope(null)
+        setFilterScope(parsed.filterScope ?? null)
       } else if (searchParams.get(URL_PARAMS.preset) === '1') {
         // Saved preset navigation: apply ALL fields so absent params (= "all") correctly reset state.
         applyStatusFromParsed()
@@ -783,7 +786,9 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
 
   /** On every filter change: save to localStorage + update URL (so link can be shared) */
   useEffect(() => {
-    saveFiltersToStorage({
+    // Folder pages (spam / trash / notifications / inbox) force card view + no status: don't remember that for All tickets
+    const folderPage = !isCustomer && (isTicketFolder(filterTicketType) || filterScope === 'inbox')
+    if (!folderPage) saveFiltersToStorage({
       filterStatus,
       filterTypeIds,
       filterCompanyIds,
@@ -899,12 +904,12 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
   useEffect(() => {
     if (
       !isCustomer &&
-      isTicketFolder(filterTicketType) &&
+      (isTicketFolder(filterTicketType) || filterScope === 'inbox') &&
       viewMode !== 'card'
     ) {
       setViewMode('card')
     }
-  }, [filterTicketType, viewMode, isCustomer])
+  }, [filterTicketType, filterScope, viewMode, isCustomer])
 
   const handleDragStart: TicketsDragStartHandler = (event) => {
     const raw = event.active.id
