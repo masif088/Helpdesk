@@ -505,6 +505,24 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* App-wide scrollbars: thin and rounded, only visible while hovering the scrolling area */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+*:hover,
+html {
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner { background: transparent; }
+*::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+*::-webkit-scrollbar-thumb { background: transparent; border-radius: 999px; }
+*:hover::-webkit-scrollbar-thumb,
+html::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.35); }
+*::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.6); }
+
 .app-sidebar__nav {
   flex: 1;
   min-height: 0;
