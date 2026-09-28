@@ -509,8 +509,22 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 4px 12px 12px;
+  /* Thin, rounded scrollbar that only shows while hovering the sidebar */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s ease;
+  /* Soft fade at the edges hints that the menu scrolls */
+  mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 16px), transparent 100%);
 }
+.app-sidebar:hover .app-sidebar__nav { scrollbar-color: rgba(148, 163, 184, 0.35) transparent; }
+.app-sidebar__nav::-webkit-scrollbar { width: 6px; }
+.app-sidebar__nav::-webkit-scrollbar-track { background: transparent; }
+.app-sidebar__nav::-webkit-scrollbar-button { display: none; height: 0; }
+.app-sidebar__nav::-webkit-scrollbar-thumb { background: transparent; border-radius: 999px; }
+.app-sidebar:hover .app-sidebar__nav::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.35); }
+.app-sidebar__nav::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.6); }
 .app-sidebar--rail .app-sidebar__nav { padding: 4px 10px 12px; }
 .app-sidebar__group { margin-top: 10px; }
 .app-sidebar__group-title {
