@@ -6,7 +6,7 @@
 import dayjs from 'dayjs'
 
 import type { Money } from '@/lib/company-billing'
-import { companies, companyPayments, find, jobTypes, tickets, ticketTimeTracker } from '@/lib/fsdb'
+import { companies, companyPayments, find, invoices, jobTypes, tickets, ticketTimeTracker } from '@/lib/fsdb'
 import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 
 export type BillingReportCompany = {
@@ -19,20 +19,35 @@ export type BillingReportCompany = {
   unpricedSeconds: number
   billed: Money[]
   paid: Money[]
-  /** All time: billed − paid (positive = client owes) */
-  balance: Money[]
+  /** All time: payments − paid invoices (the client's remaining deposit) */
+  deposit: Money[]
+  /** Issued invoices not paid yet */
+  unpaidInvoices: Money[]
+  /** All time: work billed but not on an invoice yet */
+  notInvoiced: Money[]
 }
 
 export type BillingReport = {
   from: string
   to: string
-  totals: { billed: Money[]; paid: Money[]; balance: Money[]; billableSeconds: number; internalSeconds: number; unpricedSeconds: number }
+  totals: { billed: Money[]; paid: Money[]; deposit: Money[]; unpaidInvoices: Money[]; notInvoiced: Money[]; billableSeconds: number; internalSeconds: number; unpricedSeconds: number }
   companies: BillingReportCompany[]
   /** Billable hours per month in the period, for the trend */
   months: { month: string; billableSeconds: number; billed: Money[] }[]
 }
 
-type Acc = { billableSeconds: number; internalSeconds: number; unpricedSeconds: number; billed: Map<string, number>; paid: Map<string, number>; allBilled: Map<string, number>; allPaid: Map<string, number> }
+type Acc = {
+  billableSeconds: number
+  internalSeconds: number
+  unpricedSeconds: number
+  billed: Map<string, number>
+  paid: Map<string, number>
+  allBilled: Map<string, number>
+  allPaid: Map<string, number>
+  paidInvoices: Map<string, number>
+  unpaidInvoices: Map<string, number>
+  invoiced: Map<string, number>
+}
 
 const add = (m: Map<string, number>, cur: string, v: number) => m.set(cur, (m.get(cur) ?? 0) + v)
 const toMoney = (m: Map<string, number>): Money[] =>
@@ -51,13 +66,14 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
   const start = dayjs(from).startOf('day')
   const end = dayjs(to).endOf('day')
 
-  const [ticketRows, jobTypeRows, companyRows, payments, sessions] = await Promise.all([
+  const [ticketRows, jobTypeRows, companyRows, payments, sessions, invoiceRows] = await Promise.all([
     find(tickets, { select: ['id', 'companyId', 'hourlyRate', 'rateCurrency'] }),
     find(jobTypes),
     find(companies, { select: ['id', 'name', 'color'] }),
     find(companyPayments),
     // All stopped sessions: the period is filtered here, the all-time balance needs the rest
     find(ticketTimeTracker, { select: ['id', 'ticketId', 'jobType', 'startTime', 'stopTime', 'durationSeconds', 'durationAdjustment'] }),
+    find(invoices, { select: ['companyId', 'currency', 'total', 'status'] }),
   ])
   const billableJob = new Map(jobTypeRows.map((j) => [j.slug, j.billable !== false]))
   const ticketById = new Map(ticketRows.map((t) => [t.id, t]))
@@ -67,7 +83,18 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
   const acc = (key: string) => {
     let a = accs.get(key)
     if (!a) {
-      a = { billableSeconds: 0, internalSeconds: 0, unpricedSeconds: 0, billed: new Map(), paid: new Map(), allBilled: new Map(), allPaid: new Map() }
+      a = {
+        billableSeconds: 0,
+        internalSeconds: 0,
+        unpricedSeconds: 0,
+        billed: new Map(),
+        paid: new Map(),
+        allBilled: new Map(),
+        allPaid: new Map(),
+        paidInvoices: new Map(),
+        unpaidInvoices: new Map(),
+        invoiced: new Map(),
+      }
       accs.set(key, a)
     }
     return a
@@ -111,6 +138,14 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
     if (!at.isBefore(start) && !at.isAfter(end)) add(a.paid, p.currency, p.amount)
   }
 
+  for (const inv of invoiceRows) {
+    if (inv.status === 'void') continue
+    const a = acc(inv.companyId)
+    add(a.invoiced, inv.currency, inv.total)
+    add(inv.status === 'paid' ? a.paidInvoices : a.unpaidInvoices, inv.currency, inv.total)
+  }
+  const positive = (m: Map<string, number>) => new Map([...m].filter(([, v]) => v > 0.005))
+
   const rows: BillingReportCompany[] = [...accs.entries()]
     .map(([key, a]) => {
       const c = key === '__none__' ? null : companyById.get(key)
@@ -123,11 +158,13 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
         unpricedSeconds: a.unpricedSeconds,
         billed: toMoney(a.billed),
         paid: toMoney(a.paid),
-        balance: toMoney(diff(a.allBilled, a.allPaid)),
+        deposit: toMoney(diff(a.allPaid, a.paidInvoices)),
+        unpaidInvoices: toMoney(a.unpaidInvoices),
+        notInvoiced: toMoney(positive(diff(a.allBilled, a.invoiced))),
       }
     })
     // Only companies with something to show for the period or an open balance
-    .filter((r) => r.billableSeconds || r.internalSeconds || r.paid.length || r.balance.some((m) => m.amount !== 0))
+    .filter((r) => r.billableSeconds || r.internalSeconds || r.paid.length || r.deposit.length || r.unpaidInvoices.length || r.notInvoiced.length)
     .sort((x, y) => y.billableSeconds - x.billableSeconds)
 
   const sum = (pick: (a: Acc) => Map<string, number>) => {
@@ -142,7 +179,9 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
     totals: {
       billed: toMoney(sum((a) => a.billed)),
       paid: toMoney(sum((a) => a.paid)),
-      balance: toMoney(diff(sum((a) => a.allBilled), sum((a) => a.allPaid))),
+      deposit: toMoney(diff(sum((a) => a.allPaid), sum((a) => a.paidInvoices))),
+      unpaidInvoices: toMoney(sum((a) => a.unpaidInvoices)),
+      notInvoiced: toMoney(positive(diff(sum((a) => a.allBilled), sum((a) => a.invoiced)))),
       billableSeconds: all.reduce((n, a) => n + a.billableSeconds, 0),
       internalSeconds: all.reduce((n, a) => n + a.internalSeconds, 0),
       unpricedSeconds: all.reduce((n, a) => n + a.unpricedSeconds, 0),

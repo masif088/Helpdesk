@@ -1,7 +1,7 @@
 'use client'
 
 import { ArrowLeftOutlined, GlobalOutlined } from '@ant-design/icons'
-import { Avatar, Button, Form, Input, Layout, message,Space, Typography } from 'antd'
+import { Avatar, Button, Divider, Form, Input, Layout, message, Space, Typography } from 'antd'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
@@ -22,6 +22,9 @@ interface BrandingForm {
   app_logo_url: string
   app_favicon_url: string
   email_sender_name: string
+  invoice_issuer: string
+  invoice_payment_info: string
+  invoice_footer: string
 }
 
 export default function AppBrandingContent({ user }: Props) {
@@ -43,6 +46,9 @@ export default function AppBrandingContent({ user }: Props) {
           app_logo_url: data.app_logo_url ?? '',
           app_favicon_url: data.app_favicon_url ?? '',
           email_sender_name: data.email_sender_name ?? '',
+          invoice_issuer: data.invoice_issuer ?? '',
+          invoice_payment_info: data.invoice_payment_info ?? '',
+          invoice_footer: data.invoice_footer ?? '',
         })
       })
       .catch(() => messageApi.error('Failed to load settings'))
@@ -60,6 +66,9 @@ export default function AppBrandingContent({ user }: Props) {
           app_logo_url: values.app_logo_url || null,
           app_favicon_url: values.app_favicon_url || null,
           email_sender_name: values.email_sender_name || null,
+          invoice_issuer: values.invoice_issuer || null,
+          invoice_payment_info: values.invoice_payment_info || null,
+          invoice_footer: values.invoice_footer || null,
         }),
       })
       if (!res.ok) throw new Error('Failed')
@@ -76,7 +85,7 @@ export default function AppBrandingContent({ user }: Props) {
       {contextHolder}
       <AdminSidebar user={user} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={user}>
-        <Content className="settings-page" style={{ padding: 24, maxWidth: 600 }}>
+        <Content className="settings-page" style={{ padding: 24, maxWidth: 720 }}>
           <SettingsBackLink />
 
           <Title level={3} className="settings-section-heading" style={{ margin: '0 0 4px' }}>
@@ -147,6 +156,20 @@ export default function AppBrandingContent({ user }: Props) {
               <Input placeholder={`${BRANDING.name} Support`} maxLength={64} />
             </Form.Item>
 
+            <Divider titlePlacement="start">Invoices</Divider>
+            <Form.Item
+              name="invoice_issuer"
+              label="Billed by"
+              tooltip="Shown at the top of invoices and receipts: business name, address, tax ID — one per line"
+            >
+              <Input.TextArea rows={4} placeholder={'PT Your Company\nJl. Example No. 1, Jakarta\nNPWP 00.000.000.0-000.000'} />
+            </Form.Item>
+            <Form.Item name="invoice_payment_info" label="Payment details" tooltip="How clients pay: bank, account number, account name">
+              <Input.TextArea rows={3} placeholder={'BCA 123 456 7890\na.n. PT Your Company'} />
+            </Form.Item>
+            <Form.Item name="invoice_footer" label="Footer note">
+              <Input placeholder="Thank you for your business." />
+            </Form.Item>
             <Form.Item style={{ marginTop: 8 }}>
               <Button type="primary" htmlType="submit" loading={saving}>
                 Save branding

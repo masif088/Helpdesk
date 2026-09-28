@@ -5,7 +5,7 @@ import { auth } from '@/auth'
 import { isAdminOrManager } from '@/lib/auth-utils'
 import { isRateCurrency } from '@/lib/billing-rate'
 import { companies, find, get, invoices } from '@/lib/fsdb'
-import { createInvoice, invoiceToJson } from '@/lib/invoices'
+import { createInvoice, invoiceToJson, payInvoice } from '@/lib/invoices'
 
 const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && dayjs(v).isValid()
 
@@ -51,6 +51,14 @@ export async function POST(request: Request) {
       notes: typeof b.notes === 'string' && b.notes.trim() ? b.notes.trim() : null,
       createdBy: s.userId!,
     })
+    // Settle straight from the deposit balance when asked (the invoice stays issued if the balance falls short)
+    if (b.pay_from_balance === true) {
+      try {
+        return NextResponse.json(invoiceToJson(await payInvoice(inv.id, 'balance', s.userId!)))
+      } catch {
+        return NextResponse.json({ ...invoiceToJson(inv), warning: 'Created, but the deposit balance does not cover it' })
+      }
+    }
     return NextResponse.json(invoiceToJson(inv))
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Could not create the invoice' }, { status: 400 })

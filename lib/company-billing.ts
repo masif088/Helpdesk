@@ -1,10 +1,14 @@
 /**
- * Company billing: billable time × each ticket's hourly rate = billed; recorded payments = paid;
- * billed − paid = outstanding. All amounts are kept per currency (tickets may be IDR or USD).
+ * Company billing, per currency (tickets may be IDR or USD):
+ *   billed          = billable time × each ticket's hourly rate (value of the work)
+ *   paid            = payments received (deposits / top-ups and invoice payments)
+ *   deposit balance = payments − paid invoices (what the client has left to spend)
+ *   unpaid invoices = issued invoices not paid yet (what the client owes)
+ *   not invoiced    = billed − invoiced (work not put on an invoice yet)
  */
 import dayjs from 'dayjs'
 
-import { companyPayments, find, getManyMap, jobTypes, tickets, ticketTimeTracker, users } from '@/lib/fsdb'
+import { companyPayments, find, getManyMap, invoices, jobTypes, tickets, ticketTimeTracker, users } from '@/lib/fsdb'
 import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 
 export type Money = { currency: string; amount: number }
@@ -13,6 +17,9 @@ export type CompanyBilling = {
   billed: Money[]
   paid: Money[]
   outstanding: Money[]
+  depositBalance: Money[]
+  unpaidInvoices: Money[]
+  notInvoiced: Money[]
   billableSeconds: number
   nonBillableSeconds: number
   /** Billable time on tickets without an hourly rate (not in `billed`). */
@@ -43,13 +50,14 @@ function toMoney(map: Map<string, number>): Money[] {
 }
 
 export async function getCompanyBilling(companyId: string): Promise<CompanyBilling> {
-  const [companyTickets, jobTypeRows, paymentRows] = await Promise.all([
+  const [companyTickets, jobTypeRows, paymentRows, invoiceRows] = await Promise.all([
     find(tickets, {
       where: [['companyId', '==', companyId]],
       select: ['id', 'title', 'hourlyRate', 'rateCurrency'],
     }),
     find(jobTypes),
     find(companyPayments, { where: [['companyId', '==', companyId]], orderBy: [['paidAt', 'desc']] }),
+    find(invoices, { where: [['companyId', '==', companyId]] }),
   ])
   const billableJob = new Map(jobTypeRows.map((j) => [j.slug, j.billable !== false]))
   const ticketById = new Map(companyTickets.map((t) => [t.id, t]))
@@ -99,12 +107,29 @@ export async function getCompanyBilling(companyId: string): Promise<CompanyBilli
     outstanding.set(cur, (billed.get(cur) ?? 0) - (paid.get(cur) ?? 0))
   }
 
+  const deposit = new Map(paid)
+  const unpaid = new Map<string, number>()
+  const invoiced = new Map<string, number>()
+  for (const inv of invoiceRows) {
+    if (inv.status === 'void') continue
+    addMoney(invoiced, inv.currency, inv.total)
+    if (inv.status === 'paid') addMoney(deposit, inv.currency, -inv.total)
+    else addMoney(unpaid, inv.currency, inv.total)
+  }
+  const notInvoiced = new Map<string, number>()
+  for (const cur of new Set([...billed.keys(), ...invoiced.keys()])) {
+    notInvoiced.set(cur, Math.max(0, (billed.get(cur) ?? 0) - (invoiced.get(cur) ?? 0)))
+  }
+
   const creatorMap = await getManyMap(users, [...new Set(paymentRows.map((p) => p.createdBy).filter((x): x is string => !!x))])
 
   return {
     billed: toMoney(billed),
     paid: toMoney(paid),
     outstanding: toMoney(outstanding),
+    depositBalance: toMoney(deposit),
+    unpaidInvoices: toMoney(unpaid),
+    notInvoiced: toMoney(notInvoiced).filter((m) => m.amount > 0),
     billableSeconds,
     nonBillableSeconds,
     unpricedSeconds,

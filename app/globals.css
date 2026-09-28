@@ -1211,6 +1211,56 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
 .report-months__value { font-size: 11px; font-weight: 600; color: var(--kanban-card-title); }
 .report-months__label { font-size: 11px; color: var(--kanban-card-muted); }
 
+/* Invoice / receipt documents (A4, printable) */
+.invoice-page { min-height: 100vh; padding: 24px 16px 48px; background: var(--layout-bg, #F1F5F9); }
+.invoice-toolbar { max-width: 820px; margin: 0 auto 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.invoice-sheet {
+  /* Paper is always light, whatever the app theme */
+  --kanban-card-title: #0F172A;
+  --kanban-card-muted: #64748B;
+  color-scheme: light;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 48px 56px;
+  background: #fff;
+  color: #0F172A;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.invoice-head { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; }
+.invoice-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; color: #0F172A; }
+.invoice-mark { width: 36px; height: 36px; border-radius: 9px; object-fit: contain; }
+.invoice-issuer { margin-top: 8px; color: #475569; }
+.invoice-title { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.invoice-title__kind { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; text-transform: uppercase; color: #0F172A; }
+.invoice-title__number { font-size: 14px; font-weight: 600; color: #475569; }
+.invoice-meta { display: flex; justify-content: space-between; gap: 24px; margin: 32px 0 20px; padding: 16px 0; border-top: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0; }
+.invoice-meta__dates { text-align: right; }
+.invoice-meta__dates .invoice-label { display: inline-block; min-width: 96px; margin-right: 8px; text-align: left; }
+.invoice-label { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #64748B; }
+.invoice-strong { font-weight: 600; color: #0F172A; }
+.invoice-muted { color: #64748B; font-size: 12px; }
+.invoice-table { width: 100%; border-collapse: collapse; }
+.invoice-table th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #64748B; padding: 8px 0; border-bottom: 2px solid #0F172A; }
+.invoice-table td { padding: 10px 0; border-bottom: 1px solid #E2E8F0; vertical-align: top; }
+.invoice-table .num { text-align: right; white-space: nowrap; padding-left: 16px; }
+.invoice-table tfoot td { border-bottom: none; padding-top: 14px; font-weight: 600; }
+.invoice-total { font-size: 18px; font-weight: 800 !important; color: #0F9D8A; }
+.invoice-block { margin-top: 24px; }
+.invoice-footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #E2E8F0; text-align: center; color: #64748B; font-size: 12px; }
+@media (max-width: 640px) { .invoice-sheet { padding: 24px 20px; } .invoice-head, .invoice-meta { flex-direction: column; } .invoice-title, .invoice-meta__dates { text-align: left; align-items: flex-start; } }
+@media print {
+  @page { size: A4; margin: 14mm; }
+  body, .invoice-page { background: #fff !important; }
+  .invoice-page { padding: 0; }
+  .invoice-toolbar, .nextjs-toast, nextjs-portal { display: none !important; }
+  .invoice-sheet { box-shadow: none; border-radius: 0; padding: 0; max-width: none; }
+}
+
+.invoice-preview { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px; background: var(--kanban-lane-bg); border: 1px solid var(--kanban-card-border); }
+
 /* Settings → Connection status (checks) */
 .conn-banner {
   display: flex;
@@ -1710,6 +1760,9 @@ html.dark .ticket-thread-bubble.ticket-thread-bubble--agent-reply,
 }
 .company-hero__meta strong { color: var(--kanban-card-title); font-weight: 600; }
 .company-tabs > .ant-tabs-nav { margin-bottom: 16px; }
+.company-tabs .ant-tabs-tab:not(.ant-tabs-tab-active) .ant-tabs-tab-btn { color: var(--kanban-card-muted); }
+.company-tabs .ant-tabs-tab:not(.ant-tabs-tab-active):hover .ant-tabs-tab-btn { color: var(--kanban-card-title); }
+.company-hero .page-head__title.ant-typography { color: var(--kanban-card-title); }
 .company-tabs > .ant-tabs-nav::before { border-bottom-color: var(--kanban-card-border) !important; }
 
 .billing-kpis {

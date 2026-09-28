@@ -6,6 +6,7 @@ import dayjs, { type Dayjs } from 'dayjs'
 import Link from 'next/link'
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
 
+import CompanyInvoices from '@/components/invoices/CompanyInvoices'
 import { DEFAULT_RATE_CURRENCY, formatMoney, RATE_CURRENCIES } from '@/lib/billing-rate'
 import type { CompanyBilling as Billing, Money } from '@/lib/company-billing'
 
@@ -40,7 +41,7 @@ function Kpi({ icon, tone, label, children, hint }: { icon: ReactNode; tone: str
 }
 
 /** Billing overview for a company (admin / manager): billed, paid, outstanding + payment history. */
-export default function CompanyBilling({ companyId, defaultCurrency }: { companyId: string; defaultCurrency?: string | null }) {
+export default function CompanyBilling({ companyId, companyName, defaultCurrency }: { companyId: string; companyName?: string; defaultCurrency?: string | null }) {
   const { message } = App.useApp()
   const [data, setData] = useState<Billing | null>(null)
   const [loading, setLoading] = useState(true)
@@ -113,35 +114,23 @@ export default function CompanyBilling({ companyId, defaultCurrency }: { company
   if (loading && !data) return <Skeleton active paragraph={{ rows: 6 }} />
   if (!data) return <Empty description="Billing unavailable" />
 
-  const hasOutstanding = data.outstanding.some((m) => m.amount > 0.009)
-  const credit = data.outstanding.filter((m) => m.amount < -0.009).map((m) => ({ ...m, amount: -m.amount }))
-
   return (
     <div className="company-billing">
       <div className="billing-kpis">
-        <Kpi icon={<DollarOutlined />} tone="teal" label="Total billed" hint={`${fmtHours(data.billableSeconds)} billable time`}>
-          <MoneyLines items={data.billed} empty={formatMoney(0, defaultCurrency)} />
+        <Kpi icon={<WalletOutlined />} tone="green" label="Deposit balance" hint="Payments received − invoices paid">
+          <MoneyLines items={data.depositBalance} empty={formatMoney(0, defaultCurrency)} />
         </Kpi>
-        <Kpi icon={<WalletOutlined />} tone="green" label="Paid" hint={`${data.payments.length} payment${data.payments.length === 1 ? '' : 's'}`}>
-          <MoneyLines items={data.paid} empty={formatMoney(0, defaultCurrency)} />
+        <Kpi
+          icon={<WarningOutlined />}
+          tone={data.unpaidInvoices.length ? 'amber' : 'slate'}
+          label="Unpaid invoices"
+          hint={data.unpaidInvoices.length ? 'Issued and waiting for payment' : 'Nothing owed'}
+        >
+          <MoneyLines items={data.unpaidInvoices} empty={formatMoney(0, defaultCurrency)} />
         </Kpi>
-        {hasOutstanding || credit.length === 0 ? (
-          <Kpi
-            icon={<WarningOutlined />}
-            tone={hasOutstanding ? 'amber' : 'slate'}
-            label="Outstanding"
-            hint={hasOutstanding ? 'Billed but not yet paid' : 'All settled'}
-          >
-            <MoneyLines
-              items={data.outstanding.filter((m) => m.amount > 0.009)}
-              empty={formatMoney(0, defaultCurrency)}
-            />
-          </Kpi>
-        ) : (
-          <Kpi icon={<WalletOutlined />} tone="teal" label="Credit" hint="Paid more than billed so far">
-            <MoneyLines items={credit} />
-          </Kpi>
-        )}
+        <Kpi icon={<DollarOutlined />} tone="teal" label="Not invoiced yet" hint={<>Work billed all time: {data.billed.map((m) => formatMoney(m.amount, m.currency)).join(' · ') || formatMoney(0, defaultCurrency)}</>}>
+          <MoneyLines items={data.notInvoiced} empty={formatMoney(0, defaultCurrency)} />
+        </Kpi>
         <Kpi
           icon={<FieldTimeOutlined />}
           tone="slate"
@@ -151,6 +140,8 @@ export default function CompanyBilling({ companyId, defaultCurrency }: { company
           {fmtHours(data.nonBillableSeconds)}
         </Kpi>
       </div>
+
+      <CompanyInvoices companyId={companyId} companyName={companyName} onChanged={load} currencies={[...data.notInvoiced, ...data.billed].map((m) => m.currency)} />
 
       {data.unpricedSeconds > 0 ? (
         <div className="billing-note">
@@ -162,9 +153,9 @@ export default function CompanyBilling({ companyId, defaultCurrency }: { company
       <div className="billing-grid">
         <section className="ticket-surface billing-section">
           <header className="billing-section__head">
-            <span>Payments</span>
+            <span>Payments &amp; deposits</span>
             <Button type="primary" size="small" icon={<PlusOutlined />} onClick={openPayment}>
-              Record payment
+              Add deposit
             </Button>
           </header>
           {data.payments.length === 0 ? (

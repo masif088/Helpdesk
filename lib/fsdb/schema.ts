@@ -377,6 +377,8 @@ export type InvoiceLine = {
   seconds: number
   rate: number
   amount: number
+  /** Time-tracker sessions billed on this line (never billed again unless the invoice is voided) */
+  sessionIds?: string[]
 }
 
 export type InvoicesRow = {
@@ -394,8 +396,13 @@ export type InvoicesRow = {
   /** issued | paid | void */
   status: string
   notes: string | null
-  /** Payment recorded when the invoice was marked paid */
+  /** Payment recorded when the invoice was paid with new money */
   paymentId: string | null
+  /** balance = settled from the client's deposit; payment = paid with a new payment */
+  paidVia: string | null
+  paidAt: string | null
+  /** Deposit balance right after this invoice was settled (for the receipt) */
+  balanceAfter: number | null
   createdBy: string | null
   createdAt: Date
   updatedAt: Date
@@ -415,6 +422,9 @@ export type NewInvoicesRow = {
   status?: string
   notes?: string | null
   paymentId?: string | null
+  paidVia?: string | null
+  paidAt?: string | null
+  balanceAfter?: number | null
   createdBy?: string | null
   createdAt?: Date
   updatedAt?: Date
@@ -422,7 +432,7 @@ export type NewInvoicesRow = {
 
 export const invoices = defineTable<InvoicesRow, NewInvoicesRow>({
   name: 'invoices',
-  columns: ['id', 'number', 'companyId', 'currency', 'periodFrom', 'periodTo', 'issueDate', 'dueDate', 'lines', 'total', 'status', 'notes', 'paymentId', 'createdBy', 'createdAt', 'updatedAt'],
+  columns: ['id', 'number', 'companyId', 'currency', 'periodFrom', 'periodTo', 'issueDate', 'dueDate', 'lines', 'total', 'status', 'notes', 'paymentId', 'paidVia', 'paidAt', 'balanceAfter', 'createdBy', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',

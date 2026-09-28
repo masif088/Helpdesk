@@ -5,6 +5,7 @@ import {
   DollarOutlined,
   DownloadOutlined,
   ExclamationCircleOutlined,
+  FileTextOutlined,
   WalletOutlined,
   WarningOutlined,
 } from '@ant-design/icons'
@@ -14,6 +15,7 @@ import type { ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { SpaNavLink } from '@/components/common/SpaNavLink'
+import CreateInvoiceModal from '@/components/invoices/CreateInvoiceModal'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import { formatMoney } from '@/lib/billing-rate'
@@ -78,7 +80,7 @@ interface Props {
   user: { id: string; email?: string | null; name?: string | null; role?: string | null }
 }
 
-/** Reports → Billing (admin / manager): billed, paid and balance per company for a period. */
+/** Reports → Billing (admin / manager): work billed, payments, deposit balances and invoices per company. */
 export default function BillingReportContent({ user }: Props) {
   const { message } = App.useApp()
   const [collapsed, setCollapsed] = useState(false)
@@ -86,6 +88,7 @@ export default function BillingReportContent({ user }: Props) {
   const [range, setRange] = useState<[Dayjs, Dayjs]>(presetRange('this_month'))
   const [data, setData] = useState<BillingReport | null>(null)
   const [loading, setLoading] = useState(false)
+  const [invoiceFor, setInvoiceFor] = useState<BillingReportCompany | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -108,10 +111,10 @@ export default function BillingReportContent({ user }: Props) {
 
   const exportCsv = () => {
     if (!data) return
-    const header = ['Company', 'Billable hours', 'Internal hours', 'Unpriced billable hours', 'Billed', 'Paid in period', 'Balance (all time)']
+    const header = ['Company', 'Billable hours', 'Internal hours', 'Unpriced billable hours', 'Billed', 'Paid in period', 'Not invoiced (all time)', 'Unpaid invoices', 'Deposit balance']
     const hours = (s: number) => (s / 3600).toFixed(2)
     const lines = data.companies.map((c) =>
-      [c.name, hours(c.billableSeconds), hours(c.internalSeconds), hours(c.unpricedSeconds), moneyText(c.billed), moneyText(c.paid), moneyText(c.balance)]
+      [c.name, hours(c.billableSeconds), hours(c.internalSeconds), hours(c.unpricedSeconds), moneyText(c.billed), moneyText(c.paid), moneyText(c.notInvoiced), moneyText(c.unpaidInvoices), moneyText(c.deposit)]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(',')
     )
@@ -180,11 +183,11 @@ export default function BillingReportContent({ user }: Props) {
             <Kpi icon={<WalletOutlined />} tone="green" label="Paid in period" hint="Payments recorded on companies">
               <MoneyLines items={data?.totals.paid ?? []} empty="0" />
             </Kpi>
-            <Kpi icon={<ExclamationCircleOutlined />} tone="amber" label="Outstanding (all time)" hint="Everything billed minus everything paid">
-              <MoneyLines items={data?.totals.balance ?? []} empty="0" signed />
+            <Kpi icon={<ExclamationCircleOutlined />} tone="amber" label="Unpaid invoices" hint={data?.totals.notInvoiced.length ? <>Not invoiced yet: {moneyText(data.totals.notInvoiced)}</> : 'All work is invoiced'}>
+              <MoneyLines items={data?.totals.unpaidInvoices ?? []} empty="0" />
             </Kpi>
-            <Kpi icon={<ClockCircleOutlined />} tone="slate" label="Internal time" hint="Non-billable job types">
-              {fmtHours(data?.totals.internalSeconds ?? 0)}
+            <Kpi icon={<ClockCircleOutlined />} tone="slate" label="Deposit balances" hint={`${fmtHours(data?.totals.internalSeconds ?? 0)} internal time in period`}>
+              <MoneyLines items={data?.totals.deposit ?? []} empty="0" />
             </Kpi>
           </div>
 
@@ -257,10 +260,38 @@ export default function BillingReportContent({ user }: Props) {
                 { title: 'Internal', dataIndex: 'internalSeconds', width: 100, align: 'right', render: (s: number) => <span className="cell-muted">{fmtHours(s)}</span> },
                 { title: 'Billed', key: 'billed', width: 170, align: 'right', render: (_, r) => <MoneyLines items={r.billed} /> },
                 { title: 'Paid', key: 'paid', width: 170, align: 'right', render: (_, r) => <MoneyLines items={r.paid} /> },
-                { title: 'Balance (all time)', key: 'balance', width: 190, align: 'right', render: (_, r) => <MoneyLines items={r.balance} empty="Settled" signed /> },
+                { title: 'Not invoiced', key: 'notInvoiced', width: 160, align: 'right', render: (_, r) => <MoneyLines items={r.notInvoiced} /> },
+                {
+                  title: 'Unpaid invoices',
+                  key: 'unpaid',
+                  width: 160,
+                  align: 'right',
+                  render: (_, r) => (r.unpaidInvoices.length ? <span style={{ color: '#D97706' }}><MoneyLines items={r.unpaidInvoices} /></span> : <span className="cell-muted">—</span>),
+                },
+                { title: 'Deposit', key: 'deposit', width: 150, align: 'right', render: (_, r) => <MoneyLines items={r.deposit} /> },
+                {
+                  title: '',
+                  key: 'invoice',
+                  width: 130,
+                  align: 'right',
+                  render: (_, r) =>
+                    r.companyId ? (
+                      <Button size="small" icon={<FileTextOutlined />} onClick={() => setInvoiceFor(r)}>
+                        Invoice
+                      </Button>
+                    ) : null,
+                },
               ]}
             />
           </div>
+          <CreateInvoiceModal
+            open={!!invoiceFor}
+            onClose={() => setInvoiceFor(null)}
+            company={invoiceFor?.companyId ? { id: invoiceFor.companyId, name: invoiceFor.name } : null}
+            from={range[0].format('YYYY-MM-DD')}
+            to={range[1].format('YYYY-MM-DD')}
+            currencies={(invoiceFor?.billed.length ? invoiceFor.billed : invoiceFor?.notInvoiced ?? []).map((m) => m.currency)}
+          />
         </Content>
       </AdminMainColumn>
     </Layout>

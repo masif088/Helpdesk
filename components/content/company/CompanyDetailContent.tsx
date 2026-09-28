@@ -414,7 +414,7 @@ export default function CompanyDetailContent({
                 <DollarOutlined /> Billing
               </span>
             ),
-            children: <CompanyBilling companyId={companyData.id} defaultCurrency={companyData.default_rate_currency} />,
+            children: <CompanyBilling companyId={companyData.id} companyName={companyData.name} defaultCurrency={companyData.default_rate_currency} />,
           },
         ]
       : []),
