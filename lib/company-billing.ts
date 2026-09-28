@@ -1,6 +1,6 @@
 /**
  * Company billing, per currency (tickets may be IDR or USD):
- *   billed          = billable time × each ticket's hourly rate (value of the work)
+ *   billed          = billable time × each ticket's hourly rate, plus fixed-price tickets (counted when created)
  *   paid            = payments received (deposits / top-ups and invoice payments)
  *   deposit balance = payments − paid invoices (what the client has left to spend)
  *   unpaid invoices = issued invoices not paid yet (what the client owes)
@@ -27,7 +27,7 @@ export type CompanyBilling = {
   /** Most recent months first */
   months: { month: string; billableSeconds: number; billed: Money[] }[]
   /** Tickets with the most billable time */
-  tickets: { id: number; title: string; billableSeconds: number; rate: number | null; currency: string | null; billed: number | null }[]
+  tickets: { id: number; title: string; billableSeconds: number; rate: number | null; fixed: boolean; currency: string | null; billed: number | null }[]
   payments: {
     id: string
     amount: number
@@ -53,7 +53,7 @@ export async function getCompanyBilling(companyId: string): Promise<CompanyBilli
   const [companyTickets, jobTypeRows, paymentRows, invoiceRows] = await Promise.all([
     find(tickets, {
       where: [['companyId', '==', companyId]],
-      select: ['id', 'title', 'hourlyRate', 'rateCurrency'],
+      select: ['id', 'title', 'hourlyRate', 'rateCurrency', 'fixedPrice', 'createdAt'],
     }),
     find(jobTypes),
     find(companyPayments, { where: [['companyId', '==', companyId]], orderBy: [['paidAt', 'desc']] }),
@@ -90,6 +90,7 @@ export async function getCompanyBilling(companyId: string): Promise<CompanyBilli
     m.seconds += secs
     byMonth.set(month, m)
     const t = ticketById.get(s.ticketId)
+    if (t?.fixedPrice != null) continue // billed once below, whatever the hours
     if (t?.hourlyRate == null) {
       unpricedSeconds += secs
       continue
@@ -98,6 +99,16 @@ export async function getCompanyBilling(companyId: string): Promise<CompanyBilli
     const amount = (secs / 3600) * t.hourlyRate
     addMoney(billed, cur, amount)
     addMoney(m.money, cur, amount)
+  }
+
+  for (const t of companyTickets) {
+    if (t.fixedPrice == null) continue
+    const cur = t.rateCurrency ?? 'IDR'
+    addMoney(billed, cur, t.fixedPrice)
+    const month = dayjs(t.createdAt).format('YYYY-MM')
+    const m = byMonth.get(month) ?? { seconds: 0, money: new Map<string, number>() }
+    addMoney(m.money, cur, t.fixedPrice)
+    byMonth.set(month, m)
   }
 
   const paid = new Map<string, number>()
@@ -142,14 +153,16 @@ export async function getCompanyBilling(companyId: string): Promise<CompanyBilli
       .slice(0, 10)
       .map(([id, secs]) => {
         const t = ticketById.get(id)
-        const rate = t?.hourlyRate ?? null
+        const fixed = t?.fixedPrice != null
+        const rate = fixed ? t!.fixedPrice : t?.hourlyRate ?? null
         return {
           id,
           title: t?.title ?? `#${id}`,
           billableSeconds: secs,
           rate,
+          fixed,
           currency: t?.rateCurrency ?? null,
-          billed: rate == null ? null : Math.round((secs / 3600) * rate * 100) / 100,
+          billed: rate == null ? null : fixed ? rate : Math.round((secs / 3600) * rate * 100) / 100,
         }
       }),
     payments: paymentRows.map((p) => {

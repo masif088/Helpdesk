@@ -3,7 +3,7 @@ import { after, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { canDeleteTickets, isAdminOrManager } from '@/lib/auth-utils'
 import { runAutomationRules } from '@/lib/automation-engine'
-import { parseHourlyRateBody } from '@/lib/billing-rate'
+import { parseTicketPriceBody } from '@/lib/billing-rate'
 import { companyDefaultRate } from '@/lib/billing-rate-server'
 import { assertCustomerMayAccessTicket } from '@/lib/customer-ticket-access'
 import { diffNewAssignees,notifyTicketUsers } from '@/lib/firebase/ticket-notifications-server'
@@ -383,7 +383,7 @@ export async function PATCH(
     contact_user_id,
   } = body
 
-  const rateUpdate = parseHourlyRateBody(body)
+  const rateUpdate = parseTicketPriceBody(body)
   if (rateUpdate !== undefined) {
     if (!isAdminOrManager(role)) {
       return NextResponse.json({ error: 'Only admins and managers can set the hourly rate' }, { status: 403 })
@@ -533,7 +533,7 @@ export async function PATCH(
     ...(companyIdUpdate !== undefined && { companyId: companyIdUpdate }),
     ...(due_date !== undefined && { dueDate: due_date ? new Date(due_date) : null }),
     ...(rateUpdate !== undefined && !('error' in rateUpdate) && rateUpdate),
-    ...(rateUpdate === undefined && companyChanging && prioCtxRow.hourlyRate == null
+    ...(rateUpdate === undefined && companyChanging && prioCtxRow.hourlyRate == null && prioCtxRow.fixedPrice == null
       ? await companyDefaultRate(nextCompanyResolved)
       : {}),
     ...(ticketTypeUpdate !== undefined && { ticketType: ticketTypeUpdate }),

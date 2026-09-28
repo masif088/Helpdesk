@@ -137,7 +137,7 @@ export default function CreateInvoiceModal({ open, onClose, company, from, to, c
         {loading || !preview ? (
           <Spin size="small" />
         ) : empty ? (
-          <span className="cell-muted">No billable time with an hourly rate in {currency} for this period.</span>
+          <span className="cell-muted">Nothing to bill in {currency} for this period (no priced billable time or fixed-price tickets).</span>
         ) : (
           <>
             <div>

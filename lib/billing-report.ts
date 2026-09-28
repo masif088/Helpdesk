@@ -1,5 +1,6 @@
 /**
- * Billing report across companies for a period: billable time × each ticket's hourly rate = billed,
+ * Billing report across companies for a period: billable time × each ticket's hourly rate, plus fixed-price
+ * tickets created in the period = billed,
  * payments recorded in the period = paid, and the all-time balance (billed − paid) per company.
  * Amounts stay per currency (tickets may be IDR or USD).
  */
@@ -67,7 +68,7 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
   const end = dayjs(to).endOf('day')
 
   const [ticketRows, jobTypeRows, companyRows, payments, sessions, invoiceRows] = await Promise.all([
-    find(tickets, { select: ['id', 'companyId', 'hourlyRate', 'rateCurrency'] }),
+    find(tickets, { select: ['id', 'companyId', 'hourlyRate', 'rateCurrency', 'fixedPrice', 'createdAt'] }),
     find(jobTypes),
     find(companies, { select: ['id', 'name', 'color'] }),
     find(companyPayments),
@@ -114,7 +115,8 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
       if (inPeriod) a.internalSeconds += secs
       continue
     }
-    const amount = t.hourlyRate != null ? (secs / 3600) * t.hourlyRate : null
+    const fixed = t.fixedPrice != null
+    const amount = fixed ? null : t.hourlyRate != null ? (secs / 3600) * t.hourlyRate : null
     const cur = t.rateCurrency ?? 'IDR'
     if (amount != null) add(a.allBilled, cur, amount)
     if (!inPeriod) continue
@@ -124,11 +126,26 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
     m.seconds += secs
     months.set(month, m)
     if (amount == null) {
-      a.unpricedSeconds += secs
+      if (!fixed) a.unpricedSeconds += secs
       continue
     }
     add(a.billed, cur, amount)
     add(m.money, cur, amount)
+  }
+
+  // Fixed-price tickets: billed once, in the month the ticket was created
+  for (const t of ticketRows) {
+    if (t.fixedPrice == null) continue
+    const a = acc(t.companyId ?? '__none__')
+    const cur = t.rateCurrency ?? 'IDR'
+    add(a.allBilled, cur, t.fixedPrice)
+    const at = dayjs(t.createdAt)
+    if (at.isBefore(start) || at.isAfter(end)) continue
+    add(a.billed, cur, t.fixedPrice)
+    const month = at.format('YYYY-MM')
+    const m = months.get(month) ?? { seconds: 0, money: new Map<string, number>() }
+    add(m.money, cur, t.fixedPrice)
+    months.set(month, m)
   }
 
   for (const p of payments) {
@@ -164,7 +181,7 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
       }
     })
     // Only companies with something to show for the period or an open balance
-    .filter((r) => r.billableSeconds || r.internalSeconds || r.paid.length || r.deposit.length || r.unpaidInvoices.length || r.notInvoiced.length)
+    .filter((r) => r.billableSeconds || r.internalSeconds || r.billed.length || r.paid.length || r.deposit.length || r.unpaidInvoices.length || r.notInvoiced.length)
     .sort((x, y) => y.billableSeconds - x.billableSeconds)
 
   const sum = (pick: (a: Acc) => Map<string, number>) => {

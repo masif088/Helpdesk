@@ -215,8 +215,8 @@ export default function InvoiceDocument({ invoice: initial, client, issuer, depo
                     <div className="invoice-strong">{l.title}</div>
                     <div className="invoice-muted">Ticket #{l.ticketId}</div>
                   </td>
-                  <td className="num">{fmtHours(l.seconds)}</td>
-                  <td className="num">{money(l.rate)}/h</td>
+                  <td className="num">{l.fixed ? '—' : fmtHours(l.seconds)}</td>
+                  <td className="num">{l.fixed ? 'Fixed price' : `${money(l.rate)}/h`}</td>
                   <td className="num">{money(l.amount)}</td>
                 </tr>
               ))}

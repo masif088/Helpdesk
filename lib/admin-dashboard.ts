@@ -223,6 +223,7 @@ async function loadWeekBilling(from: Date): Promise<DashboardBilling> {
     }
     billableSeconds += secs
     const t = ticketMap.get(String(s.ticketId))
+    if (t?.fixedPrice != null) continue // priced as a whole, not per hour
     if (t?.hourlyRate == null) {
       unpricedSeconds += secs
       continue

@@ -145,7 +145,7 @@ export default function CompanyBilling({ companyId, companyName, defaultCurrency
 
       {data.unpricedSeconds > 0 ? (
         <div className="billing-note">
-          <WarningOutlined /> {fmtHours(data.unpricedSeconds)} of billable time is on tickets without an hourly rate and is
+          <WarningOutlined /> {fmtHours(data.unpricedSeconds)} of billable time is on tickets without a price and is
           not included in the total. Set a rate on those tickets (or a default rate on the company for new ones).
         </div>
       ) : null}
@@ -261,7 +261,7 @@ export default function CompanyBilling({ companyId, companyName, defaultCurrency
                 width: 140,
                 align: 'right' as const,
                 render: (_: unknown, t: Billing['tickets'][number]) =>
-                  t.rate == null ? <span className="people-muted">No rate</span> : `${formatMoney(t.rate, t.currency)}/h`,
+                  t.rate == null ? <span className="people-muted">No rate</span> : t.fixed ? `${formatMoney(t.rate, t.currency)} fixed` : `${formatMoney(t.rate, t.currency)}/h`,
               },
               {
                 title: 'Billed',

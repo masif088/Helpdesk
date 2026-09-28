@@ -30,18 +30,23 @@ import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 /**
  * Billable, priced time per ticket of one company, in one currency, for [from, to] (inclusive dates).
  * Sessions already on another (non-void) invoice are left out, so work is never billed twice.
+ * Fixed-price tickets created up to `to` are one line each (their price, whatever the hours), billed once.
  */
 export async function invoiceLinesFor(companyId: string, from: string, to: string, currency: string): Promise<InvoiceLine[]> {
   const start = dayjs(from).startOf('day')
   const end = dayjs(to).endOf('day')
   const [companyTickets, jobTypeRows, existing] = await Promise.all([
-    find(tickets, { where: [['companyId', '==', companyId]], select: ['id', 'title', 'hourlyRate', 'rateCurrency'] }),
+    find(tickets, { where: [['companyId', '==', companyId]], select: ['id', 'title', 'hourlyRate', 'rateCurrency', 'fixedPrice', 'createdAt'] }),
     find(jobTypes),
     find(invoices, { where: [['companyId', '==', companyId]], select: ['status', 'lines'] }),
   ])
   const alreadyBilled = new Set(existing.filter((i) => i.status !== 'void').flatMap((i) => i.lines.flatMap((l) => l.sessionIds ?? [])))
-  const priced = companyTickets.filter((t) => t.hourlyRate != null && (t.rateCurrency ?? 'IDR') === currency)
-  if (!priced.length) return []
+  const fixedBilled = new Set(existing.filter((i) => i.status !== 'void').flatMap((i) => i.lines.filter((l) => l.fixed).map((l) => l.ticketId)))
+  const fixedLines: InvoiceLine[] = companyTickets
+    .filter((t) => t.fixedPrice != null && (t.rateCurrency ?? 'IDR') === currency && !fixedBilled.has(t.id) && !dayjs(t.createdAt).isAfter(end))
+    .map((t) => ({ ticketId: t.id, title: t.title, seconds: 0, rate: t.fixedPrice!, amount: t.fixedPrice!, fixed: true }))
+  const priced = companyTickets.filter((t) => t.fixedPrice == null && t.hourlyRate != null && (t.rateCurrency ?? 'IDR') === currency)
+  if (!priced.length) return fixedLines
   const billableJob = new Map(jobTypeRows.map((j) => [j.slug, j.billable !== false]))
   const sessions = await find(ticketTimeTracker, {
     where: [['ticketId', 'in', priced.map((t) => t.id)]],
@@ -56,7 +61,7 @@ export async function invoiceLinesFor(companyId: string, from: string, to: strin
     secondsByTicket.set(s.ticketId, (secondsByTicket.get(s.ticketId) ?? 0) + reportedDurationSeconds(s))
     sessionsByTicket.set(s.ticketId, [...(sessionsByTicket.get(s.ticketId) ?? []), s.id])
   }
-  return priced
+  const hourlyLines = priced
     .filter((t) => (secondsByTicket.get(t.id) ?? 0) > 0)
     .map((t) => {
       const seconds = secondsByTicket.get(t.id)!
@@ -70,7 +75,7 @@ export async function invoiceLinesFor(companyId: string, from: string, to: strin
         sessionIds: sessionsByTicket.get(t.id) ?? [],
       }
     })
-    .sort((a, b) => a.ticketId - b.ticketId)
+  return [...hourlyLines, ...fixedLines].sort((a, b) => a.ticketId - b.ticketId)
 }
 
 /** Next number for the year of the issue date: INV-2026-0001, INV-2026-0002, … */
@@ -95,7 +100,7 @@ export async function createInvoice(params: {
   createdBy: string
 }): Promise<InvoicesRow> {
   const lines = await invoiceLinesFor(params.companyId, params.from, params.to, params.currency)
-  if (!lines.length) throw new Error('No billable, priced time for this company and currency in the period')
+  if (!lines.length) throw new Error('Nothing to bill for this company and currency in the period')
   const total = Math.round(lines.reduce((n, l) => n + l.amount, 0) * 100) / 100
   return insert(invoices, {
     number: await nextInvoiceNumber(params.issueDate),

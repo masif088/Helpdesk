@@ -281,7 +281,7 @@ export async function getTicketDetail(ticketId: number, options?: TicketDetailOp
     project_id: t.projectId ?? null,
     project_status_id: t.projectStatusId ?? null,
     ...(options?.includeBilling
-      ? { hourly_rate: t.hourlyRate ?? null, rate_currency: t.rateCurrency ?? null }
+      ? { hourly_rate: t.hourlyRate ?? null, fixed_price: t.fixedPrice ?? null, rate_currency: t.rateCurrency ?? null }
       : {}),
     project: ticketRow.project
       ? { id: ticketRow.project.id, title: ticketRow.project.title }

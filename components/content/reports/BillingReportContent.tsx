@@ -193,7 +193,7 @@ export default function BillingReportContent({ user }: Props) {
 
           {data && data.totals.unpricedSeconds > 0 ? (
             <div className="billing-note">
-              <WarningOutlined /> {fmtHours(data.totals.unpricedSeconds)} of billable time in this period is on tickets without an hourly rate
+              <WarningOutlined /> {fmtHours(data.totals.unpricedSeconds)} of billable time in this period is on tickets without a price
               and is not counted. Set a rate on those tickets or a default rate on their company.
             </div>
           ) : null}

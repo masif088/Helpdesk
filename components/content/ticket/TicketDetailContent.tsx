@@ -41,6 +41,17 @@ import { linkifyRichHtml } from '@/lib/linkify-rich-html'
 const { Content } = Layout
 const { Title, Text } = Typography
 
+/** Billing fields for PATCH: either an hourly rate or a fixed price for the whole ticket (the other is cleared) */
+function ticketPricePayload(d: SidebarAttributesDraft) {
+    const fixed = d.pricing === 'fixed'
+    const amount = fixed ? d.fixedPrice : d.hourlyRate
+    return {
+        hourly_rate: fixed ? null : d.hourlyRate,
+        fixed_price: fixed ? d.fixedPrice : null,
+        rate_currency: amount != null ? d.rateCurrency : null,
+    }
+}
+
 function TitleDisplay({ id, title }: { id: number; title: string }) {
     const [expanded, setExpanded] = useState(false)
     const isLong = title.length > 80
@@ -1124,8 +1135,7 @@ export default function TicketDetailContent({
                 short_note: d.shortNote.trim() || null,
             }
             if (isAdminOrManager(currentUser.role ?? undefined)) {
-                body.hourly_rate = d.hourlyRate
-                body.rate_currency = d.hourlyRate != null ? d.rateCurrency : null
+                Object.assign(body, ticketPricePayload(d))
             }
             if (useProjectBoard) {
                 body.project_status_id = d.projectStatusId
@@ -1208,7 +1218,7 @@ export default function TicketDetailContent({
                     team_id: d.teamId,
                     short_note: d.shortNote.trim() || null,
                     ...(isAdminOrManager(currentUser.role ?? undefined)
-                        ? { hourly_rate: d.hourlyRate, rate_currency: d.hourlyRate != null ? d.rateCurrency : null }
+                        ? ticketPricePayload(d)
                         : {}),
                     assignees: d.assigneeIds.map((uid) => {
                         const u = fromLists.find((x) => x.id === uid)

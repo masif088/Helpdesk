@@ -164,8 +164,10 @@ export interface SidebarAttributesDraft {
   assigneeIds: string[]
   /** Local short note text; persisted with Save changes */
   shortNote: string
-  /** Hourly billing rate (only edited when canEditBilling) */
+  /** Billing (only edited when canEditBilling): hourly rate, or one fixed price for the whole ticket */
+  pricing: 'hourly' | 'fixed'
   hourlyRate: number | null
+  fixedPrice: number | null
   rateCurrency: string | null
 }
 
@@ -198,7 +200,9 @@ function snapshotSidebarDraft(params: {
     teamId: selectedTeamId ?? null,
     assigneeIds,
     shortNote: typeof shortNoteProp === 'string' ? shortNoteProp : '',
+    pricing: typeof ticketData?.fixed_price === 'number' ? 'fixed' : 'hourly',
     hourlyRate: typeof ticketData?.hourly_rate === 'number' ? ticketData.hourly_rate : null,
+    fixedPrice: typeof ticketData?.fixed_price === 'number' ? ticketData.fixed_price : null,
     rateCurrency: ticketData?.rate_currency ?? null,
   }
 }
@@ -1153,10 +1157,22 @@ export default function TabGeneral({
               />
             </div>
 
-            {/* Hourly rate (billing) */}
+            {/* Price (billing): per hour, or fixed for the whole ticket */}
             {canEditBilling ? (
               <div>
-                <Text style={LBL}>Hourly rate</Text>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                  <Text style={{ ...LBL, marginBottom: 0 }}>Price</Text>
+                  <Segmented<'hourly' | 'fixed'>
+                    size="small"
+                    value={sidebarDraft.pricing}
+                    onChange={(pricing) => setSidebarDraft((d) => ({ ...d, pricing }))}
+                    options={[
+                      { value: 'hourly', label: 'Per hour' },
+                      { value: 'fixed', label: 'Fixed' },
+                    ]}
+                    disabled={sidebarAttributesSaving}
+                  />
+                </div>
                 <Space.Compact style={{ width: '100%' }}>
                   <Select
                     value={sidebarDraft.rateCurrency ?? DEFAULT_RATE_CURRENCY}
@@ -1166,17 +1182,18 @@ export default function TabGeneral({
                     disabled={sidebarAttributesSaving}
                   />
                   <InputNumber
-                    value={sidebarDraft.hourlyRate ?? undefined}
+                    key={sidebarDraft.pricing}
+                    value={(sidebarDraft.pricing === 'fixed' ? sidebarDraft.fixedPrice : sidebarDraft.hourlyRate) ?? undefined}
                     onChange={(v) =>
                       setSidebarDraft((d) => ({
                         ...d,
-                        hourlyRate: typeof v === 'number' ? v : null,
+                        [d.pricing === 'fixed' ? 'fixedPrice' : 'hourlyRate']: typeof v === 'number' ? v : null,
                         rateCurrency: d.rateCurrency ?? DEFAULT_RATE_CURRENCY,
                       }))
                     }
                     min={0}
-                    step={(sidebarDraft.rateCurrency ?? DEFAULT_RATE_CURRENCY) === 'IDR' ? 1000 : 1}
-                    placeholder="per hour"
+                    step={(sidebarDraft.rateCurrency ?? DEFAULT_RATE_CURRENCY) === 'IDR' ? (sidebarDraft.pricing === 'fixed' ? 100000 : 1000) : 1}
+                    placeholder={sidebarDraft.pricing === 'fixed' ? 'whole ticket, any hours' : 'per hour'}
                     style={{ width: '100%' }}
                     disabled={sidebarAttributesSaving}
                   />
