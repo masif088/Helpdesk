@@ -22,6 +22,8 @@ interface Props {
   /** Deposit balance available for this invoice (excluding it) */
   depositAvailable: number
   initialDoc: Doc
+  /** Client's own view in the portal: no pay / void actions, back to their company's Billing tab */
+  readOnly?: boolean
 }
 
 const fmtDate = (d: string | null) => (d ? dayjs(d).format('D MMM YYYY') : '—')
@@ -35,7 +37,7 @@ const STATUS: Record<string, { label: string; color: string }> = {
 }
 
 /** Invoice (bill to the client) and, once paid, its receipt. A4 layout; "Download PDF" prints to PDF. */
-export default function InvoiceDocument({ invoice: initial, client, issuer, depositAvailable, initialDoc }: Props) {
+export default function InvoiceDocument({ invoice: initial, client, issuer, depositAvailable, initialDoc, readOnly = false }: Props) {
   const { message, modal } = App.useApp()
   const router = useRouter()
   const [inv, setInv] = useState(initial)
@@ -83,7 +85,7 @@ export default function InvoiceDocument({ invoice: initial, client, issuer, depo
   return (
     <div className="invoice-page">
       <div className="invoice-toolbar">
-        <BackLink href={`/companies/${inv.company_id}?tab=billing`}>{client.name}</BackLink>
+        <BackLink href={readOnly ? '/my-company?tab=billing' : `/companies/${inv.company_id}?tab=billing`}>{readOnly ? 'Billing' : client.name}</BackLink>
         <span style={{ flex: 1 }} />
         {inv.status === 'paid' ? (
           <Segmented<Doc>
@@ -95,7 +97,7 @@ export default function InvoiceDocument({ invoice: initial, client, issuer, depo
             ]}
           />
         ) : null}
-        {inv.status === 'issued' ? (
+        {!readOnly && inv.status === 'issued' ? (
           <>
             <Tooltip title={canPayFromBalance ? `Deposit balance: ${money(depositAvailable)}` : `Deposit balance ${money(depositAvailable)} does not cover it`}>
               <Button
@@ -129,7 +131,7 @@ export default function InvoiceDocument({ invoice: initial, client, issuer, depo
             </Button>
           </>
         ) : null}
-        {inv.status === 'paid' ? (
+        {!readOnly && inv.status === 'paid' ? (
           <Button
             icon={<UndoOutlined />}
             loading={busy}

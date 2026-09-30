@@ -1,11 +1,12 @@
 'use client'
 
-import { SaveOutlined } from '@ant-design/icons'
-import { App, Button, Empty, Form, Input, Layout, Space, Typography } from 'antd'
-import { useRouter } from 'next/navigation'
+import { DollarOutlined, InfoCircleOutlined, SaveOutlined } from '@ant-design/icons'
+import { App, Button, Empty, Form, Input, Layout, Space, Tabs, Typography } from 'antd'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 
 import TabInfo from '@/components/company/TabInfo'
+import CustomerBilling from '@/components/customer-portal/CustomerBilling'
 import CustomerPortalTeamSection from '@/components/customer-portal/CustomerPortalTeamSection'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
@@ -32,7 +33,7 @@ interface CustomerCompanySettingsContentProps {
   isCompanyPortalAdmin?: boolean
 }
 
-/** Customer → My company: their organization's details, who has portal access, and (portal admin) contact & branding. */
+/** Customer → My company: their organization's details and portal accounts; the portal admin also gets contact & branding and Billing. */
 export default function CustomerCompanySettingsContent({ user, companyData, isCompanyPortalAdmin = false }: CustomerCompanySettingsContentProps) {
   const [collapsed, setCollapsed] = useState(false)
   return (
@@ -64,6 +65,7 @@ export default function CustomerCompanySettingsContent({ user, companyData, isCo
 function CompanyPanels({ userId, companyData, isCompanyPortalAdmin }: { userId: string; companyData: Record<string, unknown>; isCompanyPortalAdmin: boolean }) {
   const { message } = App.useApp()
   const router = useRouter()
+  const initialTab = useSearchParams().get('tab') ?? undefined
   const [form] = Form.useForm()
   const [saving, setSaving] = useState(false)
 
@@ -104,27 +106,7 @@ function CompanyPanels({ userId, companyData, isCompanyPortalAdmin }: { userId: 
     }
   }
 
-  return (
-    <>
-          <div className="company-hero">
-            <div className="company-hero__row">
-              <span className="company-hero__mark" style={{ background: (companyData.color as string | null) || 'var(--brand-primary)' }} aria-hidden>
-                {(name || '?').trim().charAt(0).toUpperCase()}
-              </span>
-              <div className="company-hero__main">
-                <Title level={2} className="page-head__title">
-                  {name}
-                </Title>
-                <div className="company-hero__meta">
-                  <StatusPill color={companyData.is_active === false ? '#94A3B8' : '#16A34A'} title={companyData.is_active === false ? 'Inactive' : 'Active'} />
-                  {email ? <a href={`mailto:${email}`}>{email}</a> : null}
-                  {team ? <span>Support team · <strong>{team}</strong></span> : null}
-                  {manager ? <span>Account manager · <strong>{manager}</strong></span> : null}
-                </div>
-              </div>
-            </div>
-          </div>
-
+  const overview = (
           <div style={{ display: 'grid', gap: 16 }}>
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             <TabInfo companyData={companyData as any} />
@@ -164,6 +146,41 @@ function CompanyPanels({ userId, companyData, isCompanyPortalAdmin }: { userId: 
               </section>
             ) : null}
           </div>
+  )
+
+  return (
+    <>
+          <div className="company-hero">
+            <div className="company-hero__row">
+              <span className="company-hero__mark" style={{ background: (companyData.color as string | null) || 'var(--brand-primary)' }} aria-hidden>
+                {(name || '?').trim().charAt(0).toUpperCase()}
+              </span>
+              <div className="company-hero__main">
+                <Title level={2} className="page-head__title">
+                  {name}
+                </Title>
+                <div className="company-hero__meta">
+                  <StatusPill color={companyData.is_active === false ? '#94A3B8' : '#16A34A'} title={companyData.is_active === false ? 'Inactive' : 'Active'} />
+                  {email ? <a href={`mailto:${email}`}>{email}</a> : null}
+                  {team ? <span>Support team · <strong>{team}</strong></span> : null}
+                  {manager ? <span>Account manager · <strong>{manager}</strong></span> : null}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {isCompanyPortalAdmin ? (
+            <Tabs
+              className="company-tabs"
+              defaultActiveKey={initialTab}
+              items={[
+                { key: 'info', label: <span><InfoCircleOutlined /> Overview</span>, children: overview },
+                { key: 'billing', label: <span><DollarOutlined /> Billing</span>, children: <CustomerBilling /> },
+              ]}
+            />
+          ) : (
+            overview
+          )}
     </>
   )
 }

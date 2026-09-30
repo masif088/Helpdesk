@@ -5,11 +5,28 @@ import InvoiceDocument from '@/components/invoices/InvoiceDocument'
 import { getAppSettings } from '@/lib/app-settings'
 import { isAdminOrManager } from '@/lib/auth-utils'
 import { BRANDING } from '@/lib/branding'
+import { customerBillingCompanyId } from '@/lib/customer-billing'
 import { companies, get, invoices } from '@/lib/fsdb'
 import { companyDepositBalance, invoiceToJson } from '@/lib/invoices'
 
+/**
+ * Who may open this invoice: admin / manager, or a client (portal admin) for their own company's invoices,
+ * read-only and never a void one.
+ */
+async function invoiceForViewer(id: string) {
+  const session = await auth()
+  if (!session?.user?.id) return { denied: 'login' as const }
+  const role = (session.user as { role?: string }).role
+  const staff = isAdminOrManager(role)
+  const clientCompanyId = !staff && role?.toLowerCase() === 'customer' ? await customerBillingCompanyId(session.user.id) : null
+  if (!staff && !clientCompanyId) return { denied: 'role' as const }
+  const inv = await get(invoices, id)
+  if (!inv || (!staff && (inv.companyId !== clientCompanyId || inv.status === 'void'))) return { denied: 'missing' as const }
+  return { inv, staff }
+}
+
 export async function generateMetadata({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ doc?: string }> }) {
-  const inv = await get(invoices, (await params).id)
+  const { inv } = await invoiceForViewer((await params).id)
   if (!inv) return {}
   const company = await get(companies, inv.companyId)
   const receipt = (await searchParams).doc === 'receipt'
@@ -18,12 +35,12 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
 }
 
 export default async function InvoicePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ doc?: string }> }) {
-  const session = await auth()
-  if (!session?.user) redirect('/login')
-  if (!isAdminOrManager((session.user as { role?: string }).role)) redirect('/dashboard')
+  const access = await invoiceForViewer((await params).id)
+  if (access.denied === 'login') redirect('/login')
+  if (access.denied === 'role') redirect('/dashboard')
+  if (!access.inv) notFound()
+  const { inv, staff } = access
 
-  const inv = await get(invoices, (await params).id)
-  if (!inv) notFound()
   const [company, settings, balance] = await Promise.all([
     get(companies, inv.companyId),
     getAppSettings(),
@@ -43,6 +60,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
       }}
       depositAvailable={balance.get(inv.currency) ?? 0}
       initialDoc={(await searchParams).doc === 'receipt' && inv.status === 'paid' ? 'receipt' : 'invoice'}
+      readOnly={!staff}
     />
   )
 }
