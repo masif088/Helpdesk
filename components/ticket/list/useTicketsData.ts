@@ -1219,6 +1219,13 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
           description: values.description || null,
           tag_ids: selectedTagIds,
           contact_user_id: effectiveValues.contact_user_id ?? null,
+          // Price entered on the form (admin / manager); otherwise the server uses the company's default rate
+          ...((values.price_mode === 'hourly' || values.price_mode === 'fixed') && typeof values.price_amount === 'number'
+            ? {
+                [values.price_mode === 'fixed' ? 'fixed_price' : 'hourly_rate']: values.price_amount,
+                rate_currency: values.rate_currency ?? 'IDR',
+              }
+            : {}),
           attachments: newTicketAttachments.map((a) => ({
             file_url: a.url,
             file_name: a.file_name,

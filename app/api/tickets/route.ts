@@ -1,8 +1,9 @@
 import { after, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { isAdmin } from '@/lib/auth-utils'
+import { isAdmin, isAdminOrManager } from '@/lib/auth-utils'
 import { loadAutomationTicketContext, runAutomationRules } from '@/lib/automation-engine'
+import { parseTicketPriceBody } from '@/lib/billing-rate'
 import { companyDefaultRate } from '@/lib/billing-rate-server'
 import { getCustomerCompanyId } from '@/lib/customer-company'
 import { loadCustomerAccessibleTickets } from '@/lib/customer-ticket-access'
@@ -553,7 +554,13 @@ export async function POST(request: Request) {
   }
 
   let newTicket: TicketsRow | undefined
-  const companyRate = await companyDefaultRate(resolvedCompanyId)
+  // Price: what an admin / manager entered on the form, else the company's default hourly rate
+  const priceInput = isAdminOrManager(role) ? parseTicketPriceBody(body) : undefined
+  if (priceInput && 'error' in priceInput) {
+    return NextResponse.json({ error: priceInput.error }, { status: 400 })
+  }
+  const companyRate =
+    priceInput && (priceInput.hourlyRate != null || priceInput.fixedPrice != null) ? priceInput : await companyDefaultRate(resolvedCompanyId)
 
   if (useCompanyPriorityPool) {
     const desiredRank = parseCompanyTicketDesiredRank(priority)

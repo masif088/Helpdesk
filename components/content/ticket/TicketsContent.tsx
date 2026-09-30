@@ -15,7 +15,7 @@ import TicketsKanbanView from '@/components/ticket/list/TicketsKanbanView'
 import TicketsListView from '@/components/ticket/list/TicketsListView'
 import TicketsRoundRobinView from '@/components/ticket/list/TicketsRoundRobinView'
 import { useTicketsData } from '@/components/ticket/list/useTicketsData'
-import { canDeleteTickets } from '@/lib/auth-utils'
+import { canDeleteTickets, isAdminOrManager } from '@/lib/auth-utils'
 import { addSavedTicketFilterPreset } from '@/lib/ticket-saved-filters'
 
 interface TicketsContentProps {
@@ -135,6 +135,15 @@ export default function TicketsContent({ user: currentUser }: TicketsContentProp
   } = useTicketsData(currentUser.id, isCustomer, canDeleteTicket)
 
   const isAdminUser = (currentUser.role ?? '').toLowerCase() === 'admin'
+
+  /** /tickets?new=1 (e.g. "New ticket" on the dashboard) opens the create form; read once, the filter sync rewrites the URL */
+  const openCreateRef = useRef(searchParams.get('new') === '1')
+  useEffect(() => {
+    if (!openCreateRef.current) return
+    openCreateRef.current = false
+    handleCreate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once on mount
+  }, [])
 
   /** Inbox reminder threshold (Settings → Scheduled jobs) for the "Waiting" pill */
   const [inboxReminderHours, setInboxReminderHours] = useState<number>(0)
@@ -444,6 +453,7 @@ export default function TicketsContent({ user: currentUser }: TicketsContentProp
         attachmentUploading={attachmentUploading}
         submitting={submitting}
         onSubmit={handleSubmit}
+        canEditBilling={isAdminOrManager(currentUser.role)}
         onCancel={handleModalCancel}
         isCustomer={isCustomer}
         onCloseTicket={isCustomer ? async (id) => { await handleCloseTicket(id); handleModalCancel() } : undefined}

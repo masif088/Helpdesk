@@ -18,6 +18,7 @@ import type { FormInstance } from 'antd/es/form'
 import { useCallback,useId, useMemo } from 'react'
 
 import CommentWysiwyg from '@/components/ticket/detail/CommentWysiwyg'
+import { DEFAULT_RATE_CURRENCY, RATE_CURRENCIES } from '@/lib/billing-rate'
 
 import type { Team, TicketRecord, UserRecord } from './types'
 import type { NewTicketAttachment,TicketAttachment } from './types'
@@ -51,6 +52,8 @@ interface TicketFormModalProps {
   onCancel: () => void
   /** When true, show simplified form: Title, Description, Priority, Type only */
   isCustomer?: boolean
+  /** Admin / manager: may set the ticket's price (per hour or fixed) when creating it */
+  canEditBilling?: boolean
   /** Customer only: close the ticket from the edit modal */
   onCloseTicket?: (id: number) => void
   closingTicket?: boolean
@@ -82,6 +85,7 @@ export default function TicketFormModal({
   onSubmit,
   onCancel,
   isCustomer = false,
+  canEditBilling = false,
   onCloseTicket,
   closingTicket = false,
 }: TicketFormModalProps) {
@@ -94,6 +98,9 @@ export default function TicketFormModal({
   const fileInputId = `ticket-files-${rawId.replace(/:/g, '')}`
   const watchedContactUserId = Form.useWatch('contact_user_id', form)
   const watchedCompanyId = Form.useWatch('company_id', form)
+  const watchedPriceMode = Form.useWatch('price_mode', form) as 'default' | 'hourly' | 'fixed' | undefined
+  const watchedCurrency = Form.useWatch('rate_currency', form) as string | undefined
+  const customPrice = watchedPriceMode === 'hourly' || watchedPriceMode === 'fixed'
   const contactCompanyMismatchHint = useMemo(() => {
     if (showSimplifiedForm || !open) return null
     if (!watchedContactUserId || !watchedCompanyId) return null
@@ -366,6 +373,35 @@ export default function TicketFormModal({
         )}
         </Col>
         </Row>
+
+        {canEditBilling && !editingTicket && !showSimplifiedForm ? (
+          <Form.Item label="Price" tooltip="Per hour: billable time × rate. Fixed: one price for the whole ticket, whatever the hours." style={{ maxWidth: 560 }}>
+            <Space.Compact style={{ width: '100%' }}>
+              <Form.Item name="price_mode" noStyle initialValue="default">
+                <Select
+                  style={{ width: 190 }}
+                  options={[
+                    { value: 'default', label: 'Company default rate' },
+                    { value: 'hourly', label: 'Per hour' },
+                    { value: 'fixed', label: 'Fixed price' },
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item name="rate_currency" noStyle initialValue={DEFAULT_RATE_CURRENCY}>
+                <Select style={{ width: 90 }} disabled={!customPrice} options={RATE_CURRENCIES.map((c) => ({ value: c, label: c }))} />
+              </Form.Item>
+              <Form.Item name="price_amount" noStyle rules={[{ required: customPrice, message: 'Enter the price' }]}>
+                <InputNumber
+                  min={0}
+                  step={(watchedCurrency ?? DEFAULT_RATE_CURRENCY) === 'IDR' ? (watchedPriceMode === 'fixed' ? 100000 : 1000) : 1}
+                  disabled={!customPrice}
+                  placeholder={watchedPriceMode === 'fixed' ? 'whole ticket, any hours' : watchedPriceMode === 'hourly' ? 'per hour' : "uses the company's rate"}
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+            </Space.Compact>
+          </Form.Item>
+        ) : null}
 
         <Form.Item>
           <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
