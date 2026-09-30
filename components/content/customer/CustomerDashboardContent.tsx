@@ -8,8 +8,9 @@ import {
   InboxOutlined,
   MessageOutlined,
   PlusOutlined,
+  WalletOutlined,
 } from '@ant-design/icons'
-import { App, Button, Card, Col, Dropdown, Empty, Layout, Row, Spin, Tag, Typography } from 'antd'
+import { Alert, App, Button, Card, Col, Dropdown, Empty, Layout, Row, Spin, Tag, Typography } from 'antd'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import Link from 'next/link'
@@ -22,6 +23,7 @@ import { greeting, KpiCard, SectionTitle } from '@/components/dashboard/Dashboar
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import { canDeleteTickets } from '@/lib/auth-utils'
+import { formatMoney } from '@/lib/billing-rate'
 import { kanbanTagStyle } from '@/lib/kanban-tag-chip-style'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
@@ -50,9 +52,17 @@ const ROW_STYLE: CSSProperties = {
 
 const ELLIPSIS: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 
+type Money = { currency: string; amount: number }
+
+const moneyText = (items: Money[]) => (items.length ? items.map((m) => formatMoney(m.amount, m.currency)).join(' + ') : formatMoney(0, 'IDR'))
+
+/** Statuses where the team waits for the client (same list as the API) */
+const AWAITING_STATUSES = 'question,client_review'
+
 interface DashboardData {
   company_id: string | null
   my_tickets_count: number
+  active_count: number
   tickets_by_type: Array<{ type_title: string; type_id: number | null; count: number; color: string }>
   status_counts: Array<{ status_slug: string; status_title: string; count: number; color: string }>
   recent_tickets: Array<{
@@ -60,10 +70,9 @@ interface DashboardData {
     title: string
     due_date: string | null
     updated_at: string
-    status_slug: string
     status_title: string
-    customer_title: string
     status_color: string
+    is_active: boolean
     priority: number | null
     creator_name: string | null
   }>
@@ -71,7 +80,10 @@ interface DashboardData {
     this_month_completed: number
     last_month_completed: number
   }
+  awaiting_count: number
   awaiting_response?: Array<{ id: number; title: string; status: string; updated_at: string }>
+  /** Portal admin only */
+  billing: { deposit_balance: Money[]; unpaid_invoices: Money[]; unpaid_count: number; overdue_count: number } | null
   recent_team_updates?: Array<{ ticket_id: number; ticket_title: string; comment: string; author_name: string | null; created_at: string }>
 }
 
@@ -118,7 +130,6 @@ export default function CustomerDashboardContent({ user }: CustomerDashboardCont
     () => (data?.status_counts ?? []).filter((s) => s.count > 0 && !isClosedLikeTicketStatus(s.status_slug)),
     [data?.status_counts]
   )
-  const openCount = openStatuses.reduce((n, s) => n + s.count, 0)
   const statusBySlug = useMemo(() => new Map((data?.status_counts ?? []).map((s) => [s.status_slug, s])), [data?.status_counts])
 
   const barChartData = useMemo(
@@ -155,6 +166,9 @@ export default function CustomerDashboardContent({ user }: CustomerDashboardCont
 
   const firstName = (user.user_metadata?.full_name || user.name || user.email || '').split(/[\s@]/)[0]
   const awaiting = data?.awaiting_response ?? []
+  const awaitingCount = data?.awaiting_count ?? awaiting.length
+  const billing = data?.billing ?? null
+  const depositLabel = billing ? moneyText(billing.deposit_balance) : ''
   const updates = data?.recent_team_updates ?? []
   const recent = data?.recent_tickets ?? []
   const summary = data?.monthly_summary
@@ -187,13 +201,26 @@ export default function CustomerDashboardContent({ user }: CustomerDashboardCont
             </div>
           ) : (
             <>
+              {billing && billing.overdue_count > 0 ? (
+                <Alert
+                  type="warning"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                  message={`${billing.overdue_count} invoice${billing.overdue_count > 1 ? 's are' : ' is'} past the due date`}
+                  action={
+                    <Button size="small" onClick={() => router.push('/my-company?tab=billing')}>
+                      View billing
+                    </Button>
+                  }
+                />
+              ) : null}
               <Row gutter={[16, 16]}>
                 <Col xs={24} sm={12} xl={6}>
                   <KpiCard
                     icon={<InboxOutlined />}
                     tone="teal"
                     label="Open tickets"
-                    value={openCount}
+                    value={data?.active_count ?? 0}
                     hint="Being worked on or waiting"
                     href={openStatuses.length ? ticketsHref({ status: openStatuses.map((s) => s.status_slug).join(',') }) : '/tickets'}
                   />
@@ -203,8 +230,9 @@ export default function CustomerDashboardContent({ user }: CustomerDashboardCont
                     icon={<MessageOutlined />}
                     tone="amber"
                     label="Waiting for your reply"
-                    value={awaiting.length}
-                    hint={awaiting.length ? 'The team needs your answer' : 'Nothing needs your answer'}
+                    value={awaitingCount}
+                    hint={awaitingCount ? 'The team needs your answer' : 'Nothing needs your answer'}
+                    href={awaitingCount ? ticketsHref({ status: AWAITING_STATUSES }) : undefined}
                   />
                 </Col>
                 <Col xs={24} sm={12} xl={6}>
@@ -217,7 +245,18 @@ export default function CustomerDashboardContent({ user }: CustomerDashboardCont
                   />
                 </Col>
                 <Col xs={24} sm={12} xl={6}>
-                  <KpiCard icon={<FolderOpenOutlined />} tone="slate" label="All tickets" value={data?.my_tickets_count ?? 0} hint="For your company" href="/tickets" />
+                  {billing ? (
+                    <KpiCard
+                      icon={<WalletOutlined />}
+                      tone="slate"
+                      label="Deposit balance"
+                      value={<span style={{ fontSize: depositLabel.length > 14 ? 20 : 26 }}>{depositLabel}</span>}
+                      hint={billing.unpaid_count ? `${moneyText(billing.unpaid_invoices)} in ${billing.unpaid_count} unpaid invoice${billing.unpaid_count > 1 ? 's' : ''}` : 'No unpaid invoices'}
+                      href="/my-company?tab=billing"
+                    />
+                  ) : (
+                    <KpiCard icon={<FolderOpenOutlined />} tone="slate" label="All tickets" value={data?.my_tickets_count ?? 0} hint="Open and finished" href="/tickets" />
+                  )}
                 </Col>
               </Row>
 
@@ -225,7 +264,7 @@ export default function CustomerDashboardContent({ user }: CustomerDashboardCont
                 <Col xs={24} xl={12}>
                   <Card
                     title={
-                      <SectionTitle extra={awaiting.length ? <Tag color="orange" style={{ marginInlineEnd: 0 }}>{awaiting.length}</Tag> : null}>
+                      <SectionTitle extra={awaitingCount ? <Tag color="orange" style={{ marginInlineEnd: 0 }}>{awaitingCount}</Tag> : null}>
                         Waiting for your reply
                       </SectionTitle>
                     }
@@ -252,6 +291,11 @@ export default function CustomerDashboardContent({ user }: CustomerDashboardCont
                     ) : (
                       <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Nothing is waiting for you" />
                     )}
+                    {awaitingCount > awaiting.length ? (
+                      <Link href={ticketsHref({ status: AWAITING_STATUSES })} style={{ display: 'block', paddingTop: 10, fontSize: 12 }}>
+                        +{awaitingCount - awaiting.length} more
+                      </Link>
+                    ) : null}
                   </Card>
                 </Col>
                 <Col xs={24} xl={12}>
@@ -300,7 +344,7 @@ export default function CustomerDashboardContent({ user }: CustomerDashboardCont
                   <Card
                     title={
                       <SectionTitle extra={<Link href="/tickets" style={{ fontSize: 12, fontWeight: 400 }}>View all</Link>}>
-                        Recent tickets
+                        Your tickets
                       </SectionTitle>
                     }
                     style={{ height: '100%' }}
@@ -310,20 +354,20 @@ export default function CustomerDashboardContent({ user }: CustomerDashboardCont
                       recent.map((t) => {
                         const overdue = t.due_date ? !dayjs(t.due_date).startOf('day').isAfter(dayjs().startOf('day')) : false
                         return (
-                          <Link key={t.id} href={`/tickets/${t.id}`} style={ROW_STYLE}>
+                          <Link key={t.id} href={`/tickets/${t.id}`} style={{ ...ROW_STYLE, opacity: t.is_active ? 1 : 0.65 }}>
                             <div style={{ minWidth: 0, flex: 1 }}>
                               <div style={{ fontWeight: 600, fontSize: 13, ...ELLIPSIS }}>
                                 #{t.id} {t.title}
                               </div>
                               <Text type="secondary" style={{ fontSize: 12 }}>
                                 {t.creator_name ? `${t.creator_name} · ` : ''}updated {dayjs(t.updated_at).fromNow()}
-                                {t.due_date ? (
+                                {t.due_date && t.is_active ? (
                                   <span style={overdue ? { color: '#DC2626', fontWeight: 600 } : undefined}> · due {dayjs(t.due_date).format('D MMM')}</span>
                                 ) : null}
                               </Text>
                             </div>
                             {t.priority != null && t.priority > 0 ? <Tag style={{ marginInlineEnd: 0, ...kanbanTagStyle({ neutral: true }) }}>P{t.priority}</Tag> : null}
-                            <Tag style={{ flexShrink: 0, marginInlineEnd: 0, ...kanbanTagStyle({ fillHex: t.status_color }) }}>{t.customer_title ?? t.status_title}</Tag>
+                            <Tag style={{ flexShrink: 0, marginInlineEnd: 0, ...kanbanTagStyle({ fillHex: t.status_color }) }}>{t.status_title}</Tag>
                             {canMoveTicketToTrash ? (
                               <span onClick={(e) => e.preventDefault()}>
                                 <Dropdown
