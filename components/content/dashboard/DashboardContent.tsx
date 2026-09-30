@@ -15,9 +15,10 @@ import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import DashboardAnnouncementsSection from '@/components/dashboard/DashboardAnnouncementsSection'
+import { greeting, KpiCard, SectionTitle } from '@/components/dashboard/DashboardBits'
 import DashboardHourlyActivityCard from '@/components/dashboard/DashboardHourlyActivityCard'
 import StaffDashboardCharts from '@/components/dashboard/DashboardStaffChartsLazy'
 import DashboardTrendChart from '@/components/dashboard/DashboardTrendChartLazy'
@@ -68,14 +69,6 @@ function formatClock(seconds: number) {
   return [h, m, s].map((n) => String(n).padStart(2, '0')).join(':')
 }
 
-function greeting() {
-  const h = dayjs().hour()
-  if (h < 11) return 'Good morning'
-  if (h < 15) return 'Good afternoon'
-  if (h < 19) return 'Good evening'
-  return 'Good night'
-}
-
 const ACTION_LABELS: Record<string, string> = {
   ticket_created: 'created',
   ticket_updated: 'updated',
@@ -87,77 +80,6 @@ const ACTION_LABELS: Record<string, string> = {
   comment_updated: 'edited a comment on',
   comment_deleted: 'deleted a comment on',
   comment_attachment_deleted: 'removed an attachment from',
-}
-
-function KpiCard({
-  icon,
-  tone,
-  label,
-  value,
-  hint,
-  href,
-}: {
-  icon: ReactNode
-  tone: 'teal' | 'amber' | 'slate' | 'green'
-  label: string
-  value: ReactNode
-  hint?: ReactNode
-  href?: string
-}) {
-  const tones = {
-    teal: { bg: 'var(--brand-primary-soft)', fg: 'var(--brand-primary)' },
-    amber: { bg: 'rgba(245, 158, 11, 0.14)', fg: '#D97706' },
-    slate: { bg: 'rgba(100, 116, 139, 0.14)', fg: '#475569' },
-    green: { bg: 'rgba(22, 163, 74, 0.12)', fg: '#16A34A' },
-  }[tone]
-  const body = (
-    <Card className="dash-kpi" styles={{ body: { padding: 18 } }} hoverable={!!href} style={{ height: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-        <span
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: 12,
-            display: 'grid',
-            placeItems: 'center',
-            background: tones.bg,
-            color: tones.fg,
-            fontSize: 20,
-            flexShrink: 0,
-          }}
-        >
-          {icon}
-        </span>
-        <div style={{ minWidth: 0 }}>
-          <Text type="secondary" style={{ fontSize: 13 }}>
-            {label}
-          </Text>
-          <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.02em' }}>{value}</div>
-          {hint ? (
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {hint}
-            </Text>
-          ) : null}
-        </div>
-      </div>
-    </Card>
-  )
-  return href ? (
-    <Link href={href} style={{ display: 'block', height: '100%' }}>
-      {body}
-    </Link>
-  ) : (
-    body
-  )
-}
-
-function SectionTitle({ children, extra }: { children: ReactNode; extra?: ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-      <span style={{ fontWeight: 650, fontSize: 15 }}>{children}</span>
-      {extra}
-    </div>
-  )
 }
 
 function ActivityRow({ item }: { item: DashboardActivityItem }) {

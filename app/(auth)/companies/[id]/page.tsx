@@ -18,6 +18,10 @@ export default async function SettingsCompanyDetailPage({
   const { id } = await params
 
   const currentUserRole = (session.user as { role?: string }).role
+  // Customers only ever see their own company (never another company by id)
+  if ((currentUserRole ?? '').toLowerCase() === 'customer') {
+    redirect('/my-company')
+  }
 
   const companyData = await getCompanyDetail(id, { includeBilling: isAdminOrManager(currentUserRole) })
   if (!companyData) {

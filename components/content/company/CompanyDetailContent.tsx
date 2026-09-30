@@ -10,7 +10,6 @@ import { TabCrawling, TabInfo, TabTickets, TabUsers, TabWebsites } from '@/compo
 import CompanyBilling from '@/components/company/CompanyBilling'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import CustomerNavbar from '@/components/layout/CustomerNavbar'
 import { StatusPill } from '@/components/ticket/list/TicketChips'
 import { DEFAULT_RATE_CURRENCY, formatHourlyRate, RATE_CURRENCIES } from '@/lib/billing-rate'
 
@@ -444,7 +443,6 @@ export default function CompanyDetailContent({
           companyData={companyData}
           currentUser={currentUser}
           viewerRole={currentUserRole ?? (currentUser as { role?: string }).role ?? null}
-          basePath={isCustomer ? '/customer' : undefined}
           onTotalChange={setTicketTotal}
         />
       ),
@@ -489,16 +487,11 @@ export default function CompanyDetailContent({
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      {isCustomer ? (
-        <CustomerNavbar user={currentUser} />
-      ) : (
-        <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
-      )}
+      <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
 
       <AdminMainColumn
         collapsed={collapsed}
         user={currentUser}
-        noSidebarInset={isCustomer}
       >
         <Content style={{ padding: '24px', background: 'var(--layout-bg)', minHeight: '100vh' }}>
           

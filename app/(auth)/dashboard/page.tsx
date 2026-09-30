@@ -14,14 +14,8 @@ export default async function DashboardPage() {
 
   const role = (user as { role?: string }).role
 
-  // Customer: show customer dashboard (My Tickets, Priority, Time Spent, etc.) with sidebar
   if (role === 'customer') {
-    return (
-      <CustomerDashboardContent
-        user={user}
-        withSidebar
-      />
-    )
+    return <CustomerDashboardContent user={user} />
   }
 
   // Admin / staff: team-wide dashboard (billing figures for admin / manager only)

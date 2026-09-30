@@ -1,6 +1,6 @@
 'use client'
 
-import { KeyOutlined, PlusOutlined } from '@ant-design/icons'
+import { KeyOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons'
 import {
   Button,
   Form,
@@ -15,7 +15,7 @@ import {
 } from 'antd'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-const { Text, Title } = Typography
+const { Text } = Typography
 
 type Member = {
   id: string
@@ -153,7 +153,7 @@ export default function CustomerPortalTeamSection({
           const canToggleStatus = !isSelf && !isPortalAdminRow
           return (
             <Space wrap size="small">
-              <Button type="primary" icon={<KeyOutlined />} onClick={() => openReset(row.id)}>
+              <Button size="small" icon={<KeyOutlined />} onClick={() => openReset(row.id)}>
                 Reset password
               </Button>
               {canToggleStatus ? (
@@ -166,7 +166,7 @@ export default function CustomerPortalTeamSection({
                     okButtonProps={{ danger: true }}
                     onConfirm={() => void setMemberStatus(row.id, 'inactive')}
                   >
-                    <Button danger loading={statusActionId === row.id}>
+                    <Button size="small" danger loading={statusActionId === row.id}>
                       Deactivate
                     </Button>
                   </Popconfirm>
@@ -178,7 +178,7 @@ export default function CustomerPortalTeamSection({
                     cancelText="Cancel"
                     onConfirm={() => void setMemberStatus(row.id, 'active')}
                   >
-                    <Button type="default" loading={statusActionId === row.id}>
+                    <Button size="small" loading={statusActionId === row.id}>
                       Activate
                     </Button>
                   </Popconfirm>
@@ -193,32 +193,24 @@ export default function CustomerPortalTeamSection({
 
   return (
     <>
-      <section style={{ marginBottom: 24, marginTop: 24 }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 12,
-            marginBottom: 12,
-          }}
-        >
-          <Title level={5} style={{ margin: 0 }}>
-            Portal accounts
-          </Title>
+      <section className="ticket-surface billing-section">
+        <header className="billing-section__head">
+          <span>
+            <TeamOutlined /> Portal accounts
+          </span>
           {canManage ? (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddOpen(true)}>
+            <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setAddOpen(true)}>
               Add account
             </Button>
           ) : null}
-        </div>
-        <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+        </header>
+        <Text type="secondary" style={{ display: 'block', padding: '0 16px 12px', fontSize: 13 }}>
           {canManage
             ? 'Create logins, reset passwords, and deactivate or reactivate members (except other portal admins and yourself).'
-            : 'Everyone in your company can see who has portal access. Only a portal admin can add accounts, reset passwords, or change member status.'}
+            : 'Everyone in your company can see who has portal access. Only a portal admin can add accounts or change them.'}
         </Text>
         <Table<Member>
+          className="ticket-table"
           size="small"
           rowKey="id"
           loading={loading}

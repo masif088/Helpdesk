@@ -1,40 +1,25 @@
 'use client'
 
 import { SaveOutlined } from '@ant-design/icons'
-import { Button, Card, Divider,Form, Input, Layout, message, Space, Typography } from 'antd'
+import { App, Button, Empty, Form, Input, Layout, Space, Typography } from 'antd'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 
 import TabInfo from '@/components/company/TabInfo'
 import CustomerPortalTeamSection from '@/components/customer-portal/CustomerPortalTeamSection'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import { StatusPill } from '@/components/ticket/list/TicketChips'
 
 const { Content } = Layout
 const { Title, Text } = Typography
 
-function ColorPickerInput({
-  value,
-  onChange,
-}: {
-  value?: string
-  onChange?: (v: string) => void
-}) {
+function ColorPickerInput({ value, onChange }: { value?: string; onChange?: (v: string) => void }) {
   const hex = value || '#000000'
   return (
     <Space align="center">
-      <Input
-        type="color"
-        value={hex}
-        onChange={(e) => onChange?.(e.target.value)}
-        style={{ width: 48, height: 32, padding: 2, cursor: 'pointer' }}
-      />
-      <Input
-        value={hex}
-        onChange={(e) => onChange?.(e.target.value)}
-        placeholder="#000000"
-        style={{ width: 120 }}
-      />
+      <Input type="color" value={hex} onChange={(e) => onChange?.(e.target.value)} style={{ width: 48, height: 32, padding: 2, cursor: 'pointer' }} />
+      <Input value={hex} onChange={(e) => onChange?.(e.target.value)} placeholder="#000000" style={{ width: 120 }} />
     </Space>
   )
 }
@@ -42,37 +27,55 @@ function ColorPickerInput({
 interface CustomerCompanySettingsContentProps {
   user: { id: string; email?: string | null; name?: string | null; role?: string; user_metadata?: { full_name?: string | null } }
   /** Full company row + relations from `getCompanyDetail` (same shape as admin company page). */
-  companyData: Record<string, unknown>
-  /** When true, show team management (add portal users, reset passwords). Set by staff as company “portal admin”. */
+  companyData: Record<string, unknown> | null
+  /** Portal admin (set by staff): may edit the company's contact details and manage portal accounts. */
   isCompanyPortalAdmin?: boolean
 }
 
-export default function CustomerCompanySettingsContent({
-  user,
-  companyData,
-  isCompanyPortalAdmin = false,
-}: CustomerCompanySettingsContentProps) {
-  const router = useRouter()
+/** Customer → My company: their organization's details, who has portal access, and (portal admin) contact & branding. */
+export default function CustomerCompanySettingsContent({ user, companyData, isCompanyPortalAdmin = false }: CustomerCompanySettingsContentProps) {
   const [collapsed, setCollapsed] = useState(false)
+  return (
+    <Layout style={{ minHeight: '100vh' }}>
+      <AdminSidebar user={user} collapsed={collapsed} onCollapse={setCollapsed} />
+      <AdminMainColumn collapsed={collapsed} user={user}>
+        <Content style={{ padding: 24, background: 'var(--layout-bg)', minHeight: '100vh' }}>
+          {companyData ? (
+            <CompanyPanels userId={user.id} companyData={companyData} isCompanyPortalAdmin={isCompanyPortalAdmin} />
+          ) : (
+            <div className="ticket-surface" style={{ padding: '40px 16px' }}>
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={
+                  <>
+                    <div style={{ fontWeight: 600, color: 'var(--kanban-card-title)' }}>Your account is not linked to a company yet</div>
+                    <Text type="secondary">Ask our team to link you, then your company details and portal accounts show up here.</Text>
+                  </>
+                }
+              />
+            </div>
+          )}
+        </Content>
+      </AdminMainColumn>
+    </Layout>
+  )
+}
+
+function CompanyPanels({ userId, companyData, isCompanyPortalAdmin }: { userId: string; companyData: Record<string, unknown>; isCompanyPortalAdmin: boolean }) {
+  const { message } = App.useApp()
+  const router = useRouter()
   const [form] = Form.useForm()
   const [saving, setSaving] = useState(false)
 
-  const groupedDatas = useMemo(() => {
-    const list = (companyData.company_datas as unknown[] | undefined) || []
-    return list.reduce((acc: Record<string, any[]>, item: unknown) => {
-      const row = item as { company_data_templates?: { group?: string | null } | null }
-      const group = row.company_data_templates?.group || 'Other'
-      if (!acc[group]) acc[group] = []
-      acc[group].push(item)
-      return acc
-    }, {})
-  }, [companyData.company_datas])
-
   const companyId = String(companyData.id ?? '')
+  const name = String(companyData.name ?? '')
+  const email = (companyData.email as string | null) || ''
+  const team = companyData.active_team_name as string | null | undefined
+  const manager = companyData.active_manager_display as string | null | undefined
 
   const onFinish = async (values: { name: string; email?: string; color?: string }) => {
-    const name = (values.name ?? '').trim()
-    if (!name) {
+    const nextName = (values.name ?? '').trim()
+    if (!nextName) {
       message.warning('Company name is required')
       return
     }
@@ -83,7 +86,7 @@ export default function CustomerCompanySettingsContent({
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          name,
+          name: nextName,
           email: (values.email ?? '').trim() || null,
           color: (values.color || '#000000').trim() || '#000000',
         }),
@@ -102,69 +105,65 @@ export default function CustomerCompanySettingsContent({
   }
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <AdminSidebar user={user} collapsed={collapsed} onCollapse={setCollapsed} />
-      <AdminMainColumn collapsed={collapsed} user={user}>
-        <Content style={{ padding: 24 }}>
-          <Card>
-            <Title level={2} style={{ marginTop: 0 }}>
-              Company info
-            </Title>
-            <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
-              View your organization details.
-              {isCompanyPortalAdmin
-                ? ' As portal admin you can update name, email, and brand color below.'
-                : ' Only a portal admin can change company contact and branding; everyone in the company can see portal accounts.'}
-            </Text>
+    <>
+          <div className="company-hero">
+            <div className="company-hero__row">
+              <span className="company-hero__mark" style={{ background: (companyData.color as string | null) || 'var(--brand-primary)' }} aria-hidden>
+                {(name || '?').trim().charAt(0).toUpperCase()}
+              </span>
+              <div className="company-hero__main">
+                <Title level={2} className="page-head__title">
+                  {name}
+                </Title>
+                <div className="company-hero__meta">
+                  <StatusPill color={companyData.is_active === false ? '#94A3B8' : '#16A34A'} title={companyData.is_active === false ? 'Inactive' : 'Active'} />
+                  {email ? <a href={`mailto:${email}`}>{email}</a> : null}
+                  {team ? <span>Support team · <strong>{team}</strong></span> : null}
+                  {manager ? <span>Account manager · <strong>{manager}</strong></span> : null}
+                </div>
+              </div>
+            </div>
+          </div>
 
-            <TabInfo companyData={companyData as any} groupedDatas={groupedDatas} />
+          <div style={{ display: 'grid', gap: 16 }}>
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <TabInfo companyData={companyData as any} />
 
-            <CustomerPortalTeamSection
-              companyId={companyId}
-              canManagePortal={isCompanyPortalAdmin}
-              currentUserId={user.id}
-            />
+            <CustomerPortalTeamSection companyId={companyId} canManagePortal={isCompanyPortalAdmin} currentUserId={userId} />
 
-            <Divider />
-
-            <Title level={4}>Contact &amp; branding</Title>
-            <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-              {isCompanyPortalAdmin
-                ? 'Changes apply to how your company appears in the portal.'
-                : 'Ask a portal admin to update how your company appears in the portal.'}
-            </Text>
-            <Form
-              form={form}
-              layout="vertical"
-              style={{ maxWidth: 480 }}
-              onFinish={onFinish}
-              disabled={!isCompanyPortalAdmin}
-              initialValues={{
-                name: companyData.name,
-                email: (companyData.email as string | null) || '',
-                color: (companyData.color as string | null) || '#000000',
-              }}
-            >
-              <Form.Item name="name" label="Company name" rules={[{ required: true, message: 'Required' }]}>
-                <Input placeholder="Company name" />
-              </Form.Item>
-              <Form.Item name="email" label="Company email">
-                <Input type="email" placeholder="contact@company.com" />
-              </Form.Item>
-              <Form.Item name="color" label="Brand color">
-                <ColorPickerInput />
-              </Form.Item>
-              {isCompanyPortalAdmin ? (
-                <Form.Item>
-                  <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={saving}>
-                    Save changes
-                  </Button>
-                </Form.Item>
-              ) : null}
-            </Form>
-          </Card>
-        </Content>
-      </AdminMainColumn>
-    </Layout>
+            {isCompanyPortalAdmin ? (
+              <section className="ticket-surface billing-section">
+                <header className="billing-section__head">
+                  <span>Contact &amp; branding</span>
+                </header>
+                <Text type="secondary" style={{ display: 'block', padding: '0 16px 12px', fontSize: 13 }}>
+                  How your company appears in the portal.
+                </Text>
+                <Form
+                  form={form}
+                  layout="vertical"
+                  style={{ maxWidth: 480, padding: '0 16px 8px' }}
+                  onFinish={onFinish}
+                  initialValues={{ name, email, color: (companyData.color as string | null) || '#000000' }}
+                >
+                  <Form.Item name="name" label="Company name" rules={[{ required: true, message: 'Required' }]}>
+                    <Input placeholder="Company name" />
+                  </Form.Item>
+                  <Form.Item name="email" label="Company email">
+                    <Input type="email" placeholder="contact@company.com" />
+                  </Form.Item>
+                  <Form.Item name="color" label="Brand color">
+                    <ColorPickerInput />
+                  </Form.Item>
+                  <Form.Item>
+                    <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={saving}>
+                      Save changes
+                    </Button>
+                  </Form.Item>
+                </Form>
+              </section>
+            ) : null}
+          </div>
+    </>
   )
 }

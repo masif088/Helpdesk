@@ -90,6 +90,7 @@ function selectedKeysForPathname(pathname: string | null, ticketsSearch: string)
   }
   if (pathname === '/reference' || pathname.startsWith('/reference/')) return ['/reference']
   if (pathname === '/companies' || pathname.startsWith('/companies/')) return ['/companies']
+  if (pathname === '/my-company' || pathname.startsWith('/my-company/')) return ['/my-company']
   if (pathname === '/contacts' || pathname.startsWith('/contacts/')) return ['/contacts']
   if (pathname === '/reports/billing' || pathname.startsWith('/reports/billing/')) return ['/reports/billing']
   if (isSettingsHrefPathname(pathname)) return ['/settings']
@@ -186,6 +187,9 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
       if (canAccessCompanies(role)) clients.push({ key: '/companies', label: 'Companies', icon: <BankOutlined /> })
       if (canAccessUsers(role)) clients.push({ key: '/contacts', label: 'Contacts', icon: <ContactsOutlined /> })
       if (clients.length) out.splice(2, 0, { title: 'Clients', items: clients })
+    }
+    if (isCustomer) {
+      out.push({ title: 'Company', items: [{ key: '/my-company', label: 'My company', icon: <BankOutlined /> }] })
     }
     if (!isCustomer && isAdminOrManager(role)) {
       out.push({ title: 'Reports', items: [{ key: '/reports/billing', label: 'Billing', icon: <DollarOutlined /> }] })

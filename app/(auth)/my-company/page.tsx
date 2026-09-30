@@ -16,17 +16,10 @@ export default async function MyCompanyPage() {
     redirect('/dashboard')
   }
 
+  // Not linked to a company (yet): the page says so instead of bouncing back to the dashboard
   const companyId = await getCustomerCompanyId(session.user.id)
-  if (!companyId) {
-    redirect('/dashboard')
-  }
-
-  const companyData = await getCompanyDetail(companyId)
-  if (!companyData) {
-    redirect('/dashboard')
-  }
-
-  const portalAdmin = await isCompanyPortalAdmin(session.user.id, companyId)
+  const companyData = companyId ? await getCompanyDetail(companyId) : null
+  const portalAdmin = companyId && companyData ? await isCompanyPortalAdmin(session.user.id, companyId) : false
 
   return (
     <CustomerCompanySettingsContent
