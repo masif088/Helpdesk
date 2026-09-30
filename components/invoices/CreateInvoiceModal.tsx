@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 
 import { formatMoney, RATE_CURRENCIES } from '@/lib/billing-rate'
 
-type Preview = { lines: { ticketId: number }[]; total: number; balance: number }
+type Preview = { lines: { ticketId: number; adjustment?: boolean }[]; total: number; balance: number }
 
 interface Props {
   open: boolean
@@ -97,6 +97,9 @@ export default function CreateInvoiceModal({ open, onClose, company, from, to, c
 
   const money = (n: number) => formatMoney(n, currency)
   const empty = !loading && preview != null && preview.lines.length === 0
+  // Only price reductions (adjustments) and not enough new work to offset them
+  const credit = !loading && preview != null && preview.lines.length > 0 && preview.total <= 0
+  const adjustments = preview?.lines.filter((l) => l.adjustment).length ?? 0
 
   return (
     <Modal
@@ -104,7 +107,7 @@ export default function CreateInvoiceModal({ open, onClose, company, from, to, c
       open={open}
       onCancel={onClose}
       okText={fromBalance ? 'Create and pay from balance' : 'Create invoice'}
-      okButtonProps={{ disabled: loading || !preview || empty }}
+      okButtonProps={{ disabled: loading || !preview || empty || credit }}
       confirmLoading={saving}
       onOk={() => void create()}
       width={560}
@@ -138,11 +141,16 @@ export default function CreateInvoiceModal({ open, onClose, company, from, to, c
           <Spin size="small" />
         ) : empty ? (
           <span className="cell-muted">Nothing to bill in {currency} for this period (no priced billable time or fixed-price tickets).</span>
+        ) : credit ? (
+          <span className="cell-muted">
+            Only price reductions in {currency} ({money(preview.total)}). They are deducted from the next invoice that has work to bill.
+          </span>
         ) : (
           <>
             <div>
               <span className="cell-muted">{preview.lines.length} ticket(s) · Total </span>
               <strong>{money(preview.total)}</strong>
+              {adjustments ? <span className="cell-muted"> · includes {adjustments} price adjustment{adjustments > 1 ? 's' : ''}</span> : null}
             </div>
             <div className="cell-muted">Deposit balance: {money(preview.balance)}</div>
             <Checkbox checked={fromBalance} disabled={preview.balance < preview.total} onChange={(e) => setFromBalance(e.target.checked)}>

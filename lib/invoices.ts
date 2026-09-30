@@ -27,10 +27,48 @@ import {
 } from '@/lib/fsdb'
 import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 
+/** What non-void invoices already cover: time-tracker sessions, and per fixed-price ticket the amount invoiced per currency. */
+export type InvoicedIndex = { sessionIds: Set<string>; fixed: Map<number, Map<string, number>> }
+
+export function invoicedIndex(rows: Pick<InvoicesRow, 'status' | 'lines' | 'currency'>[]): InvoicedIndex {
+  const sessionIds = new Set<string>()
+  const fixed = new Map<number, Map<string, number>>()
+  for (const inv of rows) {
+    if (inv.status === 'void') continue
+    for (const l of inv.lines) {
+      for (const id of l.sessionIds ?? []) sessionIds.add(id)
+      if (!l.fixed) continue
+      const perCurrency = fixed.get(l.ticketId) ?? new Map<string, number>()
+      perCurrency.set(inv.currency, (perCurrency.get(inv.currency) ?? 0) + l.amount)
+      fixed.set(l.ticketId, perCurrency)
+    }
+  }
+  return { sessionIds, fixed }
+}
+
+/**
+ * What is still to invoice for a fixed-price ticket: its full price when it was never invoiced, or the
+ * difference (may be negative) when the price changed afterwards. null = nothing (also when the ticket's
+ * currency changed after invoicing: void the old invoice to bill it again).
+ */
+export function fixedOutstanding(
+  index: InvoicedIndex,
+  ticket: { id: number; fixedPrice?: number | null; rateCurrency?: string | null }
+): { amount: number; adjustment: boolean } | null {
+  if (ticket.fixedPrice == null) return null
+  const invoiced = index.fixed.get(ticket.id)
+  if (!invoiced) return { amount: ticket.fixedPrice, adjustment: false }
+  const already = invoiced.get(ticket.rateCurrency ?? 'IDR')
+  if (already == null) return null
+  const diff = Math.round((ticket.fixedPrice - already) * 100) / 100
+  return Math.abs(diff) < 0.005 ? null : { amount: diff, adjustment: true }
+}
+
 /**
  * Billable, priced time per ticket of one company, in one currency, for [from, to] (inclusive dates).
  * Sessions already on another (non-void) invoice are left out, so work is never billed twice.
- * Fixed-price tickets created up to `to` are one line each (their price, whatever the hours), billed once.
+ * Fixed-price tickets created up to `to` are one line each (their price, whatever the hours), billed once;
+ * when the price changed after that, the difference is one "price adjustment" line.
  */
 export async function invoiceLinesFor(companyId: string, from: string, to: string, currency: string): Promise<InvoiceLine[]> {
   const start = dayjs(from).startOf('day')
@@ -38,13 +76,17 @@ export async function invoiceLinesFor(companyId: string, from: string, to: strin
   const [companyTickets, jobTypeRows, existing] = await Promise.all([
     find(tickets, { where: [['companyId', '==', companyId]], select: ['id', 'title', 'hourlyRate', 'rateCurrency', 'fixedPrice', 'createdAt'] }),
     find(jobTypes),
-    find(invoices, { where: [['companyId', '==', companyId]], select: ['status', 'lines'] }),
+    find(invoices, { where: [['companyId', '==', companyId]], select: ['status', 'lines', 'currency'] }),
   ])
-  const alreadyBilled = new Set(existing.filter((i) => i.status !== 'void').flatMap((i) => i.lines.flatMap((l) => l.sessionIds ?? [])))
-  const fixedBilled = new Set(existing.filter((i) => i.status !== 'void').flatMap((i) => i.lines.filter((l) => l.fixed).map((l) => l.ticketId)))
+  const index = invoicedIndex(existing)
+  const alreadyBilled = index.sessionIds
   const fixedLines: InvoiceLine[] = companyTickets
-    .filter((t) => t.fixedPrice != null && (t.rateCurrency ?? 'IDR') === currency && !fixedBilled.has(t.id) && !dayjs(t.createdAt).isAfter(end))
-    .map((t) => ({ ticketId: t.id, title: t.title, seconds: 0, rate: t.fixedPrice!, amount: t.fixedPrice!, fixed: true }))
+    .filter((t) => (t.rateCurrency ?? 'IDR') === currency && !dayjs(t.createdAt).isAfter(end))
+    .flatMap((t) => {
+      const due = fixedOutstanding(index, t)
+      if (!due) return []
+      return [{ ticketId: t.id, title: t.title, seconds: 0, rate: due.amount, amount: due.amount, fixed: true, ...(due.adjustment && { adjustment: true }) }]
+    })
   const priced = companyTickets.filter((t) => t.fixedPrice == null && t.hourlyRate != null && (t.rateCurrency ?? 'IDR') === currency)
   if (!priced.length) return fixedLines
   const billableJob = new Map(jobTypeRows.map((j) => [j.slug, j.billable !== false]))
@@ -102,6 +144,7 @@ export async function createInvoice(params: {
   const lines = await invoiceLinesFor(params.companyId, params.from, params.to, params.currency)
   if (!lines.length) throw new Error('Nothing to bill for this company and currency in the period')
   const total = Math.round(lines.reduce((n, l) => n + l.amount, 0) * 100) / 100
+  if (total <= 0) throw new Error('Price reductions outweigh the new work in this period; they are deducted once there is more to bill')
   return insert(invoices, {
     number: await nextInvoiceNumber(params.issueDate),
     companyId: params.companyId,

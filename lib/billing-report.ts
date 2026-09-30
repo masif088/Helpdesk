@@ -8,6 +8,7 @@ import dayjs from 'dayjs'
 
 import type { Money } from '@/lib/company-billing'
 import { companies, companyPayments, find, invoices, jobTypes, tickets, ticketTimeTracker } from '@/lib/fsdb'
+import { fixedOutstanding, invoicedIndex } from '@/lib/invoices'
 import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 
 export type BillingReportCompany = {
@@ -24,7 +25,7 @@ export type BillingReportCompany = {
   deposit: Money[]
   /** Issued invoices not paid yet */
   unpaidInvoices: Money[]
-  /** All time: work billed but not on an invoice yet */
+  /** All time: priced work and fixed prices (or price changes) not on an invoice yet */
   notInvoiced: Money[]
 }
 
@@ -43,11 +44,10 @@ type Acc = {
   unpricedSeconds: number
   billed: Map<string, number>
   paid: Map<string, number>
-  allBilled: Map<string, number>
+  notInvoiced: Map<string, number>
   allPaid: Map<string, number>
   paidInvoices: Map<string, number>
   unpaidInvoices: Map<string, number>
-  invoiced: Map<string, number>
 }
 
 const add = (m: Map<string, number>, cur: string, v: number) => m.set(cur, (m.get(cur) ?? 0) + v)
@@ -74,7 +74,7 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
     find(companyPayments),
     // All stopped sessions: the period is filtered here, the all-time balance needs the rest
     find(ticketTimeTracker, { select: ['id', 'ticketId', 'jobType', 'startTime', 'stopTime', 'durationSeconds', 'durationAdjustment'] }),
-    find(invoices, { select: ['companyId', 'currency', 'total', 'status'] }),
+    find(invoices, { select: ['companyId', 'currency', 'total', 'status', 'lines'] }),
   ])
   const billableJob = new Map(jobTypeRows.map((j) => [j.slug, j.billable !== false]))
   const ticketById = new Map(ticketRows.map((t) => [t.id, t]))
@@ -90,17 +90,17 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
         unpricedSeconds: 0,
         billed: new Map(),
         paid: new Map(),
-        allBilled: new Map(),
+        notInvoiced: new Map(),
         allPaid: new Map(),
         paidInvoices: new Map(),
         unpaidInvoices: new Map(),
-        invoiced: new Map(),
       }
       accs.set(key, a)
     }
     return a
   }
   const months = new Map<string, { seconds: number; money: Map<string, number> }>()
+  const index = invoicedIndex(invoiceRows)
 
   for (const s of sessions) {
     if (!s.stopTime) continue
@@ -118,7 +118,7 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
     const fixed = t.fixedPrice != null
     const amount = fixed ? null : t.hourlyRate != null ? (secs / 3600) * t.hourlyRate : null
     const cur = t.rateCurrency ?? 'IDR'
-    if (amount != null) add(a.allBilled, cur, amount)
+    if (amount != null && !index.sessionIds.has(s.id)) add(a.notInvoiced, cur, amount)
     if (!inPeriod) continue
     a.billableSeconds += secs
     const month = dayjs(s.startTime).format('YYYY-MM')
@@ -138,7 +138,8 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
     if (t.fixedPrice == null) continue
     const a = acc(t.companyId ?? '__none__')
     const cur = t.rateCurrency ?? 'IDR'
-    add(a.allBilled, cur, t.fixedPrice)
+    const due = fixedOutstanding(index, t)
+    if (due) add(a.notInvoiced, cur, due.amount)
     const at = dayjs(t.createdAt)
     if (at.isBefore(start) || at.isAfter(end)) continue
     add(a.billed, cur, t.fixedPrice)
@@ -158,7 +159,6 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
   for (const inv of invoiceRows) {
     if (inv.status === 'void') continue
     const a = acc(inv.companyId)
-    add(a.invoiced, inv.currency, inv.total)
     add(inv.status === 'paid' ? a.paidInvoices : a.unpaidInvoices, inv.currency, inv.total)
   }
   const positive = (m: Map<string, number>) => new Map([...m].filter(([, v]) => v > 0.005))
@@ -177,7 +177,7 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
         paid: toMoney(a.paid),
         deposit: toMoney(diff(a.allPaid, a.paidInvoices)),
         unpaidInvoices: toMoney(a.unpaidInvoices),
-        notInvoiced: toMoney(positive(diff(a.allBilled, a.invoiced))),
+        notInvoiced: toMoney(positive(a.notInvoiced)),
       }
     })
     // Only companies with something to show for the period or an open balance
@@ -198,7 +198,7 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
       paid: toMoney(sum((a) => a.paid)),
       deposit: toMoney(diff(sum((a) => a.allPaid), sum((a) => a.paidInvoices))),
       unpaidInvoices: toMoney(sum((a) => a.unpaidInvoices)),
-      notInvoiced: toMoney(positive(diff(sum((a) => a.allBilled), sum((a) => a.invoiced)))),
+      notInvoiced: toMoney(positive(sum((a) => a.notInvoiced))),
       billableSeconds: all.reduce((n, a) => n + a.billableSeconds, 0),
       internalSeconds: all.reduce((n, a) => n + a.internalSeconds, 0),
       unpricedSeconds: all.reduce((n, a) => n + a.unpricedSeconds, 0),

@@ -381,6 +381,8 @@ export type InvoiceLine = {
   sessionIds?: string[]
   /** Fixed-price ticket: amount is the ticket's price, not hours × rate (billed once) */
   fixed?: boolean
+  /** Fixed-price ticket whose price changed after it was invoiced: amount is the difference (may be negative) */
+  adjustment?: boolean
 }
 
 export type InvoicesRow = {
