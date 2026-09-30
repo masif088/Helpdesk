@@ -67,6 +67,7 @@ export async function GET() {
       phone: u.phone,
       department: u.department,
       position: u.position,
+      skills: u.skills ?? [],
       bio: u.bio,
       timezone: u.timezone,
       locale: u.locale,

@@ -1802,6 +1802,8 @@ export type UsersRow = {
   department: string | null
   position: string | null
   bio: string | null
+  /** Agent skills (free-form labels), used to group agents */
+  skills: string[] | null
   timezone: string | null
   locale: string | null
   mustChangePassword: boolean | null
@@ -1831,6 +1833,7 @@ export type NewUsersRow = {
   department?: string | null
   position?: string | null
   bio?: string | null
+  skills?: string[] | null
   timezone?: string | null
   locale?: string | null
   mustChangePassword?: boolean | null
@@ -1844,7 +1847,7 @@ export type NewUsersRow = {
 
 export const users = defineTable<UsersRow, NewUsersRow>({
   name: 'users',
-  columns: ['id', 'email', 'firstName', 'lastName', 'fullName', 'avatarUrl', 'role', 'permissions', 'status', 'isEmailVerified', 'lastLoginAt', 'lastActiveAt', 'phone', 'department', 'position', 'bio', 'timezone', 'locale', 'mustChangePassword', 'metadata', 'companyId', 'contactKind', 'createdAt', 'updatedAt', 'deletedAt'],
+  columns: ['id', 'email', 'firstName', 'lastName', 'fullName', 'avatarUrl', 'role', 'permissions', 'status', 'isEmailVerified', 'lastLoginAt', 'lastActiveAt', 'phone', 'department', 'position', 'bio', 'skills', 'timezone', 'locale', 'mustChangePassword', 'metadata', 'companyId', 'contactKind', 'createdAt', 'updatedAt', 'deletedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',

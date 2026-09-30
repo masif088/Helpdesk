@@ -25,6 +25,7 @@ import { confirmUserCompanyMove } from '@/components/company/confirm-user-compan
 import DashboardHourlyActivityCard from '@/components/dashboard/DashboardHourlyActivityCard'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import { isAdminOrManager } from '@/lib/auth-utils'
 import type { StoppedTimeSession } from '@/lib/dashboard-hourly-activity'
 import type { UserTimeTrackerTicketSummary } from '@/lib/user-time-tracker-summary'
 
@@ -68,6 +69,16 @@ export default function UserDetailContent({ user: currentUser, userData: initial
   const [avatarUrl, setAvatarUrl] = useState<string | null>(userData.avatar_url)
   const [form] = Form.useForm()
   const selectedRole = Form.useWatch('role', form)
+  /** Skills group agents: set by an admin / manager, suggested from the ones already in use */
+  const canEditSkills = isAdminOrManager((currentUser as { role?: string }).role)
+  const [knownSkills, setKnownSkills] = useState<string[]>([])
+  useEffect(() => {
+    if (!canEditSkills) return
+    fetch('/api/users/skills', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { skill: string }[]) => setKnownSkills(Array.isArray(rows) ? rows.map((r) => r.skill) : []))
+      .catch(() => {})
+  }, [canEditSkills])
   const [timeTrackerData, setTimeTrackerData] = useState<any[]>([])
   const [timeTrackerLoading, setTimeTrackerLoading] = useState(false)
   const [timeTrackerTicketSummary, setTimeTrackerTicketSummary] = useState<UserTimeTrackerTicketSummary | null>(null)
@@ -316,6 +327,7 @@ export default function UserDetailContent({ user: currentUser, userData: initial
       phone: userData.phone || '',
       department: userData.department || '',
       position: userData.position || '',
+      skills: userData.skills ?? [],
       bio: userData.bio || '',
       timezone: userData.timezone || 'UTC',
       locale: userData.locale || 'en',
@@ -343,6 +355,7 @@ export default function UserDetailContent({ user: currentUser, userData: initial
       phone: userData.phone || '',
       department: userData.department || '',
       position: userData.position || '',
+      skills: userData.skills ?? [],
       bio: userData.bio || '',
       timezone: userData.timezone || 'UTC',
       locale: userData.locale || 'en',
@@ -398,6 +411,7 @@ export default function UserDetailContent({ user: currentUser, userData: initial
         if (selectedRole !== 'customer') {
           updateData.department = values.department || null
           updateData.position = values.position || null
+          if (canEditSkills) updateData.skills = values.skills ?? []
           updateData.bio = values.bio || null
         }
       } else if (isViewerCustomer && isAdmin && !isOwnProfile) {
@@ -798,6 +812,17 @@ export default function UserDetailContent({ user: currentUser, userData: initial
                                 })}
                               </Select>
                             </Form.Item>
+                            {canEditSkills ? (
+                              <Form.Item name="skills" label="Skills" tooltip="What this agent can handle. Pick existing skills or type a new one; used to group agents.">
+                                <Select
+                                  mode="tags"
+                                  placeholder="e.g. WordPress, Billing, SEO"
+                                  tokenSeparators={[',']}
+                                  maxCount={30}
+                                  options={knownSkills.map((s) => ({ value: s, label: s }))}
+                                />
+                              </Form.Item>
+                            ) : null}
                           </>
                         )}
                         <Form.Item name="timezone" label="Timezone">
@@ -856,6 +881,19 @@ export default function UserDetailContent({ user: currentUser, userData: initial
                                   <Text type="secondary">N/A</Text>
                                 )}
                               </Space>
+                            </Descriptions.Item>
+                            <Descriptions.Item label="Skills">
+                              {userData.skills?.length ? (
+                                <Space size={[4, 4]} wrap>
+                                  {userData.skills.map((s: string) => (
+                                    <Tag key={s} style={{ marginInlineEnd: 0 }}>
+                                      {s}
+                                    </Tag>
+                                  ))}
+                                </Space>
+                              ) : (
+                                <Text type="secondary">N/A</Text>
+                              )}
                             </Descriptions.Item>
                           </>
                         )}

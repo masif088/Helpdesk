@@ -108,6 +108,7 @@ interface UserRecord {
   phone: string | null
   department: string | null
   position: string | null
+  skills?: string[]
   bio: string | null
   timezone: string | null
   locale: string | null
@@ -165,6 +166,7 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
           !isCustomer && audienceTab === 'customer' ? false : (u.department || '').toLowerCase().includes(q)
         const matchPosition =
           !isCustomer && audienceTab === 'customer' ? false : (u.position || '').toLowerCase().includes(q)
+        const matchSkill = !isCustomer && audienceTab === 'customer' ? false : (u.skills ?? []).some((s) => s.toLowerCase().includes(q))
         const matchesSearch =
           (u.first_name || '').toLowerCase().includes(q) ||
           (u.last_name || '').toLowerCase().includes(q) ||
@@ -172,7 +174,8 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
           (u.email || '').toLowerCase().includes(q) ||
           matchCompany ||
           matchDepartment ||
-          matchPosition
+          matchPosition ||
+          matchSkill
         if (!matchesSearch) return false
       }
       if (!isCustomer) {
@@ -607,6 +610,24 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
       render: (pos: string | null) => pos || 'N/A',
     },
     {
+      title: 'Skills',
+      dataIndex: 'skills',
+      key: 'skills',
+      width: 220,
+      render: (skills: string[] | undefined) =>
+        skills?.length ? (
+          <Space size={[4, 4]} wrap>
+            {skills.map((s) => (
+              <Tag key={s} style={{ marginInlineEnd: 0 }}>
+                {s}
+              </Tag>
+            ))}
+          </Space>
+        ) : (
+          <Text type="secondary">—</Text>
+        ),
+    },
+    {
       title: 'Last Login',
       dataIndex: 'last_login_at',
       key: 'last_login_at',
@@ -690,7 +711,7 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
   const columns = useMemo(() => {
     if (isCustomer) {
       return baseColumns.filter(
-        (c) => !['role', 'company', 'department', 'position', 'contact_kind'].includes(String(c.key))
+        (c) => !['role', 'company', 'department', 'position', 'skills', 'contact_kind'].includes(String(c.key))
       )
     }
     const hideKeys = new Set<string>()
@@ -701,6 +722,7 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
     if (audienceTab === 'customer') {
       hideKeys.add('department')
       hideKeys.add('position')
+      hideKeys.add('skills')
       hideKeys.add('role')
       hideKeys.add('status')
     }

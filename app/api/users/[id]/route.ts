@@ -5,11 +5,13 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
 import { afterUserRowChanged, findUserByEmail, setUserPassword } from '@/lib/app-users'
+import { isAdminOrManager } from '@/lib/auth-utils'
 import { isContactKind } from '@/lib/contact-kind'
 import {
   companies,
   companyUsers,
   emailIntegrations,
+  find,
   findOneBy,
   get,
   messageTemplates,
@@ -26,6 +28,7 @@ import {
   userRowToLogSnapshot,
 } from '@/lib/system-activity-log'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
+import { normalizeSkills, skillCounts } from '@/lib/user-skills'
 
 function encodeSubjectHeader(subject: string): string {
   if (/^[\x01-\x7F]*$/.test(subject)) return subject
@@ -277,6 +280,7 @@ export async function GET(
     phone: u.phone,
     department: u.department,
     position: u.position,
+    skills: u.skills ?? [],
     bio: u.bio,
     timezone: u.timezone,
     locale: u.locale,
@@ -371,6 +375,11 @@ export async function PATCH(
   if (body.department !== undefined) updateData.department = body.department || null
   if (body.position !== undefined) updateData.position = body.position || null
   if (body.bio !== undefined) updateData.bio = body.bio || null
+  // Skills group agents, so only an admin / manager sets them
+  if (body.skills !== undefined && isAdminOrManager(role)) {
+    const inUse = skillCounts(await find(users, { select: ['skills'] })).map((s) => s.skill)
+    updateData.skills = normalizeSkills(body.skills, inUse)
+  }
   if (body.timezone !== undefined) updateData.timezone = body.timezone || 'UTC'
   if (body.locale !== undefined) updateData.locale = body.locale || 'en'
   if (body.is_email_verified !== undefined) updateData.isEmailVerified = body.is_email_verified
