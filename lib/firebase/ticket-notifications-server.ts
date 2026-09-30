@@ -14,6 +14,9 @@ export type TicketNotificationType =
   | 'new_comment'
   | 'status_changed'
 
+/** Bell notifications that are not about a ticket: they open `href` instead */
+export type GeneralNotificationType = 'invoice_overdue' | 'deposit_low'
+
 export function diffNewAssignees(beforeIds: string[], afterIds: string[]): string[] {
   const before = new Set(beforeIds)
   return afterIds.filter((id) => id && !before.has(id))
@@ -53,6 +56,44 @@ async function filterRecipientsByRoleAndType(
     if (type === 'new_comment' && !actorIsCustomer) return true
     return false
   })
+}
+
+/**
+ * A bell notification that is not about a ticket (same list as ticket notifications; clicking opens `href`).
+ * `label` is the small line above the title, e.g. the invoice number.
+ */
+export async function notifyUsers(params: {
+  recipientUserIds: string[]
+  type: GeneralNotificationType
+  href: string
+  label: string
+  title: string
+  body: string
+}): Promise<void> {
+  const fsdb = getFirebaseAdminFirestore()
+  const recipients = [...new Set(params.recipientUserIds.map((id) => String(id).trim()).filter(Boolean))]
+  if (!fsdb || recipients.length === 0) return
+  const batch = fsdb.batch()
+  for (const userId of recipients) {
+    batch.set(fsdb.collection('users').doc(userId).collection('ticketNotifications').doc(), {
+      userId,
+      ticketId: 0,
+      ticketTitle: params.label.slice(0, 200),
+      href: params.href,
+      type: params.type,
+      title: params.title.slice(0, 200),
+      body: params.body.slice(0, 500),
+      read: false,
+      createdAt: FieldValue.serverTimestamp(),
+      actorUserId: 'system',
+      actorName: 'Billing',
+    })
+  }
+  try {
+    await batch.commit()
+  } catch (e) {
+    console.error('[notifyUsers] batch.commit failed:', e)
+  }
 }
 
 /** Writes one doc per recipient under `users/{userId}/ticketNotifications/{id}`. */

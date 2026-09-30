@@ -11,8 +11,11 @@ export const NOTIFICATION_POLL_INTERVAL_MS = 120_000
 
 export type TicketNotificationItem = {
   id: string
+  /** 0 for notifications that are not about a ticket (they carry `href`) */
   ticketId: number
   ticketTitle: string
+  /** Page to open instead of the ticket (billing notifications) */
+  href?: string | null
   type: string
   title: string
   body: string
@@ -94,7 +97,7 @@ export default function NotificationPollProvider({ children }: { children: React
         duration: 10,
         onClick: () => {
           nApi.destroy()
-          nav.push(`/tickets/${n.ticketId}`)
+          nav.push(n.href || `/tickets/${n.ticketId}`)
         },
       })
       if (typeof window !== 'undefined' && Notification.permission === 'granted') {

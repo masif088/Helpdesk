@@ -101,7 +101,7 @@ export default function TicketNotificationBell() {
     (n: TicketNotificationItem) => {
       void markRead(n.id)
       setOpen(false)
-      router.push(`/tickets/${n.ticketId}`)
+      router.push(n.href || `/tickets/${n.ticketId}`)
     },
     [markRead, router]
   )
@@ -193,7 +193,7 @@ export default function TicketNotificationBell() {
             >
               <div style={{ width: '100%', minWidth: 0 }}>
                 <div style={{ fontSize: 11, color: '#8c8c8c', marginBottom: 4 }}>
-                  #{n.ticketId}
+                  {n.ticketId > 0 ? `#${n.ticketId}` : n.ticketTitle}
                   {n.createdAt ? ` · ${dayjs(n.createdAt).fromNow()}` : ''}
                 </div>
                 <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{n.title}</div>

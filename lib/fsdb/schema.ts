@@ -303,6 +303,8 @@ export type CompaniesRow = {
   defaultHourlyRate: number | null
   /** IDR | USD */
   defaultRateCurrency: string | null
+  /** Staff were told the deposit no longer covers what is owed (cleared once it does again) */
+  lowDepositNotifiedAt: Date | null
   createdAt: Date
   updatedAt: Date
 }
@@ -320,13 +322,14 @@ export type NewCompaniesRow = {
   freshdeskId?: number | null
   defaultHourlyRate?: number | null
   defaultRateCurrency?: string | null
+  lowDepositNotifiedAt?: Date | null
   createdAt?: Date
   updatedAt?: Date
 }
 
 export const companies = defineTable<CompaniesRow, NewCompaniesRow>({
   name: 'companies',
-  columns: ['id', 'name', 'isActive', 'email', 'domainList', 'color', 'activeTeamId', 'activeManagerId', 'isCustomer', 'freshdeskId', 'defaultHourlyRate', 'defaultRateCurrency', 'createdAt', 'updatedAt'],
+  columns: ['id', 'name', 'isActive', 'email', 'domainList', 'color', 'activeTeamId', 'activeManagerId', 'isCustomer', 'freshdeskId', 'defaultHourlyRate', 'defaultRateCurrency', 'lowDepositNotifiedAt', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',

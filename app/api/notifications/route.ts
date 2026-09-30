@@ -36,10 +36,13 @@ export async function GET() {
         createdAt = dt ? dt.toISOString() : null
       }
       const ticketId = typeof data.ticketId === 'number' ? data.ticketId : Number(data.ticketId)
+      // Notifications that are not about a ticket (billing) carry the page to open instead
+      const href = typeof data.href === 'string' && data.href.startsWith('/') ? data.href : null
       return {
         id: d.id,
         ticketId: Number.isFinite(ticketId) ? ticketId : 0,
         ticketTitle: String(data.ticketTitle ?? ''),
+        href,
         type: String(data.type ?? ''),
         title: String(data.title ?? ''),
         body: String(data.body ?? ''),
@@ -48,7 +51,7 @@ export async function GET() {
         actorUserId: String(data.actorUserId ?? ''),
         actorName: String(data.actorName ?? ''),
       }
-    }).filter((row) => row.ticketId > 0)
+    }).filter((row) => row.ticketId > 0 || row.href)
 
     return NextResponse.json({ items })
   } catch (e) {

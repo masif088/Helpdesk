@@ -18,8 +18,8 @@ export const SCHEDULED_JOBS = [
   },
   {
     key: 'inbox-reminders',
-    title: 'Inbox reminders',
-    description: 'Reminds the team once about tickets still unassigned after the reminder time.',
+    title: 'Reminders',
+    description: 'Reminds the team once about tickets still unassigned after the reminder time, invoices past their due date and deposits that no longer cover what a client owes.',
     path: '/api/cron/inbox-reminders',
     schedule: 'Every hour',
     appsScriptFunction: 'inboxReminders',
