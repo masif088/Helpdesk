@@ -2,6 +2,7 @@
 
 import {
   BankOutlined,
+  BarChartOutlined,
   CheckSquareOutlined,
   ContactsOutlined,
   DashboardOutlined,
@@ -93,6 +94,7 @@ function selectedKeysForPathname(pathname: string | null, ticketsSearch: string)
   if (pathname === '/my-company' || pathname.startsWith('/my-company/')) return ['/my-company']
   if (pathname === '/contacts' || pathname.startsWith('/contacts/')) return ['/contacts']
   if (pathname === '/reports/billing' || pathname.startsWith('/reports/billing/')) return ['/reports/billing']
+  if (pathname === '/reports/support' || pathname.startsWith('/reports/support/')) return ['/reports/support']
   if (isSettingsHrefPathname(pathname)) return ['/settings']
   const topLevel = ['/dashboard']
   const top = topLevel.find((k) => pathname === k || (k !== '/dashboard' && pathname.startsWith(`${k}/`)))
@@ -192,7 +194,13 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
       out.push({ title: 'Company', items: [{ key: '/my-company', label: 'My company', icon: <BankOutlined /> }] })
     }
     if (!isCustomer && isAdminOrManager(role)) {
-      out.push({ title: 'Reports', items: [{ key: '/reports/billing', label: 'Billing', icon: <DollarOutlined /> }] })
+      out.push({
+        title: 'Reports',
+        items: [
+          { key: '/reports/support', label: 'Support', icon: <BarChartOutlined /> },
+          { key: '/reports/billing', label: 'Billing', icon: <DollarOutlined /> },
+        ],
+      })
     }
     if (!isCustomer && canAccessSettingsHub(role)) {
       out.push({ title: 'Admin', items: [{ key: '/settings', label: 'Settings', icon: <SettingOutlined /> }] })
