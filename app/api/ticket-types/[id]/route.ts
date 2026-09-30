@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
+import { canAccessTicketAttributes } from '@/lib/auth-utils'
 import { deleteTicketTypeRestrict, get, type Patch, ticketTypes, update } from '@/lib/fsdb'
 import { logSettingsDeleted, logSettingsUpdated } from '@/lib/settings-activity-log'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
@@ -16,6 +18,8 @@ export async function PATCH(
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, canAccessTicketAttributes)
+  if (denied) return denied
 
   const { id } = await params
   const typeId = parseInt(id, 10)
@@ -90,6 +94,8 @@ export async function DELETE(
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, canAccessTicketAttributes)
+  if (denied) return denied
 
   const { id } = await params
   const typeId = parseInt(id, 10)

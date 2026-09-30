@@ -2,11 +2,13 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import TeamDetailContent from '@/components/content/team/TeamDetailContent'
+import { canAccessTeams } from '@/lib/auth-utils'
 import { find, get, getManyMap, teamMembers, teams, users } from '@/lib/fsdb'
 
 export default async function SettingsTeamDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session?.user) redirect('/login')
+  if (!canAccessTeams((session.user as { role?: string }).role)) redirect('/dashboard')
 
   const { id } = await params
 

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import KnowledgeBaseArticleForm from '@/components/knowledge-base/KnowledgeBaseArticleForm'
+import { canAccessKnowledgeBase } from '@/lib/auth-utils'
 import { get, knowledgeBaseArticles } from '@/lib/fsdb'
 
 export default async function KnowledgeBaseEditPage({
@@ -11,6 +12,7 @@ export default async function KnowledgeBaseEditPage({
 }) {
   const session = await auth()
   if (!session?.user) redirect('/login')
+  if (!canAccessKnowledgeBase((session.user as { role?: string }).role)) redirect('/dashboard')
   const { id } = await params
 
   const row = await get(knowledgeBaseArticles, id)

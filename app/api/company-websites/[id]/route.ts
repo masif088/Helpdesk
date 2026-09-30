@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
+import { isInternalUser } from '@/lib/auth-utils'
 import { companyWebsites, get, type Patch, remove, update, updateWhere } from '@/lib/fsdb'
 
 /** PATCH /api/company-websites/[id] */
@@ -12,6 +14,8 @@ export async function PATCH(
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const { id } = await params
   const body = await request.json()
@@ -64,6 +68,8 @@ export async function DELETE(
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const { id } = await params
   await remove(companyWebsites, id)

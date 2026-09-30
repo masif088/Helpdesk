@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyTicketRead } from '@/lib/api-guard'
 import { find, ticketAttachments } from '@/lib/fsdb'
 import { getPublicUrl } from '@/lib/storage-provider'
 
@@ -16,6 +17,8 @@ export async function GET(
 
   const { id } = await params
   const ticketId = parseInt(id, 10)
+  const denied = await denyTicketRead(session.user, ticketId)
+  if (denied) return denied
   if (isNaN(ticketId)) {
     return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 })
   }

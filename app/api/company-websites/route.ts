@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
+import { isInternalUser } from '@/lib/auth-utils'
 import { companyWebsites, find, insert, updateWhere } from '@/lib/fsdb'
 
 /** GET /api/company-websites?company_id=... */
@@ -9,6 +11,8 @@ export async function GET(request: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const { searchParams } = new URL(request.url)
   const companyId = searchParams.get('company_id')
@@ -47,6 +51,8 @@ export async function POST(request: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const body = await request.json()
   const { company_id, url, title, description, is_primary } = body

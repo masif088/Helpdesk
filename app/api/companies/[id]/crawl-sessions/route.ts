@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
+import { isInternalUser } from '@/lib/auth-utils'
 import { companyWebsites, crawlSessions, find, findBy } from '@/lib/fsdb'
 
 /** GET /api/companies/[id]/crawl-sessions */
@@ -12,6 +14,8 @@ export async function GET(
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const { id } = await params
 

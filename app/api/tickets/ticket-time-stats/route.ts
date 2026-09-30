@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { isInternalUser } from '@/lib/auth-utils'
 import { find, getManyMap, ticketTimeTracker, type TicketTimeTrackerRow, users } from '@/lib/fsdb'
 import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 
@@ -15,6 +16,7 @@ export type TicketTrackerStat = {
 export async function GET(request: Request) {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isInternalUser((session.user as { role?: string }).role)) return NextResponse.json([])
 
   const { searchParams } = new URL(request.url)
   const raw = searchParams.get('ticket_ids') ?? ''

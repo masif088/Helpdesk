@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
 import { canAccessKnowledgeBase } from '@/lib/auth-utils'
 import { get, knowledgeBaseArticles, type Patch, remove, update } from '@/lib/fsdb'
 import { articleVisibleForRole, normalizeTargetRolesInput } from '@/lib/knowledge-base-article-roles'
@@ -98,6 +99,8 @@ export async function DELETE(
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, canAccessKnowledgeBase)
+  if (denied) return denied
 
   const { id } = await params
 

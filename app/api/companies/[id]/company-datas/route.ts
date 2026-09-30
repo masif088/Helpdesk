@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
+import { canEditCompanies } from '@/lib/auth-utils'
 import { companyDatas, upsert } from '@/lib/fsdb'
 
 /** POST /api/companies/[id]/company-datas - upsert company data fields */
@@ -12,6 +14,8 @@ export async function POST(
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, canEditCompanies)
+  if (denied) return denied
 
   const { id } = await params
   const body = await request.json()

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyCompanyRead } from '@/lib/api-guard'
 import { companyAttributes, find, insert } from '@/lib/fsdb'
 
 function canEdit(role?: string) {
@@ -15,6 +16,8 @@ export async function GET(
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
+  const denied = await denyCompanyRead(session.user, id)
+  if (denied) return denied
   const rows = await find(companyAttributes, {
     where: [['companyId', '==', id]],
     orderBy: [['createdAt', 'asc']],

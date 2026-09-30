@@ -2,12 +2,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { canAccessChecklistTemplates } from '@/lib/auth-utils'
+import { denyUnless } from '@/lib/api-guard'
+import { canAccessChecklistTemplates, isInternalUser } from '@/lib/auth-utils'
 import { checklistTemplateGroups, checklistTemplateItems, checklistTemplates, find, insert } from '@/lib/fsdb'
 
 export async function GET() {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const templates = (await find(checklistTemplates, { orderBy: [['title', 'asc']] })).map((t) => ({
     id: t.id,

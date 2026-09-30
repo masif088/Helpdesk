@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
+import { isInternalUser } from '@/lib/auth-utils'
 import { type Cond, find, getManyMap, tickets, ticketTimeTracker, type TicketTimeTrackerRow } from '@/lib/fsdb'
 import { loadActiveJobTypeTitleMap } from '@/lib/job-types-db'
 import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
@@ -12,6 +14,8 @@ export async function GET(request: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const url = new URL(request.url)
   const userId = url.searchParams.get('user_id')

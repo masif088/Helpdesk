@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
+import { isInternalUser } from '@/lib/auth-utils'
 import { findBy, patchMany, sortRows, tickets } from '@/lib/fsdb'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const body = await req.json().catch(() => ({}))
   const companyId: string | undefined = body.company_id

@@ -23,6 +23,12 @@ export function isAdminOrManager(role: string | undefined): boolean {
   return r === 'admin' || r === 'manager'
 }
 
+/** Any internal role (admin, manager, staff, …): everyone except customers and role-less sessions */
+export function isInternalUser(role: string | undefined): boolean {
+  const r = (role ?? '').toLowerCase()
+  return !!r && r !== 'customer'
+}
+
 /** Move ticket to trash (DELETE or `ticket_type: trash`): Admin & Manager only */
 export function canDeleteTickets(role: string | undefined): boolean {
   return isAdminOrManager(role)

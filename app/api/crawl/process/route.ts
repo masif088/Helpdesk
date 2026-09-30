@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
+import { isInternalUser } from '@/lib/auth-utils'
 
 // Vercel serverless function configuration
 export const maxDuration = 300 // 5 minutes
@@ -14,6 +16,8 @@ export async function POST(request: Request) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const denied = denyUnless(session.user, isInternalUser)
+    if (denied) return denied
 
     const body = await request.json()
     const { crawl_session_id, company_website_id, max_depth = 3, max_pages = 100 } = body

@@ -2,6 +2,8 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
+import { isInternalUser } from '@/lib/auth-utils'
 import { companyWebsites, crawlSessions, get, insert, update, updateWhere } from '@/lib/fsdb'
 
 // Vercel serverless function configuration
@@ -16,6 +18,8 @@ export async function POST(request: Request) {
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const denied = denyUnless(session.user, isInternalUser)
+    if (denied) return denied
 
     const body = await request.json()
     const {

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyTicketRead, denyUnless } from '@/lib/api-guard'
+import { isInternalUser } from '@/lib/auth-utils'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
 import { find, getManyMap, insert, ticketChecklist, users } from '@/lib/fsdb'
 import { mapChecklistItemToDto } from '@/lib/ticket-checklist-map'
@@ -15,6 +17,8 @@ export async function GET(
 
   const { id } = await params
   const ticketId = parseInt(id, 10)
+  const denied = await denyTicketRead(session.user, ticketId)
+  if (denied) return denied
   if (isNaN(ticketId)) return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 })
 
   const items = await find(ticketChecklist, {
@@ -39,6 +43,8 @@ export async function POST(
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const { id } = await params
   const ticketId = parseInt(id, 10)

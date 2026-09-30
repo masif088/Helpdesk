@@ -2,11 +2,13 @@ import { redirect } from 'next/navigation'
 
 import { auth } from '@/auth'
 import CrawlSessionDetailContent from '@/components/content/crawl/CrawlSessionDetailContent'
+import { isInternalUser } from '@/lib/auth-utils'
 import { companies, companyWebsites, crawlSessions, get } from '@/lib/fsdb'
 
 export default async function CrawlSessionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session?.user) redirect('/login')
+  if (!isInternalUser((session.user as { role?: string }).role)) redirect('/dashboard')
 
   const { id } = await params
 

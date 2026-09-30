@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
+import { canAccessTicketAttributes } from '@/lib/auth-utils'
 import { find, insert, tags } from '@/lib/fsdb'
 import { logSettingsCreated } from '@/lib/settings-activity-log'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
@@ -32,6 +34,8 @@ export async function POST(request: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, canAccessTicketAttributes)
+  if (denied) return denied
 
   const body = await request.json()
   const { name, slug, color } = body

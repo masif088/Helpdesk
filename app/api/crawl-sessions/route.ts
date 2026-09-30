@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
+import { isInternalUser } from '@/lib/auth-utils'
 import { companies, companyWebsites, crawlSessions, find, getManyMap } from '@/lib/fsdb'
 
 /** GET /api/crawl-sessions - List all crawl sessions with company_websites.companies */
@@ -9,6 +11,8 @@ export async function GET() {
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const sessions = await find(crawlSessions, { orderBy: [['createdAt', 'desc']] })
   const websiteById = await getManyMap(companyWebsites, sessions.map((s) => s.companyWebsiteId))

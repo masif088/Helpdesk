@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyCompanyRead } from '@/lib/api-guard'
 import { find, findBy, tickets, ticketStatuses } from '@/lib/fsdb'
 
 /** GET /api/companies/[id]/tickets?limit=5 — top tickets by priority (lowest number = highest priority) */
@@ -12,6 +13,8 @@ export async function GET(
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
+  const denied = await denyCompanyRead(session.user, id)
+  if (denied) return denied
   const url = new URL(request.url)
   const limit = Math.min(20, Math.max(1, parseInt(url.searchParams.get('limit') ?? '5', 10)))
   const excludeSlugs = (url.searchParams.get('exclude') ?? '')

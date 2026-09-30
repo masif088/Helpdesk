@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
+import { isInternalUser } from '@/lib/auth-utils'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
 import { get, type Patch, remove, ticketChecklist, update, users } from '@/lib/fsdb'
 import { mapChecklistItemToDto } from '@/lib/ticket-checklist-map'
@@ -14,6 +16,8 @@ export async function PATCH(
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const { id, itemId } = await params
   const ticketId = parseInt(id, 10)
@@ -79,6 +83,8 @@ export async function DELETE(
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const { id, itemId } = await params
   const ticketId = parseInt(id, 10)

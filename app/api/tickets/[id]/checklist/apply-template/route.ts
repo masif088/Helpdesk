@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
+import { isInternalUser } from '@/lib/auth-utils'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
 import {
   checklistTemplateGroups,
@@ -23,6 +25,8 @@ type Params = { params: Promise<{ id: string }> }
 export async function POST(request: NextRequest, { params }: Params) {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const { id } = await params
   const ticketId = parseInt(id, 10)

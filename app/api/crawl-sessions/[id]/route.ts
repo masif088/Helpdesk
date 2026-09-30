@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { denyUnless } from '@/lib/api-guard'
+import { isInternalUser } from '@/lib/auth-utils'
 import { companies, companyWebsites, crawlPages, crawlSessions, get, remove, removeWhere } from '@/lib/fsdb'
 
 /** GET /api/crawl-sessions/[id] - Get single crawl session with company_websites */
@@ -12,6 +14,8 @@ export async function GET(
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const { id } = await params
 
@@ -74,6 +78,8 @@ export async function DELETE(
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const denied = denyUnless(session.user, isInternalUser)
+  if (denied) return denied
 
   const { id } = await params
   await removeWhere(crawlPages, [['crawlSessionId', '==', id]])

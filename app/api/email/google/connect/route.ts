@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { canAccessEmailIntegration } from '@/lib/auth-utils'
 import { createOAuthState } from '@/lib/oauth-state'
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
@@ -17,6 +18,9 @@ export async function GET() {
 
     if (!session?.user?.id) {
       return NextResponse.redirect(new URL('/login', process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'))
+    }
+    if (!canAccessEmailIntegration((session.user as { role?: string }).role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const clientId = process.env.GOOGLE_CLIENT_ID
