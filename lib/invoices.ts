@@ -242,6 +242,8 @@ export function invoiceToJson(inv: InvoicesRow, companyName?: string | null) {
     paid_via: inv.paidVia ?? null,
     paid_at: inv.paidAt ?? null,
     balance_after: inv.balanceAfter ?? null,
+    sent_at: inv.sentAt ? new Date(inv.sentAt).toISOString() : null,
+    sent_to: inv.sentTo ?? null,
     created_at: new Date(inv.createdAt).toISOString(),
   }
 }

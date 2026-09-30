@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckCircleOutlined, DownloadOutlined, StopOutlined, UndoOutlined, WalletOutlined } from '@ant-design/icons'
+import { CheckCircleOutlined, DownloadOutlined, MailOutlined, StopOutlined, UndoOutlined, WalletOutlined } from '@ant-design/icons'
 import { App, Button, Input, Modal, Segmented, Tooltip } from 'antd'
 import dayjs from 'dayjs'
 import { useRouter } from 'next/navigation'
@@ -24,6 +24,8 @@ interface Props {
   initialDoc: Doc
   /** Client's own view in the portal: no pay / void actions, back to their company's Billing tab */
   readOnly?: boolean
+  /** Staff: who "Send by email" goes to by default (company email, else its portal admins) */
+  defaultRecipients?: string[]
 }
 
 const fmtDate = (d: string | null) => (d ? dayjs(d).format('D MMM YYYY') : '—')
@@ -37,7 +39,7 @@ const STATUS: Record<string, { label: string; color: string }> = {
 }
 
 /** Invoice (bill to the client) and, once paid, its receipt. A4 layout; "Download PDF" prints to PDF. */
-export default function InvoiceDocument({ invoice: initial, client, issuer, depositAvailable, initialDoc, readOnly = false }: Props) {
+export default function InvoiceDocument({ invoice: initial, client, issuer, depositAvailable, initialDoc, readOnly = false, defaultRecipients = [] }: Props) {
   const { message, modal } = App.useApp()
   const router = useRouter()
   const [inv, setInv] = useState(initial)
@@ -45,6 +47,8 @@ export default function InvoiceDocument({ invoice: initial, client, issuer, depo
   const [busy, setBusy] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [reference, setReference] = useState('')
+  const [mail, setMail] = useState<{ to: string; subject: string; message: string } | null>(null)
+  const [sending, setSending] = useState(false)
 
   const money = (n: number) => formatMoney(n, inv.currency)
   const receiptNumber = inv.number.replace(/^INV/, 'RCT')
@@ -71,6 +75,40 @@ export default function InvoiceDocument({ invoice: initial, client, issuer, depo
       return false
     } finally {
       setBusy(false)
+    }
+  }
+
+  const openMail = () => {
+    const total = money(inv.total)
+    const receipt = doc === 'receipt'
+    setMail({
+      to: inv.sent_to || defaultRecipients.join(', '),
+      subject: receipt ? `Payment receipt ${receiptNumber} — ${issuer.name}` : `Invoice ${inv.number} — ${issuer.name}`,
+      message: receipt
+        ? `Hello ${client.name},\n\nThank you. We received your payment of ${total} for invoice ${inv.number}. The receipt is below.`
+        : `Hello ${client.name},\n\nPlease find invoice ${inv.number} for ${total} below${inv.due_date ? `, due on ${fmtDate(inv.due_date)}` : ''}.\n\nLet us know if you have any questions.`,
+    })
+  }
+
+  const sendMail = async () => {
+    if (!mail) return
+    setSending(true)
+    try {
+      const res = await fetch(`/api/invoices/${inv.id}/send`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ doc, ...mail }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'The email could not be sent')
+      setInv(data)
+      setMail(null)
+      message.success(`${doc === 'receipt' ? 'Receipt' : 'Invoice'} sent to ${data.sent_to}`)
+    } catch (e) {
+      message.error((e as Error).message)
+    } finally {
+      setSending(false)
     }
   }
 
@@ -146,6 +184,13 @@ export default function InvoiceDocument({ invoice: initial, client, issuer, depo
           >
             Mark unpaid
           </Button>
+        ) : null}
+        {!readOnly && inv.status !== 'void' ? (
+          <Tooltip title={inv.sent_at ? `Last sent ${dayjs(inv.sent_at).format('D MMM YYYY HH:mm')} to ${inv.sent_to}` : undefined}>
+            <Button icon={<MailOutlined />} onClick={openMail}>
+              {inv.sent_at ? 'Send again' : 'Send by email'}
+            </Button>
+          </Tooltip>
         ) : null}
         <Button type="primary" icon={<DownloadOutlined />} onClick={() => window.print()}>
           Download PDF
@@ -281,6 +326,37 @@ export default function InvoiceDocument({ invoice: initial, client, issuer, depo
 
         <footer className="invoice-footer">{issuer.footer || `Thank you — ${issuer.name}`}</footer>
       </article>
+
+      <Modal
+        title={`Send ${doc === 'receipt' ? `receipt ${receiptNumber}` : `invoice ${inv.number}`} by email`}
+        open={mail != null}
+        onCancel={() => setMail(null)}
+        okText="Send"
+        okButtonProps={{ icon: <MailOutlined />, disabled: !mail?.to.trim() || !mail?.subject.trim() }}
+        confirmLoading={sending}
+        onOk={() => void sendMail()}
+        width={560}
+      >
+        {mail ? (
+          <div style={{ display: 'grid', gap: 12 }}>
+            <label className="mt-field">
+              <span className="mt-field__label">To</span>
+              <Input value={mail.to} onChange={(e) => setMail({ ...mail, to: e.target.value })} placeholder="client@company.com, finance@company.com" />
+            </label>
+            <label className="mt-field">
+              <span className="mt-field__label">Subject</span>
+              <Input value={mail.subject} onChange={(e) => setMail({ ...mail, subject: e.target.value })} />
+            </label>
+            <label className="mt-field">
+              <span className="mt-field__label">Message</span>
+              <Input.TextArea rows={6} value={mail.message} onChange={(e) => setMail({ ...mail, message: e.target.value })} />
+            </label>
+            <span className="invoice-muted" style={{ fontSize: 12 }}>
+              The {doc === 'receipt' ? 'receipt' : 'invoice'} is included in the email, with a link to open it in the portal. It is sent from the connected mailbox.
+            </span>
+          </div>
+        ) : null}
+      </Modal>
 
       <Modal
         title={`Record payment for ${inv.number}`}

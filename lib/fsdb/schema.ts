@@ -407,6 +407,11 @@ export type InvoicesRow = {
   paidAt: string | null
   /** Deposit balance right after this invoice was settled (for the receipt) */
   balanceAfter: number | null
+  /** Last time it was emailed to the client, and to whom */
+  sentAt: Date | null
+  sentTo: string | null
+  /** Staff were notified that it is past its due date (once per invoice) */
+  overdueNotifiedAt: Date | null
   createdBy: string | null
   createdAt: Date
   updatedAt: Date
@@ -429,6 +434,9 @@ export type NewInvoicesRow = {
   paidVia?: string | null
   paidAt?: string | null
   balanceAfter?: number | null
+  sentAt?: Date | null
+  sentTo?: string | null
+  overdueNotifiedAt?: Date | null
   createdBy?: string | null
   createdAt?: Date
   updatedAt?: Date
@@ -436,7 +444,7 @@ export type NewInvoicesRow = {
 
 export const invoices = defineTable<InvoicesRow, NewInvoicesRow>({
   name: 'invoices',
-  columns: ['id', 'number', 'companyId', 'currency', 'periodFrom', 'periodTo', 'issueDate', 'dueDate', 'lines', 'total', 'status', 'notes', 'paymentId', 'paidVia', 'paidAt', 'balanceAfter', 'createdBy', 'createdAt', 'updatedAt'],
+  columns: ['id', 'number', 'companyId', 'currency', 'periodFrom', 'periodTo', 'issueDate', 'dueDate', 'lines', 'total', 'status', 'notes', 'paymentId', 'paidVia', 'paidAt', 'balanceAfter', 'sentAt', 'sentTo', 'overdueNotifiedAt', 'createdBy', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',

@@ -111,6 +111,17 @@ async function sendRawEmail(
 }
 
 /**
+ * Send a one-off HTML email from the connected mailbox (e.g. an invoice). `to` may list several addresses.
+ * Returns false when no mailbox is connected.
+ */
+export async function sendHtmlEmail(to: string, subject: string, bodyHtml: string): Promise<boolean> {
+  const [gmailSender, appSettings] = await Promise.all([getGmailSender(), getAppSettings()])
+  if (!gmailSender) return false
+  await sendRawEmail(gmailSender, to, subject, bodyHtml, formatFromHeader(appSettings.email_sender_name, gmailSender.fromEmail))
+  return true
+}
+
+/**
  * Send `requester_notification_agent_closes` to the ticket creator when an agent closes the ticket.
  */
 export async function sendAgentClosesTicketEmail(params: {

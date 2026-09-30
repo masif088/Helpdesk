@@ -7,6 +7,7 @@ import { isAdminOrManager } from '@/lib/auth-utils'
 import { BRANDING } from '@/lib/branding'
 import { customerBillingCompanyId } from '@/lib/customer-billing'
 import { companies, get, invoices } from '@/lib/fsdb'
+import { defaultInvoiceRecipients } from '@/lib/invoice-email'
 import { companyDepositBalance, invoiceToJson } from '@/lib/invoices'
 
 /**
@@ -41,10 +42,11 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   if (!access.inv) notFound()
   const { inv, staff } = access
 
-  const [company, settings, balance] = await Promise.all([
+  const [company, settings, balance, recipients] = await Promise.all([
     get(companies, inv.companyId),
     getAppSettings(),
     companyDepositBalance(inv.companyId, inv.id),
+    staff ? defaultInvoiceRecipients(inv.companyId) : [],
   ])
 
   return (
@@ -61,6 +63,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
       depositAvailable={balance.get(inv.currency) ?? 0}
       initialDoc={(await searchParams).doc === 'receipt' && inv.status === 'paid' ? 'receipt' : 'invoice'}
       readOnly={!staff}
+      defaultRecipients={recipients}
     />
   )
 }
