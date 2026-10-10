@@ -56,6 +56,7 @@ export default function SuggestedAgents({
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>
+                {a.matchPercent != null ? `${a.matchPercent}% · ` : ''}
                 {a.matched.length ? `${a.matched.join(', ')} · ` : ''}
                 {a.active} active{a.overdue ? ` · ${a.overdue} overdue` : ''}
               </div>

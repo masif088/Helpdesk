@@ -31,6 +31,7 @@ import BackLink from '@/components/common/BackLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import { TabActivity, TabChecklist, TabGeneral, TabTimeTracker } from '@/components/ticket/detail'
+import AssignRecommendation from '@/components/ticket/detail/AssignRecommendation'
 import type { SidebarAttributesDraft } from '@/components/ticket/detail/TabGeneral'
 import TabGeneralCustomer from '@/components/ticket/detail/TabGeneralCustomer'
 import TicketPresenceBar from '@/components/ticket/TicketPresenceBar'
@@ -1245,6 +1246,36 @@ export default function TicketDetailContent({
         }
     }
 
+    /** One-click assign from the recommendation banner: adds the agent to the ticket's assignees right away */
+    const handleQuickAssign = async (userId: string, name: string) => {
+        const tid = displayTicket?.id
+        if (tid == null) return
+        const current: string[] = Array.isArray(displayTicket?.assignees)
+            ? displayTicket.assignees.map((a: { user_id?: string; user?: { id?: string } }) => a.user_id ?? a.user?.id ?? '').filter(Boolean)
+            : []
+        try {
+            await apiFetch(`/api/tickets/${tid}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assignees: [...new Set([...current, userId])] }),
+            })
+            const u = (users as Array<{ id: string; full_name?: string | null; email: string; avatar_url?: string | null }>).find((x) => x.id === userId)
+            setDisplayTicket((prev: any) => ({
+                ...prev,
+                assignees: [
+                    ...(Array.isArray(prev?.assignees) ? prev.assignees : []),
+                    { id: userId, user_id: userId, user: { id: userId, full_name: u?.full_name ?? name, email: u?.email ?? '', avatar_url: u?.avatar_url ?? null } },
+                ],
+            }))
+            setSidebarBaselineTick((x) => x + 1)
+            message.success(`Assigned to ${name}`)
+            bumpActivityRefresh()
+            router.refresh()
+        } catch (e: unknown) {
+            message.error(e instanceof Error ? e.message : 'Failed to assign')
+        }
+    }
+
     const handleSaveCustomerChanges = async (changes: { type_id?: number | null; priority?: number | null }) => {
         setCustomerChangesSaving(true)
         try {
@@ -1766,6 +1797,15 @@ export default function TicketDetailContent({
                                 : { borderTop: 'none', borderTopLeftRadius: 0, borderTopRightRadius: 0 }),
                         }}
                     >
+
+                        {!isCustomer && (displayTicket?.ticket_type ?? 'support') === 'support' ? (
+                            <AssignRecommendation
+                                ticketId={displayTicket.id}
+                                assigneeCount={Array.isArray(displayTicket?.assignees) ? displayTicket.assignees.length : 0}
+                                refreshKey={`${displayTicket?.updated_at ?? ''}|${(displayTicket?.required_skills ?? []).join(',')}`}
+                                onAssign={handleQuickAssign}
+                            />
+                        ) : null}
 
                         {isCustomer ? (
                             <TabGeneralCustomer

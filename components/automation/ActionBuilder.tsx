@@ -1,7 +1,7 @@
 'use client'
 
 import { CloseOutlined,PlusOutlined } from '@ant-design/icons'
-import { Button, Dropdown, Form, Input, InputNumber, Select, Space } from 'antd'
+import { Button, Checkbox, Dropdown, Form, Input, InputNumber, Select, Slider, Space } from 'antd'
 import { useEffect, useState } from 'react'
 
 import CommentWysiwyg from '@/components/ticket/detail/CommentWysiwyg'
@@ -11,6 +11,7 @@ type ActionType =
   | 'team_id'
   | 'company_id'
   | 'assignee_ids'
+  | 'auto_assign_by_skill'
   | 'priority'
   | 'status_slug'
   | 'ticket_type'
@@ -38,6 +39,7 @@ const ACTION_LABELS: Record<ActionType, string> = {
   team_id: 'Assign to Team',
   company_id: 'Set Company',
   assignee_ids: 'Assign to Agent(s)',
+  auto_assign_by_skill: 'Auto-assign by skill match',
   priority: 'Set Priority (number)',
   status_slug: 'Set Status',
   ticket_type: 'Set classification (spam / trash)',
@@ -70,6 +72,7 @@ export default function ActionBuilder({ value, onChange = () => {} }: ActionBuil
     'team_id',
     'company_id',
     'assignee_ids',
+    'auto_assign_by_skill',
     'priority',
     'status_slug',
     'ticket_type',
@@ -110,6 +113,8 @@ export default function ActionBuilder({ value, onChange = () => {} }: ActionBuil
     const next = { ...actions }
     if (type === 'assignee_ids') {
       ;(next as Record<string, unknown>).assignee_ids = []
+    } else if (type === 'auto_assign_by_skill') {
+      ;(next as Record<string, unknown>).auto_assign_by_skill = { min_match: 100, only_if_unassigned: true, team_only: false }
     } else if (type === 'tag_ids') {
       ;(next as Record<string, unknown>).tag_ids = []
     } else if (type === 'add_note') {
@@ -144,6 +149,7 @@ export default function ActionBuilder({ value, onChange = () => {} }: ActionBuil
       'team_id',
       'company_id',
       'assignee_ids',
+      'auto_assign_by_skill',
       'priority',
       'status_slug',
       'ticket_type',
@@ -243,6 +249,36 @@ export default function ActionBuilder({ value, onChange = () => {} }: ActionBuil
                       .map((u) => ({ value: u.id, label: u.full_name || u.email || u.id }))}
                   />
                 )}
+                {type === 'auto_assign_by_skill' && (() => {
+                  const cfg = (actions as AutomationActions).auto_assign_by_skill ?? { min_match: 100 }
+                  const set = (patch: Partial<NonNullable<AutomationActions['auto_assign_by_skill']>>) =>
+                    update('auto_assign_by_skill', { only_if_unassigned: true, team_only: false, ...cfg, ...patch })
+                  return (
+                    <Space orientation="vertical" size={10} style={{ width: '100%' }}>
+                      <div>
+                        <div style={{ fontSize: 13, marginBottom: 4 }}>
+                          Assign when the agent has at least <strong>{cfg.min_match}%</strong> of the skills the ticket needs
+                        </div>
+                        <Space style={{ width: '100%' }} size={16} align="center">
+                          <Slider min={10} max={100} step={5} value={cfg.min_match} onChange={(v) => set({ min_match: v })} style={{ width: 260 }} />
+                          <InputNumber min={1} max={100} addonAfter="%" value={cfg.min_match} onChange={(v) => set({ min_match: v ?? 100 })} style={{ width: 100 }} />
+                        </Space>
+                        <div style={{ fontSize: 12, color: 'var(--ant-color-text-description)' }}>
+                          100% = every needed skill. 50% with two skills needed = at least one. Among the agents who qualify, the best match wins, then the lightest plate.
+                        </div>
+                      </div>
+                      <Checkbox checked={cfg.only_if_unassigned !== false} onChange={(e) => set({ only_if_unassigned: e.target.checked })}>
+                        Only when nobody is assigned yet
+                      </Checkbox>
+                      <Checkbox checked={Boolean(cfg.team_only)} onChange={(e) => set({ team_only: e.target.checked })}>
+                        Only members of the ticket&apos;s team (when it has one)
+                      </Checkbox>
+                      <div style={{ fontSize: 12, color: 'var(--ant-color-text-description)' }}>
+                        Skills come from the ticket (Skills needed), else the defaults of its type and tags. Nothing is assigned when there are none, or nobody reaches the percentage. Put this after the actions that set the type, tags or team.
+                      </div>
+                    </Space>
+                  )
+                })()}
                 {type === 'priority' && (
                   <InputNumber
                     min={0}

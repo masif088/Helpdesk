@@ -2,7 +2,9 @@
  * Automation rules engine: evaluate conditions and apply actions when tickets are
  * created, updated, or when a new comment/reply/note is added.
  */
+import { pickAutoAssignee } from '@/lib/agent-suggestions'
 import { sendAutomationLog } from '@/lib/automation-log-webhook'
+import { notifyTicketUsers } from '@/lib/firebase/ticket-notifications-server'
 import {
   automationRules,
   companies,
@@ -377,6 +379,7 @@ export async function runAutomationRules(
     const willMutateTicket =
       Object.keys(updates).length > 0 ||
       Boolean(actions.tag_ids?.length) ||
+      Boolean(actions.auto_assign_by_skill) ||
       useSupportQueueReorder
     const beforeAuto = willMutateTicket ? await loadTicketActivitySnapshot(ctx.id) : null
 
@@ -407,6 +410,36 @@ export async function runAutomationRules(
       if (toAdd.length > 0) {
         for (const userId of toAdd) await insertIgnore(ticketAssignees, { ticketId: ctx.id, userId })
         requestBump()
+      }
+    }
+
+    // Auto-assign by skill: after tags / type / team above, so the skills it looks at are the up-to-date ones
+    if (actions.auto_assign_by_skill && typeof actions.auto_assign_by_skill === 'object') {
+      const cfg = actions.auto_assign_by_skill
+      const minMatch = Math.min(100, Math.max(1, Math.round(Number(cfg.min_match) || 100)))
+      const existing = await findBy(ticketAssignees, { ticketId: ctx.id })
+      if (cfg.only_if_unassigned === false || existing.length === 0) {
+        const pick = await pickAutoAssignee(ctx.id, { minMatch, teamOnly: Boolean(cfg.team_only) })
+        if (pick) {
+          await insertIgnore(ticketAssignees, { ticketId: ctx.id, userId: pick.agent.userId })
+          requestBump()
+          const title = ctx.title ?? 'Ticket'
+          try {
+            await notifyTicketUsers({
+              recipientUserIds: [pick.agent.userId],
+              ticketId: ctx.id,
+              ticketTitle: title,
+              type: 'assignee_added',
+              title: 'You were assigned',
+              body: `Automatically assigned on "${title}" (${pick.agent.matchPercent}% skill match: ${pick.agent.matched.join(', ')})`,
+              actorUserId: 'automation',
+              actorName: 'Automation',
+              actorRole: 'automation',
+            })
+          } catch (e) {
+            console.error('[automation auto_assign_by_skill] notify:', e)
+          }
+        }
       }
     }
 

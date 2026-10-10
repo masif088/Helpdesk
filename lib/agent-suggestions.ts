@@ -10,6 +10,8 @@ import { find, get, tags, ticketAssignees, tickets, ticketTags, ticketTypes } fr
 export type SuggestedAgent = Pick<AgentWorkload, 'userId' | 'name' | 'email' | 'avatarUrl' | 'skills' | 'open' | 'overdue' | 'active'> & {
   /** Required skills this agent has */
   matched: string[]
+  /** matched / required skills, 0-100; null when the ticket needs no skill */
+  matchPercent: number | null
   inTeam: boolean
   alreadyAssigned: boolean
 }
@@ -42,13 +44,14 @@ export function rankAgents(
       overdue: a.overdue,
       active: a.active,
       matched: a.skills.filter((s) => need.has(key(s))),
+      matchPercent: need.size ? Math.round((new Set(a.skills.map(key).filter((k) => need.has(k))).size / need.size) * 100) : null,
       inTeam: !!ctx.teamId && a.teamIds.includes(ctx.teamId),
       alreadyAssigned: ctx.assignedIds.has(a.userId),
     }))
     .sort(
       (a, b) =>
         Number(a.alreadyAssigned) - Number(b.alreadyAssigned) ||
-        b.matched.length - a.matched.length ||
+        (b.matchPercent ?? 0) - (a.matchPercent ?? 0) ||
         Number(b.inTeam) - Number(a.inTeam) ||
         a.active - b.active ||
         a.overdue - b.overdue ||
@@ -73,4 +76,20 @@ export async function suggestAgentsForTicket(ticketId: number, limit = 5, skills
   // With required skills, people without any of them are not suggestions
   const agents = (requiredSkills.length ? ranked.filter((a) => a.matched.length > 0 || a.alreadyAssigned) : ranked).slice(0, limit)
   return { requiredSkills, source: own.length ? 'ticket' : 'default', agents }
+}
+
+/**
+ * The agent an automation rule should assign: the best-ranked one whose skill match reaches `minMatch` percent
+ * (100 = has every skill the ticket needs). Nothing is assigned when the ticket needs no skills.
+ */
+export async function pickAutoAssignee(
+  ticketId: number,
+  opts: { minMatch: number; teamOnly?: boolean }
+): Promise<{ agent: SuggestedAgent; requiredSkills: string[] } | null> {
+  const r = await suggestAgentsForTicket(ticketId, 100)
+  if (!r || r.requiredSkills.length === 0) return null
+  const ticket = await get(tickets, ticketId)
+  const restrictToTeam = !!opts.teamOnly && !!ticket?.teamId
+  const agent = r.agents.find((a) => !a.alreadyAssigned && (a.matchPercent ?? 0) >= opts.minMatch && (!restrictToTeam || a.inTeam))
+  return agent ? { agent, requiredSkills: r.requiredSkills } : null
 }

@@ -25,6 +25,20 @@ export interface AutomationActions {
   add_note_user_id?: string
   /** Add checklist items (array of titles) */
   add_checklist_items?: string[]
+  /**
+   * Assign the best-matching agent by skill. `min_match` = percent of the ticket's needed skills the agent must
+   * have (100 = all). Skills are the ticket's own, else its type's / tags' defaults. Runs after the other actions.
+   */
+  auto_assign_by_skill?: AutoAssignBySkill
   /** Legacy: assign group name (maps to team by name if needed) */
   assign_group?: string
+}
+
+export interface AutoAssignBySkill {
+  /** 1-100 */
+  min_match: number
+  /** Skip when someone is already assigned (default true) */
+  only_if_unassigned?: boolean
+  /** Only members of the ticket's team (ignored when the ticket has no team) */
+  team_only?: boolean
 }
