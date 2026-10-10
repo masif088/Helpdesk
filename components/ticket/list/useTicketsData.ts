@@ -1219,6 +1219,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
           description: values.description || null,
           tag_ids: selectedTagIds,
           contact_user_id: effectiveValues.contact_user_id ?? null,
+          required_skills: Array.isArray(values.required_skills) ? values.required_skills : [],
           // Price entered on the form (admin / manager); otherwise the server uses the company's default rate
           ...((values.price_mode === 'hourly' || values.price_mode === 'fixed') && typeof values.price_amount === 'number'
             ? {

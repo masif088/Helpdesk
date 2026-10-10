@@ -17,6 +17,7 @@ import {
 import type { FormInstance } from 'antd/es/form'
 import { useCallback,useId, useMemo } from 'react'
 
+import SkillsSelect from '@/components/settings/SkillsSelect'
 import CommentWysiwyg from '@/components/ticket/detail/CommentWysiwyg'
 import { DEFAULT_RATE_CURRENCY, RATE_CURRENCIES } from '@/lib/billing-rate'
 
@@ -373,6 +374,17 @@ export default function TicketFormModal({
         )}
         </Col>
         </Row>
+
+        {!editingTicket && !showSimplifiedForm ? (
+          <Form.Item
+            name="required_skills"
+            label="Skills needed"
+            tooltip="Agents with these skills are suggested for the ticket. Leave empty to use the default skills of its type and tags."
+            style={{ maxWidth: 560 }}
+          >
+            <SkillsSelect placeholder="e.g. WordPress, Billing" />
+          </Form.Item>
+        ) : null}
 
         {canEditBilling && !editingTicket && !showSimplifiedForm ? (
           <Form.Item label="Price" tooltip="Per hour: billable time × rate. Fixed: one price for the whole ticket, whatever the hours." style={{ maxWidth: 560 }}>

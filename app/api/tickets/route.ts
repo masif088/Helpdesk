@@ -52,6 +52,8 @@ import { isInboxTicket, isMyTicket, isTicketScope, loadAssignedTicketIds, loadMy
 import { loadTicketCandidates, searchTickets, sortTicketList } from '@/lib/ticket-list-query'
 import { sendNewTicketAgentNotificationEmail } from '@/lib/ticket-notification-emails'
 import { assertCustomerMayUseTicketType } from '@/lib/ticket-type-customer-access'
+import { normalizeSkills } from '@/lib/user-skills'
+import { knownSkills } from '@/lib/user-skills-server'
 
 const DEFAULT_LIMIT = 50
 /** Max tickets per list request (UI: 50 / 100 / 200 / 500). */
@@ -444,6 +446,7 @@ export async function POST(request: Request) {
     contact_user_id: bodyContactUserId,
     project_id: bodyProjectId,
     project_status_id: bodyProjectStatusId,
+    required_skills,
   } = body
 
   /** created_via: 'portal' (admin app) | 'website' (embed/widget) | 'app' (mobile/external) - for automation conditions */
@@ -551,6 +554,10 @@ export async function POST(request: Request) {
     projectStatusId: insertProjectStatusId,
     // Created by staff → already seen by the team (not "New")
     ...(role !== 'customer' ? { staffLastReadAt: new Date() } : {}),
+    // Skills the ticket needs (internal users only)
+    ...(role !== 'customer' && Array.isArray(required_skills) && required_skills.length
+      ? { requiredSkills: normalizeSkills(required_skills, await knownSkills()) }
+      : {}),
   }
 
   let newTicket: TicketsRow | undefined

@@ -9,12 +9,13 @@ import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import type { AgentWorkload, WorkloadSnapshot } from '@/lib/agent-workload'
+import type { SkillDemand, SkillDemandRow } from '@/lib/skill-demand'
 
 const { Content } = Layout
 const { Title, Text } = Typography
 
 type Agent = Omit<AgentWorkload, 'teamIds'> & { teams: string[] }
-type Data = Omit<WorkloadSnapshot, 'agents'> & { agents: Agent[] }
+type Data = Omit<WorkloadSnapshot, 'agents'> & { agents: Agent[]; demand: SkillDemand }
 type GroupBy = 'agent' | 'skill' | 'team'
 
 type Group = { key: string; label: string; agents: Agent[]; open: number; active: number; overdue: number; waitingOnClient: number; trackedWeekSeconds: number }
@@ -215,6 +216,58 @@ export default function WorkloadReportContent({ user }: Props) {
             <div className="billing-note">
               <TeamOutlined /> {withoutSkills} agent{withoutSkills > 1 ? 's have' : ' has'} no skills yet. Set them on the user page (Settings → Users) so they are grouped and suggested for matching tickets.
             </div>
+          ) : null}
+
+          {data && data.demand.rows.length > 0 ? (
+            <section className="ticket-surface billing-section" style={{ marginBottom: 16 }}>
+              <header className="billing-section__head">
+                <span>Skills needed by open tickets</span>
+                {data.demand.uncovered > 0 ? (
+                  <span style={{ color: '#D97706', fontSize: 12, fontWeight: 600 }}>
+                    {data.demand.uncovered} ticket{data.demand.uncovered > 1 ? 's' : ''} need skills nobody has
+                  </span>
+                ) : null}
+              </header>
+              <Table<SkillDemandRow>
+                className="ticket-table"
+                rowKey="skill"
+                size="small"
+                dataSource={data.demand.rows}
+                pagination={false}
+                scroll={{ x: 640 }}
+                columns={[
+                  { title: 'Skill', dataIndex: 'skill', render: (s: string) => <Tag style={{ marginInlineEnd: 0, fontWeight: 600 }}>{s}</Tag> },
+                  { title: 'Open tickets', dataIndex: 'tickets', width: 120, align: 'right', sorter: (a, b) => a.tickets - b.tickets },
+                  {
+                    title: 'Not assigned',
+                    dataIndex: 'unassigned',
+                    width: 120,
+                    align: 'right',
+                    sorter: (a, b) => a.unassigned - b.unassigned,
+                    render: (v: number) => (v ? <span style={{ color: '#D97706', fontWeight: 600 }}>{v}</span> : <span className="cell-muted">0</span>),
+                  },
+                  { title: 'Overdue', dataIndex: 'overdue', width: 100, align: 'right', render: (v: number) => (v ? <span style={{ color: '#DC2626', fontWeight: 600 }}>{v}</span> : <span className="cell-muted">0</span>) },
+                  {
+                    title: 'Agents with it',
+                    key: 'agents',
+                    render: (_, r) =>
+                      r.agents ? (
+                        <span title={r.agentNames.join(', ')}>
+                          <span className="cell-strong">{r.agents}</span>
+                          <span className="cell-muted" style={{ fontSize: 12 }}> · {r.agentsActive} active tickets between them</span>
+                        </span>
+                      ) : (
+                        <span style={{ color: '#DC2626', fontWeight: 600 }}>Nobody</span>
+                      ),
+                  },
+                ]}
+              />
+              {data.demand.withoutSkills > 0 ? (
+                <Text type="secondary" style={{ display: 'block', padding: '8px 16px 12px', fontSize: 12 }}>
+                  {data.demand.withoutSkills} open ticket{data.demand.withoutSkills > 1 ? 's have' : ' has'} no skills (set them under Attributes → Skills needed), so nobody can be suggested for {data.demand.withoutSkills > 1 ? 'them' : 'it'}.
+                </Text>
+              ) : null}
+            </section>
           ) : null}
 
           <div className="ticket-surface ticket-table">
