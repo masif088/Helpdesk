@@ -35,6 +35,8 @@ import {
   users,
 } from '@/lib/fsdb'
 import { sendRequesterTicketCreatedEmail } from '@/lib/requester-new-ticket-email'
+import { slaForList } from '@/lib/sla'
+import type { TicketSla } from '@/lib/sla-format'
 import { notifySlackTicketEvent } from '@/lib/slack-ticket-notify'
 import { getPublicUrl } from '@/lib/storage-provider'
 import { logTicketActivity } from '@/lib/ticket-activity-log'
@@ -357,6 +359,19 @@ export async function GET(request: Request) {
     checklistByTicket[row.ticketId].items.push(row)
   })
 
+  // Service level clocks (staff only): running clocks of open tickets
+  const slaByTicket = isCustomerViewer
+    ? new Map<number, TicketSla>()
+    : await slaForList(
+        ticketsRows.map((r) => ({
+          ticket: r.ticket,
+          openedByClient: r.ticket.createdVia === 'email' || r.creator?.role?.toLowerCase() === 'customer',
+        }))
+      ).catch((e) => {
+        console.error('[tickets] sla:', e)
+        return new Map<number, TicketSla>()
+      })
+
   const result = ticketsRows.map((r) => {
     const t = r.ticket
     const cl = checklistByTicket[t.id] || { completed: 0, total: 0, items: [] }
@@ -410,6 +425,7 @@ export async function GET(request: Request) {
       /** Staff: no one on the team has opened this ticket yet */
       is_new: !isCustomerViewer && !t.staffLastReadAt,
       attachments: attachmentsByTicket[t.id] || [],
+      sla: slaByTicket.get(t.id) ?? null,
     }
   })
 

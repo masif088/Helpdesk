@@ -6,6 +6,7 @@ import dayjs, { type Dayjs } from 'dayjs'
 import Link from 'next/link'
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
 
+import RetainerSection from '@/components/company/RetainerSection'
 import CompanyInvoices from '@/components/invoices/CompanyInvoices'
 import { DEFAULT_RATE_CURRENCY, formatMoney, RATE_CURRENCIES } from '@/lib/billing-rate'
 import type { CompanyBilling as Billing, Money } from '@/lib/company-billing'
@@ -140,6 +141,8 @@ export default function CompanyBilling({ companyId, companyName, defaultCurrency
           {fmtHours(data.nonBillableSeconds)}
         </Kpi>
       </div>
+
+      <RetainerSection companyId={companyId} defaultCurrency={defaultCurrency} onChanged={load} />
 
       <CompanyInvoices companyId={companyId} companyName={companyName} onChanged={load} currencies={[...data.notInvoiced, ...data.billed].map((m) => m.currency)} />
 

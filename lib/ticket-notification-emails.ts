@@ -154,11 +154,16 @@ export async function sendAgentClosesTicketEmail(params: {
   const rawTpl = tpl.content?.trim() ?? ''
   const subject = mergeSubject(tpl.emailSubject?.trim() || `Ticket #${ticketId} has been closed`, ticketId, ticketTitle)
 
-  const bodyHtml = rawTpl
+  const mergedHtml = rawTpl
     ? mergeMessageTemplateHtml(rawTpl, { origin: baseUrl, ticketId: String(ticketId), recipient: recipientMap, sender: senderMap, extra: { ticket_title: ticketTitle }, useDomMerge: false })
     : `<p>Hello ${recipientMap.full_name !== '—' ? recipientMap.full_name : ''},</p>` +
       `<p>Your ticket <strong>#${ticketId}: ${ticketTitle}</strong> has been closed.</p>` +
       `<p>View ticket: <a href="${ticketUrl}">${ticketUrl}</a></p>`
+  // Clients are asked how it went (they rate on the ticket page in the portal)
+  const bodyHtml =
+    recipient.role?.toLowerCase() === 'customer'
+      ? mergedHtml + `<p style="margin-top:16px;">How did we do? <a href="${ticketUrl}">Rate this ticket</a> — it takes a few seconds.</p>`
+      : mergedHtml
 
   await sendRawEmail(gmailSender, recipient.email, subject, bodyHtml, fromHeader, { gmailThreadId: ticketRow.gmailThreadId })
 }

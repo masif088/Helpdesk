@@ -24,6 +24,7 @@ import { useRouter } from 'next/navigation'
 import type { Key } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import SlaChips from '@/components/ticket/SlaChips'
 import { type TicketFolder } from '@/lib/ticket-classification'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
@@ -37,18 +38,18 @@ import {
 } from './types'
 import { useMyTicketTimers } from './useMyTicketTimers'
 
-type ColKey = 'company' | 'priority' | 'type' | 'tags' | 'due_date' | 'team' | 'status'
+type ColKey = 'company' | 'priority' | 'type' | 'tags' | 'due_date' | 'sla' | 'team' | 'status'
 
-const ALL_COL_KEYS: ColKey[] = ['company', 'priority', 'type', 'tags', 'due_date', 'team', 'status']
+const ALL_COL_KEYS: ColKey[] = ['company', 'priority', 'type', 'tags', 'due_date', 'sla', 'team', 'status']
 const COL_LABELS: Record<ColKey, string> = {
   company: 'Company', priority: 'Priority', type: 'Type',
-  tags: 'Tags', due_date: 'Due date', team: 'Team', status: 'Status',
+  tags: 'Tags', due_date: 'Due date', sla: 'SLA', team: 'Team', status: 'Status',
 }
 const LS_KEY = 'tickets_list_col_config'
 
 interface ColConfig { order: ColKey[]; hidden: ColKey[] }
 
-const CUSTOMER_HIDDEN_COLS: ColKey[] = ['company', 'team']
+const CUSTOMER_HIDDEN_COLS: ColKey[] = ['company', 'team', 'sla']
 
 function readColConfig(isCustomer = false): ColConfig {
   const defaultHidden = isCustomer ? [...CUSTOMER_HIDDEN_COLS] : []
@@ -59,7 +60,8 @@ function readColConfig(isCustomer = false): ColConfig {
       const parsed = JSON.parse(raw) as Partial<ColConfig>
       const order = (parsed.order ?? ALL_COL_KEYS).filter((k): k is ColKey => ALL_COL_KEYS.includes(k as ColKey))
       const hidden = (parsed.hidden ?? defaultHidden).filter((k): k is ColKey => ALL_COL_KEYS.includes(k as ColKey))
-      return { order, hidden }
+      // Columns added since this was saved show up at the end
+      return { order: [...order, ...ALL_COL_KEYS.filter((k) => !order.includes(k))], hidden }
     }
   } catch { /* ignore */ }
   return { order: [...ALL_COL_KEYS], hidden: defaultHidden }
@@ -224,6 +226,10 @@ export default function TicketsListView({
             {new Date(record.due_date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
           </span>
         ) : '—',
+    },
+    sla: {
+      title: 'SLA', key: 'sla', width: 230,
+      render: (_: unknown, record: TicketRecord) => <SlaChips sla={record.sla} compact />,
     },
     team: {
       title: 'Team', key: 'team', width: 160, ellipsis: true,

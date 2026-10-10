@@ -30,6 +30,7 @@ import {
   type UsersRow,
 } from '@/lib/fsdb'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
+import { markFirstResponse } from '@/lib/sla'
 import { notifySlackTicketEvent } from '@/lib/slack-ticket-notify'
 import { logTicketActivity } from '@/lib/ticket-activity-log'
 import { sendNoteAddedNotificationEmail } from '@/lib/ticket-notification-emails'
@@ -235,6 +236,11 @@ export async function POST(
   })
 
   if (!row) return NextResponse.json({ error: 'Failed to create' }, { status: 500 })
+
+  // Service level: the team's first public reply stops the response clock
+  if (!isCustomer && effectiveAuthorType === 'agent' && (effectiveVisibility === 'reply' || effectiveVisibility === 'public')) {
+    await markFirstResponse(ticketId, row.createdAt).catch((e) => console.error('[comments] first response:', e))
+  }
 
   await logTicketActivity({
     ticketId,

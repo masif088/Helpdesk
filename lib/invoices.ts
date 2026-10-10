@@ -121,7 +121,7 @@ export async function invoiceLinesFor(companyId: string, from: string, to: strin
 }
 
 /** Next number for the year of the issue date: INV-2026-0001, INV-2026-0002, … */
-async function nextInvoiceNumber(issueDate: string): Promise<string> {
+export async function nextInvoiceNumber(issueDate: string): Promise<string> {
   const year = dayjs(issueDate).year()
   const prefix = `INV-${year}-`
   const rows = await find(invoices, { select: ['number'] })

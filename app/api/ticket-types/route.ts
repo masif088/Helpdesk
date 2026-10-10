@@ -5,6 +5,7 @@ import { denyUnless } from '@/lib/api-guard'
 import { canAccessTicketAttributes } from '@/lib/auth-utils'
 import { find, findOneBy, insert, ticketTypes } from '@/lib/fsdb'
 import { logSettingsCreated } from '@/lib/settings-activity-log'
+import { cleanMinutes } from '@/lib/sla'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 import { normalizeSkills } from '@/lib/user-skills'
 import { knownSkills } from '@/lib/user-skills-server'
@@ -31,6 +32,8 @@ export async function GET() {
     sort_order: r.sortOrder ?? 0,
     is_agent_only: r.isAgentOnly ?? false,
     required_skills: r.requiredSkills ?? [],
+    sla_respond_minutes: r.slaRespondMinutes ?? null,
+    sla_resolve_minutes: r.slaResolveMinutes ?? null,
     created_at: r.createdAt ? new Date(r.createdAt).toISOString() : '',
     updated_at: r.updatedAt ? new Date(r.updatedAt).toISOString() : '',
   }))
@@ -48,7 +51,7 @@ export async function POST(request: Request) {
   if (denied) return denied
 
   const body = await request.json()
-  const { title, slug, color, sort_order, description, is_agent_only, required_skills } = body
+  const { title, slug, color, sort_order, description, is_agent_only, required_skills, sla_respond_minutes, sla_resolve_minutes } = body
 
   if (!title || !slug) {
     return NextResponse.json({ error: 'title and slug required' }, { status: 400 })
@@ -65,6 +68,8 @@ export async function POST(request: Request) {
     color: color || '#000000',
     isAgentOnly: Boolean(is_agent_only),
     requiredSkills: normalizeSkills(required_skills, await knownSkills()),
+    slaRespondMinutes: cleanMinutes(sla_respond_minutes),
+    slaResolveMinutes: cleanMinutes(sla_resolve_minutes),
     ...(sort_order !== undefined && { sortOrder: Number(sort_order) ?? 0 }),
   })
 
@@ -97,6 +102,8 @@ export async function POST(request: Request) {
     sort_order: inserted.sortOrder ?? 0,
     is_agent_only: inserted.isAgentOnly ?? false,
     required_skills: inserted.requiredSkills ?? [],
+    sla_respond_minutes: inserted.slaRespondMinutes ?? null,
+    sla_resolve_minutes: inserted.slaResolveMinutes ?? null,
     created_at: inserted.createdAt ? new Date(inserted.createdAt).toISOString() : '',
     updated_at: inserted.updatedAt ? new Date(inserted.updatedAt).toISOString() : '',
   })

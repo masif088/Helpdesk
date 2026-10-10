@@ -28,6 +28,7 @@ import {
   users,
   type UsersRow,
 } from '@/lib/fsdb'
+import { getTicketSla } from '@/lib/sla'
 import { getPublicUrl } from '@/lib/storage-provider'
 import { mapChecklistItemToDto } from '@/lib/ticket-checklist-map'
 import { coerceTicketType } from '@/lib/ticket-classification'
@@ -257,6 +258,9 @@ export async function getTicketDetail(ticketId: number, options?: TicketDetailOp
       })()
     : { skills: [] as string[], source: null }
 
+  // Service level clocks: staff only
+  const sla = isCustomerPortalView(options) ? null : await getTicketSla(ticketId).catch(() => null)
+
   const ticketTypeCls = coerceTicketType(t.ticketType)
   let project_status: { id: number; title: string; slug: string; color: string } | null = null
   let project_statuses: Array<{ id: number; title: string; slug: string; color: string; sort_order: number }> = []
@@ -288,6 +292,8 @@ export async function getTicketDetail(ticketId: number, options?: TicketDetailOp
     original_description: t.originalDescription ?? null,
     short_note: t.shortNote ?? null,
     required_skills: t.requiredSkills ?? [],
+    sla,
+    csat: t.csatRating ? { rating: t.csatRating, comment: t.csatComment ?? null, at: t.csatAt ? new Date(t.csatAt).toISOString() : null } : null,
     ...(options?.includeBilling ? { inherited_skills: inherited.skills, inherited_from: inherited.source } : {}),
     created_by: t.createdBy,
     contact_user_id: t.contactUserId ?? null,

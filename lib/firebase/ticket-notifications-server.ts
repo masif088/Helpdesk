@@ -13,9 +13,14 @@ export type TicketNotificationType =
   | 'inbox_overdue'
   | 'new_comment'
   | 'status_changed'
+  /** Service level: a clock is about to run out / has run out */
+  | 'sla_warning'
+  | 'sla_breach'
+  /** A client rated a finished ticket 1-2 */
+  | 'csat_low'
 
 /** Bell notifications that are not about a ticket: they open `href` instead */
-export type GeneralNotificationType = 'invoice_overdue' | 'deposit_low'
+export type GeneralNotificationType = 'invoice_overdue' | 'deposit_low' | 'retainer_invoiced'
 
 export function diffNewAssignees(beforeIds: string[], afterIds: string[]): string[] {
   const before = new Set(beforeIds)
@@ -69,6 +74,8 @@ export async function notifyUsers(params: {
   label: string
   title: string
   body: string
+  /** Shown as who it is from (default Billing) */
+  actorName?: string
 }): Promise<void> {
   const fsdb = getFirebaseAdminFirestore()
   const recipients = [...new Set(params.recipientUserIds.map((id) => String(id).trim()).filter(Boolean))]
@@ -86,7 +93,7 @@ export async function notifyUsers(params: {
       read: false,
       createdAt: FieldValue.serverTimestamp(),
       actorUserId: 'system',
-      actorName: 'Billing',
+      actorName: params.actorName ?? 'Billing',
     })
   }
   try {

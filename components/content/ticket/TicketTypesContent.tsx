@@ -11,7 +11,9 @@ import AdminSidebar from '@/components/layout/AdminSidebar'
 import RowActions from '@/components/settings/RowActions'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import SkillsSelect from '@/components/settings/SkillsSelect'
+import SlaDurationInput from '@/components/settings/SlaDurationInput'
 import { Chip, StatusPill } from '@/components/ticket/list/TicketChips'
+import { formatSlaTarget } from '@/lib/sla-format'
 
 const { Content } = Layout
 
@@ -37,6 +39,8 @@ interface TicketTypeRecord {
   sort_order: number
   is_agent_only?: boolean
   required_skills?: string[]
+  sla_respond_minutes?: number | null
+  sla_resolve_minutes?: number | null
   created_at: string
   updated_at: string
 }
@@ -131,6 +135,8 @@ export default function TicketTypesContent({ user: currentUser }: TicketTypesCon
       description: record.description ?? '',
       is_agent_only: record.is_agent_only ?? false,
       required_skills: record.required_skills ?? [],
+      sla_respond_minutes: record.sla_respond_minutes ?? null,
+      sla_resolve_minutes: record.sla_resolve_minutes ?? null,
     })
     setModalVisible(true)
   }
@@ -162,6 +168,8 @@ export default function TicketTypesContent({ user: currentUser }: TicketTypesCon
         description: typeof values.description === 'string' ? values.description : '',
         is_agent_only: Boolean(values.is_agent_only),
         required_skills: Array.isArray(values.required_skills) ? values.required_skills : [],
+        sla_respond_minutes: typeof values.sla_respond_minutes === 'number' ? values.sla_respond_minutes : null,
+        sla_resolve_minutes: typeof values.sla_resolve_minutes === 'number' ? values.sla_resolve_minutes : null,
       }
 
       if (editingType) {
@@ -230,6 +238,19 @@ export default function TicketTypesContent({ user: currentUser }: TicketTypesCon
               </Tag>
             ))}
           </Space>
+        ) : (
+          <span className="cell-muted">—</span>
+        ),
+    },
+    {
+      title: 'SLA (respond / resolve)',
+      key: 'sla',
+      width: 170,
+      render: (_: unknown, r: TicketTypeRecord) =>
+        r.sla_respond_minutes || r.sla_resolve_minutes ? (
+          <span>
+            {formatSlaTarget(r.sla_respond_minutes)} / {formatSlaTarget(r.sla_resolve_minutes)}
+          </span>
         ) : (
           <span className="cell-muted">—</span>
         ),
@@ -340,6 +361,20 @@ export default function TicketTypesContent({ user: currentUser }: TicketTypesCon
                 tooltip="Skills suggested for tickets of this type. Each ticket can set its own under Attributes → Skills needed; these apply when it has none."
               >
                 <SkillsSelect />
+              </Form.Item>
+              <Form.Item
+                name="sla_respond_minutes"
+                label="Respond within"
+                tooltip="Service level: the team must send a first public reply this soon after a client opens a ticket of this type. A client can have its own targets (Company → SLA). Empty = no target."
+              >
+                <SlaDurationInput />
+              </Form.Item>
+              <Form.Item
+                name="sla_resolve_minutes"
+                label="Resolve within"
+                tooltip="Service level: the ticket must be resolved / closed this soon after it was created. Empty = no target."
+              >
+                <SlaDurationInput />
               </Form.Item>
               <Form.Item
                 name="is_agent_only"

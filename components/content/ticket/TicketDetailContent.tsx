@@ -32,8 +32,10 @@ import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import { TabActivity, TabChecklist, TabGeneral, TabTimeTracker } from '@/components/ticket/detail'
 import AssignRecommendation from '@/components/ticket/detail/AssignRecommendation'
+import CsatPanel from '@/components/ticket/detail/CsatPanel'
 import type { SidebarAttributesDraft } from '@/components/ticket/detail/TabGeneral'
 import TabGeneralCustomer from '@/components/ticket/detail/TabGeneralCustomer'
+import SlaChips from '@/components/ticket/SlaChips'
 import TicketPresenceBar from '@/components/ticket/TicketPresenceBar'
 import { canDeleteTickets, isAdmin, isAdminOrManager } from '@/lib/auth-utils'
 import { useTicketDetailLiveSync } from '@/lib/firebase/useTicketDetailLiveSync'
@@ -1797,6 +1799,20 @@ export default function TicketDetailContent({
                                 : { borderTop: 'none', borderTopLeftRadius: 0, borderTopRightRadius: 0 }),
                         }}
                     >
+
+                        {!isCustomer && (displayTicket?.sla?.respond || displayTicket?.sla?.resolve) ? (
+                            <div style={{ marginBottom: 12 }}>
+                                <SlaChips sla={displayTicket.sla} />
+                            </div>
+                        ) : null}
+
+                        <CsatPanel
+                            key={`csat-${displayTicket?.id}-${displayTicket?.csat?.rating ?? 0}`}
+                            ticketId={displayTicket.id}
+                            audience={isCustomer ? 'customer' : 'staff'}
+                            finished={['resolved', 'closed', 'completed'].includes(displayTicket?.status)}
+                            csat={displayTicket?.csat ?? null}
+                        />
 
                         {!isCustomer && (displayTicket?.ticket_type ?? 'support') === 'support' ? (
                             <AssignRecommendation

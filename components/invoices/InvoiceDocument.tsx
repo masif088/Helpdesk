@@ -256,14 +256,14 @@ export default function InvoiceDocument({ invoice: initial, client, issuer, depo
               </tr>
             </thead>
             <tbody>
-              {inv.lines.map((l) => (
-                <tr key={l.ticketId}>
+              {inv.lines.map((l, i) => (
+                <tr key={`${l.ticketId}-${i}`}>
                   <td>
                     <div className="invoice-strong">{l.title}</div>
-                    <div className="invoice-muted">Ticket #{l.ticketId}{l.adjustment ? ' · price adjustment' : ''}</div>
+                    <div className="invoice-muted">{l.retainer ? 'Monthly retainer' : `Ticket #${l.ticketId}${l.adjustment ? ' · price adjustment' : ''}`}</div>
                   </td>
-                  <td className="num">{l.fixed ? '—' : fmtHours(l.seconds)}</td>
-                  <td className="num">{l.adjustment ? 'Adjustment' : l.fixed ? 'Fixed price' : `${money(l.rate)}/h`}</td>
+                  <td className="num">{l.fixed || l.retainer ? '—' : fmtHours(l.seconds)}</td>
+                  <td className="num">{l.retainer ? 'Retainer' : l.adjustment ? 'Adjustment' : l.fixed ? 'Fixed price' : `${money(l.rate)}/h`}</td>
                   <td className="num">{money(l.amount)}</td>
                 </tr>
               ))}

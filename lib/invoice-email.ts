@@ -64,9 +64,9 @@ export async function buildInvoiceEmailHtml(inv: InvoicesRow, doc: InvoiceEmailD
       : inv.lines
           .map(
             (l) =>
-              `<tr><td style="${TD}"><strong>${esc(l.title)}</strong><br><span style="color:#64748B;font-size:12px;">Ticket #${l.ticketId}${l.adjustment ? ' · price adjustment' : ''}</span></td>` +
-              `<td style="${TD}${NUM}">${l.fixed ? '—' : `${Math.max(0.01, l.seconds / 3600).toFixed(2)} h`}</td>` +
-              `<td style="${TD}${NUM}">${l.adjustment ? 'Adjustment' : l.fixed ? 'Fixed price' : `${money(l.rate)}/h`}</td>` +
+              `<tr><td style="${TD}"><strong>${esc(l.title)}</strong><br><span style="color:#64748B;font-size:12px;">${l.retainer ? 'Monthly retainer' : `Ticket #${l.ticketId}${l.adjustment ? ' · price adjustment' : ''}`}</span></td>` +
+              `<td style="${TD}${NUM}">${l.fixed || l.retainer ? '—' : `${Math.max(0.01, l.seconds / 3600).toFixed(2)} h`}</td>` +
+              `<td style="${TD}${NUM}">${l.retainer ? 'Retainer' : l.adjustment ? 'Adjustment' : l.fixed ? 'Fixed price' : `${money(l.rate)}/h`}</td>` +
               `<td style="${TD}${NUM}">${money(l.amount)}</td></tr>`
           )
           .join('') + `<tr><td colspan="3" style="${TD}font-weight:700;${NUM}">Total due</td><td style="${TD}font-weight:700;${NUM}">${money(inv.total)}</td></tr>`

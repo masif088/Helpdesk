@@ -305,6 +305,10 @@ export type CompaniesRow = {
   defaultRateCurrency: string | null
   /** Skills this client's tickets need, per ticket type id (applied when a ticket has none of its own) */
   skillsByType: Record<string, string[]> | null
+  /** Service level targets per ticket type id; "default" applies to every other ticket of this client */
+  slaByType: Record<string, SlaTarget> | null
+  /** Monthly retainer invoiced automatically */
+  retainer: Retainer | null
   /** Staff were told the deposit no longer covers what is owed (cleared once it does again) */
   lowDepositNotifiedAt: Date | null
   createdAt: Date
@@ -325,6 +329,8 @@ export type NewCompaniesRow = {
   defaultHourlyRate?: number | null
   defaultRateCurrency?: string | null
   skillsByType?: Record<string, string[]> | null
+  slaByType?: Record<string, SlaTarget> | null
+  retainer?: Retainer | null
   lowDepositNotifiedAt?: Date | null
   createdAt?: Date
   updatedAt?: Date
@@ -332,7 +338,7 @@ export type NewCompaniesRow = {
 
 export const companies = defineTable<CompaniesRow, NewCompaniesRow>({
   name: 'companies',
-  columns: ['id', 'name', 'isActive', 'email', 'domainList', 'color', 'activeTeamId', 'activeManagerId', 'isCustomer', 'freshdeskId', 'defaultHourlyRate', 'defaultRateCurrency', 'skillsByType', 'lowDepositNotifiedAt', 'createdAt', 'updatedAt'],
+  columns: ['id', 'name', 'isActive', 'email', 'domainList', 'color', 'activeTeamId', 'activeManagerId', 'isCustomer', 'freshdeskId', 'defaultHourlyRate', 'defaultRateCurrency', 'skillsByType', 'slaByType', 'retainer', 'lowDepositNotifiedAt', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',
@@ -376,6 +382,27 @@ export const companyPayments = defineTable<CompanyPaymentsRow, NewCompanyPayment
   nowFields: ['createdAt'],
 })
 
+/** Response / resolution targets in minutes (null = no target) */
+export type SlaTarget = { respond: number | null; resolve: number | null }
+
+/** Fixed monthly fee invoiced automatically (Company -> Billing) */
+export type Retainer = {
+  active: boolean
+  amount: number
+  /** IDR | USD */
+  currency: string
+  /** Shown on the invoice line, e.g. "Monthly support retainer" */
+  label: string
+  /** First month to invoice, YYYY-MM */
+  startMonth: string
+  /** Days from the issue date until the invoice is due */
+  dueDays: number
+  /** Email the invoice to the client's billing contacts when it is created */
+  autoSend: boolean
+  /** Last month already invoiced, YYYY-MM */
+  lastMonth: string | null
+}
+
 export type InvoiceLine = {
   ticketId: number
   title: string
@@ -389,6 +416,10 @@ export type InvoiceLine = {
   fixed?: boolean
   /** Fixed-price ticket whose price changed after it was invoiced: amount is the difference (may be negative) */
   adjustment?: boolean
+  /** Monthly retainer fee (no ticket: ticketId is 0) */
+  retainer?: boolean
+  /** Month the retainer covers, YYYY-MM */
+  retainerMonth?: string
 }
 
 export type InvoicesRow = {
@@ -1686,6 +1717,9 @@ export type TicketTypesRow = {
   isAgentOnly: boolean
   /** Agent skills this needs (routing: who to suggest for the ticket) */
   requiredSkills: string[] | null
+  /** Default service level in minutes (a client can override it); null = none */
+  slaRespondMinutes: number | null
+  slaResolveMinutes: number | null
   companyId: string | null
   createdAt: Date
   updatedAt: Date
@@ -1700,6 +1734,8 @@ export type NewTicketTypesRow = {
   sortOrder?: number | null
   isAgentOnly?: boolean
   requiredSkills?: string[] | null
+  slaRespondMinutes?: number | null
+  slaResolveMinutes?: number | null
   companyId?: string | null
   createdAt?: Date
   updatedAt?: Date
@@ -1707,7 +1743,7 @@ export type NewTicketTypesRow = {
 
 export const ticketTypes = defineTable<TicketTypesRow, NewTicketTypesRow>({
   name: 'ticket_types',
-  columns: ['id', 'slug', 'title', 'description', 'color', 'sortOrder', 'isAgentOnly', 'requiredSkills', 'companyId', 'createdAt', 'updatedAt'],
+  columns: ['id', 'slug', 'title', 'description', 'color', 'sortOrder', 'isAgentOnly', 'requiredSkills', 'slaRespondMinutes', 'slaResolveMinutes', 'companyId', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'seq',
@@ -1749,6 +1785,16 @@ export type TicketsRow = {
   timeTriggerFired: Record<string, string> | null
   /** Inbox reminder already sent for this ticket (cleared never: one reminder per ticket) */
   inboxReminderAt: Date | null
+  /** First public reply from the team (service level: response time); filled when it happens, or when first needed for older tickets */
+  firstRespondedAt: Date | null
+  /** SLA alerts already sent: respond_warn / respond_breach / resolve_warn / resolve_breach -> ISO time */
+  slaNotified: Record<string, string> | null
+  /** Customer satisfaction after the ticket was finished: 1-5, optional comment */
+  csatRating: number | null
+  csatComment: string | null
+  csatAt: Date | null
+  /** Who rated it */
+  csatBy: string | null
   source: string | null
   createdAt: Date
   updatedAt: Date
@@ -1782,6 +1828,12 @@ export type NewTicketsRow = {
   requiredSkills?: string[] | null
   timeTriggerFired?: Record<string, string> | null
   inboxReminderAt?: Date | null
+  firstRespondedAt?: Date | null
+  slaNotified?: Record<string, string> | null
+  csatRating?: number | null
+  csatComment?: string | null
+  csatAt?: Date | null
+  csatBy?: string | null
   source?: string | null
   createdAt?: Date
   updatedAt?: Date
@@ -1789,7 +1841,7 @@ export type NewTicketsRow = {
 
 export const tickets = defineTable<TicketsRow, NewTicketsRow>({
   name: 'tickets',
-  columns: ['id', 'title', 'description', 'originalDescription', 'shortNote', 'createdBy', 'contactUserId', 'dueDate', 'status', 'teamId', 'gmailThreadId', 'priority', 'createdVia', 'lastReadAt', 'customerLastReadAt', 'staffLastReadAt', 'typeId', 'ticketType', 'companyId', 'projectId', 'projectStatusId', 'hourlyRate', 'rateCurrency', 'fixedPrice', 'requiredSkills', 'timeTriggerFired', 'inboxReminderAt', 'source', 'createdAt', 'updatedAt'],
+  columns: ['id', 'title', 'description', 'originalDescription', 'shortNote', 'createdBy', 'contactUserId', 'dueDate', 'status', 'teamId', 'gmailThreadId', 'priority', 'createdVia', 'lastReadAt', 'customerLastReadAt', 'staffLastReadAt', 'typeId', 'ticketType', 'companyId', 'projectId', 'projectStatusId', 'hourlyRate', 'rateCurrency', 'fixedPrice', 'requiredSkills', 'timeTriggerFired', 'inboxReminderAt', 'firstRespondedAt', 'slaNotified', 'csatRating', 'csatComment', 'csatAt', 'csatBy', 'source', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'seq',

@@ -1,3 +1,5 @@
+import type { TicketSla } from '@/lib/sla-format'
+
 export interface TicketsContentProps {
   user: { id: string }
 }
@@ -57,6 +59,8 @@ export interface TicketRecord {
   has_unread_replies?: boolean
   /** Staff: never opened by anyone on the team */
   is_new?: boolean
+  /** Service level clocks of an open ticket (staff only) */
+  sla?: TicketSla | null
   /** Ticket-level files (from GET /api/tickets); used when editing in modal */
   attachments?: TicketAttachment[]
 }

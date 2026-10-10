@@ -160,6 +160,16 @@ export async function getBillingReport(from: string, to: string): Promise<Billin
     if (inv.status === 'void') continue
     const a = acc(inv.companyId)
     add(inv.status === 'paid' ? a.paidInvoices : a.unpaidInvoices, inv.currency, inv.total)
+    // Monthly retainer fees count as billed in the month they cover
+    for (const l of inv.lines) {
+      if (!l.retainer || !l.retainerMonth) continue
+      const at = dayjs(`${l.retainerMonth}-01`)
+      if (at.isBefore(start.startOf('month')) || at.isAfter(end)) continue
+      add(a.billed, inv.currency, l.amount)
+      const m = months.get(l.retainerMonth) ?? { seconds: 0, money: new Map<string, number>() }
+      add(m.money, inv.currency, l.amount)
+      months.set(l.retainerMonth, m)
+    }
   }
   const positive = (m: Map<string, number>) => new Map([...m].filter(([, v]) => v > 0.005))
 
