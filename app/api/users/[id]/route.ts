@@ -7,6 +7,7 @@ import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
 import { afterUserRowChanged, findUserByEmail, setUserPassword } from '@/lib/app-users'
 import { isAdminOrManager } from '@/lib/auth-utils'
 import { isContactKind } from '@/lib/contact-kind'
+import { syncAuthUser } from '@/lib/firebase/auth-server'
 import {
   companies,
   companyUsers,
@@ -388,6 +389,29 @@ export async function PATCH(
       return NextResponse.json({ error: 'contact_kind must be person or automated' }, { status: 400 })
     }
     updateData.contactKind = body.contact_kind
+  }
+
+  // Admin can change any user's login email (Firebase Auth first: it refuses an address another account already uses)
+  if (body.email !== undefined && body.email !== null && String(body.email).trim().toLowerCase() !== (targetUser.email ?? '').toLowerCase()) {
+    if (!isAdmin) return NextResponse.json({ error: 'Only an admin can change a user\'s email' }, { status: 403 })
+    const nextEmail = String(body.email).trim().toLowerCase()
+    if (!/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(nextEmail)) {
+      return NextResponse.json({ error: 'Enter a valid email address' }, { status: 400 })
+    }
+    const clash = await findUserByEmail(nextEmail)
+    if (clash && clash.id !== id) {
+      return NextResponse.json({ error: 'Another user already uses this email' }, { status: 409 })
+    }
+    try {
+      await syncAuthUser(id, { email: nextEmail })
+    } catch (e) {
+      const code = (e as { code?: string }).code
+      return NextResponse.json(
+        { error: code === 'auth/email-already-exists' ? 'This email is already used by another login account' : 'Could not change the email in Firebase Auth' },
+        { status: code === 'auth/email-already-exists' ? 409 : 502 }
+      )
+    }
+    updateData.email = nextEmail
   }
 
   // Admin can change any user's password

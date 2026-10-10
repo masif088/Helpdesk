@@ -325,6 +325,7 @@ export default function UserDetailContent({ user: currentUser, userData: initial
       status: userData.status,
       company_id: userData.company_id || undefined,
       phone: userData.phone || '',
+      email: userData.email,
       department: userData.department || '',
       position: userData.position || '',
       skills: userData.skills ?? [],
@@ -353,6 +354,7 @@ export default function UserDetailContent({ user: currentUser, userData: initial
       status: userData.status,
       company_id: userData.company_id || undefined,
       phone: userData.phone || '',
+      email: userData.email,
       department: userData.department || '',
       position: userData.position || '',
       skills: userData.skills ?? [],
@@ -404,6 +406,10 @@ export default function UserDetailContent({ user: currentUser, userData: initial
         locale: values.locale || 'en',
         is_email_verified: values.is_email_verified || false,
         updated_at: new Date().toISOString(),
+      }
+      // Only an admin can change the login email (it is changed in Firebase Auth too)
+      if (isAdmin && typeof values.email === 'string' && values.email.trim().toLowerCase() !== (userData.email ?? '').toLowerCase()) {
+        updateData.email = values.email.trim()
       }
       if (!isViewerCustomer) {
         updateData.role = values.role
@@ -666,9 +672,20 @@ export default function UserDetailContent({ user: currentUser, userData: initial
                   <Card title="Basic Information" size="small">
                     {isEditing ? (
                       <Space orientation="vertical" style={{ width: '100%' }} size="middle">
-                        <Form.Item label="Email">
-                          <Input prefix={<MailOutlined />} value={userData.email} disabled />
-                        </Form.Item>
+                        {isAdmin ? (
+                          <Form.Item
+                            name="email"
+                            label="Email"
+                            tooltip="The login email. Changing it also changes it in Firebase Auth."
+                            rules={[{ required: true, message: 'Required' }, { type: 'email', message: 'Enter a valid email' }]}
+                          >
+                            <Input prefix={<MailOutlined />} />
+                          </Form.Item>
+                        ) : (
+                          <Form.Item label="Email">
+                            <Input prefix={<MailOutlined />} value={userData.email} disabled />
+                          </Form.Item>
+                        )}
                         <Row gutter={16}>
                           <Col span={12}>
                             <Form.Item name="first_name" label="First name">
