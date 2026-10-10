@@ -217,7 +217,7 @@ export default function TicketTypesContent({ user: currentUser }: TicketTypesCon
       render: (d: string | undefined) => <span className="cell-muted">{(d ?? '').trim() || '—'}</span>,
     },
     {
-      title: 'Needs skills',
+      title: 'Default skills',
       dataIndex: 'required_skills',
       key: 'required_skills',
       width: 200,
@@ -336,8 +336,8 @@ export default function TicketTypesContent({ user: currentUser }: TicketTypesCon
               </Form.Item>
               <Form.Item
                 name="required_skills"
-                label="Needs skills"
-                tooltip="Agents with these skills are suggested when a ticket of this type needs an assignee."
+                label="Default skills"
+                tooltip="Skills suggested for tickets of this type. Each ticket can set its own under Attributes → Skills needed; these apply when it has none."
               >
                 <SkillsSelect />
               </Form.Item>

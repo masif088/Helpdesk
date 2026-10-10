@@ -269,6 +269,7 @@ export async function getTicketDetail(ticketId: number, options?: TicketDetailOp
     description: t.description,
     original_description: t.originalDescription ?? null,
     short_note: t.shortNote ?? null,
+    required_skills: t.requiredSkills ?? [],
     created_by: t.createdBy,
     contact_user_id: t.contactUserId ?? null,
     due_date: t.dueDate ? new Date(t.dueDate).toISOString() : null,

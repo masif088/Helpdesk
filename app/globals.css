@@ -664,6 +664,13 @@ html::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.35); }
 .app-sidebar__toggle:hover { background: rgba(148, 163, 184, 0.12); color: #fff; }
 
 /* Floating side panels (ticket Attributes / Company Info) — same shell as .app-sidebar */
+/* A disabled primary button inside the dark side panels (ticket attributes) stays readable, not an empty dark box */
+.app-panel .ant-btn-primary:disabled,
+.app-panel .ant-btn-primary.ant-btn-disabled {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
 .app-panel {
   display: flex;
   flex-direction: column;

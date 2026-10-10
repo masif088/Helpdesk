@@ -183,7 +183,7 @@ export default function TagsContent({ user: currentUser }: TagsContentProps) {
       render: (_, r) => <Chip color={r.color}>{r.name}</Chip>,
     },
     {
-      title: 'Needs skills',
+      title: 'Default skills',
       dataIndex: 'required_skills',
       key: 'required_skills',
       render: (skills: string[] | undefined) =>
@@ -294,8 +294,8 @@ export default function TagsContent({ user: currentUser }: TagsContentProps) {
               </Form.Item>
               <Form.Item
                 name="required_skills"
-                label="Needs skills"
-                tooltip="Agents with these skills are suggested when a ticket with this tag needs an assignee."
+                label="Default skills"
+                tooltip="Skills suggested for tickets with this tag. Each ticket can set its own under Attributes → Skills needed; these apply when it has none."
               >
                 <SkillsSelect />
               </Form.Item>

@@ -49,6 +49,8 @@ import {
 import { sendAgentClosesTicketEmail, sendTicketAssignedEmail } from '@/lib/ticket-notification-emails'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 import { assertCustomerMayUseTicketType } from '@/lib/ticket-type-customer-access'
+import { normalizeSkills } from '@/lib/user-skills'
+import { knownSkills } from '@/lib/user-skills-server'
 
 async function triggerTicketUpdatedAutomation(ticketId: number) {
   try {
@@ -377,6 +379,7 @@ export async function PATCH(
     due_date,
     assignees,
     tag_ids,
+    required_skills,
     ticket_type,
     attachments_add = [],
     attachments_delete = [],
@@ -515,6 +518,8 @@ export async function PATCH(
     ...(title !== undefined && { title }),
     ...(description !== undefined && { description }),
     ...(short_note !== undefined && { shortNote: short_note ?? null }),
+    // Skills the ticket needs: internal users only
+    ...(required_skills !== undefined && role !== 'customer' && { requiredSkills: normalizeSkills(required_skills, await knownSkills()) }),
     ...(status !== undefined && { status }),
     ...(team_id !== undefined && { teamId: team_id || null }),
     ...(type_id !== undefined && { typeId: type_id ?? null }),

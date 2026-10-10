@@ -48,6 +48,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import DateDisplay from '@/components/common/DateDisplay'
+import SkillsSelect from '@/components/settings/SkillsSelect'
 import { DEFAULT_RATE_CURRENCY, RATE_CURRENCIES } from '@/lib/billing-rate'
 
 import CommentAiSummaryTrigger from './CommentAiSummaryTrigger'
@@ -170,6 +171,8 @@ export interface SidebarAttributesDraft {
   hourlyRate: number | null
   fixedPrice: number | null
   rateCurrency: string | null
+  /** Agent skills this ticket needs */
+  requiredSkills: string[]
 }
 
 function snapshotSidebarDraft(params: {
@@ -205,6 +208,7 @@ function snapshotSidebarDraft(params: {
     hourlyRate: typeof ticketData?.hourly_rate === 'number' ? ticketData.hourly_rate : null,
     fixedPrice: typeof ticketData?.fixed_price === 'number' ? ticketData.fixed_price : null,
     rateCurrency: ticketData?.rate_currency ?? null,
+    requiredSkills: Array.isArray(ticketData?.required_skills) ? ticketData.required_skills : [],
   }
 }
 
@@ -1218,6 +1222,21 @@ export default function TabGeneral({
               )}
             </div>
 
+            {/* Skills this ticket needs: decides who is suggested below */}
+            <div>
+              <Text style={LBL}>Skills needed</Text>
+              {canEditAssignees ? (
+                <SkillsSelect
+                  value={sidebarDraft.requiredSkills}
+                  onChange={(skills) => setSidebarDraft((d) => ({ ...d, requiredSkills: skills }))}
+                  placeholder="e.g. WordPress, Billing"
+                  disabled={sidebarAttributesSaving}
+                />
+              ) : (
+                <Text style={VAL}>{sidebarDraft.requiredSkills.length ? sidebarDraft.requiredSkills.join(', ') : '—'}</Text>
+              )}
+            </div>
+
             {/* Assignees */}
             <div>
               <Text style={LBL}>Assignees</Text>
@@ -1242,6 +1261,7 @@ export default function TabGeneral({
                   ticketId={ticketData.id}
                   assigneeIds={sidebarDraft.assigneeIds}
                   refreshKey={ticketData?.updated_at ?? ''}
+                  skills={sidebarDraft.requiredSkills}
                   onAdd={(userId) => setSidebarDraft((d) => ({ ...d, assigneeIds: [...new Set([...d.assigneeIds, userId])] }))}
                 />
               ) : null}
@@ -1297,7 +1317,7 @@ export default function TabGeneral({
               <Flex gap={6} vertical>
                 <Input placeholder="Key" value={newAttributeKey} onChange={e => onNewAttributeKeyChange(e.target.value)} />
                 <Input placeholder="Value" value={newAttributeValue} onChange={e => onNewAttributeValueChange(e.target.value)} onPressEnter={onAddAttribute} />
-                <Button type="primary" icon={<PlusOutlined />} onClick={onAddAttribute} disabled={!newAttributeKey.trim()} loading={attributesLoading} block>Add</Button>
+                <Button type="primary" icon={<PlusOutlined />} onClick={onAddAttribute} disabled={!newAttributeKey.trim()} loading={attributesLoading} block>Add attribute</Button>
               </Flex>
             </div>
 

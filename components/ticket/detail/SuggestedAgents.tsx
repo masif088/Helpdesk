@@ -17,25 +17,30 @@ export default function SuggestedAgents({
   assigneeIds,
   onAdd,
   refreshKey,
+  skills,
 }: {
   ticketId: number
   assigneeIds: string[]
   onAdd: (userId: string) => void
   /** Changes when the ticket was saved (type / tags / team may have changed) */
   refreshKey?: string | number | null
+  /** Skills currently chosen in the form (even before saving) */
+  skills?: string[]
 }) {
   const [data, setData] = useState<TicketSuggestions | null>(null)
+  const skillsKey = skills ? skills.join('|') : null
 
   useEffect(() => {
     let alive = true
-    fetch(`/api/tickets/${ticketId}/suggested-agents`, { credentials: 'include' })
+    const qs = skills ? `?skills=${encodeURIComponent(skills.join(','))}` : ''
+    fetch(`/api/tickets/${ticketId}/suggested-agents${qs}`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => alive && setData(d))
       .catch(() => {})
     return () => {
       alive = false
     }
-  }, [ticketId, refreshKey])
+  }, [ticketId, refreshKey, skillsKey])
 
   const open = (data?.agents ?? []).filter((a) => !assigneeIds.includes(a.userId))
   if (!data || open.length === 0) return null

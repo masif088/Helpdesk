@@ -1133,6 +1133,7 @@ export default function TicketDetailContent({
                 team_id: d.teamId,
                 assignees: d.assigneeIds,
                 short_note: d.shortNote.trim() || null,
+                required_skills: d.requiredSkills,
             }
             if (isAdminOrManager(currentUser.role ?? undefined)) {
                 Object.assign(body, ticketPricePayload(d))
@@ -1217,6 +1218,7 @@ export default function TicketDetailContent({
                     due_date: d.dueDate,
                     team_id: d.teamId,
                     short_note: d.shortNote.trim() || null,
+                    required_skills: d.requiredSkills,
                     ...(isAdminOrManager(currentUser.role ?? undefined)
                         ? ticketPricePayload(d)
                         : {}),

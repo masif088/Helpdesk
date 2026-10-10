@@ -1740,6 +1740,8 @@ export type TicketsRow = {
   rateCurrency: string | null
   /** Fixed price for the whole ticket, whatever the hours (replaces the hourly rate when set; same currency) */
   fixedPrice: number | null
+  /** Agent skills this ticket needs (decides who is suggested); empty = the type's / tags' default skills */
+  requiredSkills: string[] | null
   /** Time-trigger automation: rule id → ISO time it last fired on this ticket (fires once per idle period) */
   timeTriggerFired: Record<string, string> | null
   /** Inbox reminder already sent for this ticket (cleared never: one reminder per ticket) */
@@ -1774,6 +1776,7 @@ export type NewTicketsRow = {
   hourlyRate?: number | null
   rateCurrency?: string | null
   fixedPrice?: number | null
+  requiredSkills?: string[] | null
   timeTriggerFired?: Record<string, string> | null
   inboxReminderAt?: Date | null
   source?: string | null
@@ -1783,7 +1786,7 @@ export type NewTicketsRow = {
 
 export const tickets = defineTable<TicketsRow, NewTicketsRow>({
   name: 'tickets',
-  columns: ['id', 'title', 'description', 'originalDescription', 'shortNote', 'createdBy', 'contactUserId', 'dueDate', 'status', 'teamId', 'gmailThreadId', 'priority', 'createdVia', 'lastReadAt', 'customerLastReadAt', 'staffLastReadAt', 'typeId', 'ticketType', 'companyId', 'projectId', 'projectStatusId', 'hourlyRate', 'rateCurrency', 'fixedPrice', 'timeTriggerFired', 'inboxReminderAt', 'source', 'createdAt', 'updatedAt'],
+  columns: ['id', 'title', 'description', 'originalDescription', 'shortNote', 'createdBy', 'contactUserId', 'dueDate', 'status', 'teamId', 'gmailThreadId', 'priority', 'createdVia', 'lastReadAt', 'customerLastReadAt', 'staffLastReadAt', 'typeId', 'ticketType', 'companyId', 'projectId', 'projectStatusId', 'hourlyRate', 'rateCurrency', 'fixedPrice', 'requiredSkills', 'timeTriggerFired', 'inboxReminderAt', 'source', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'seq',

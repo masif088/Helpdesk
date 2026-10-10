@@ -1,6 +1,7 @@
 /**
- * Who should take a ticket: the skills it needs come from its type and its tags (Settings → Ticket types / Tags),
- * agents are ranked by how many of those skills they have, then by who has the lightest plate right now.
+ * Who should take a ticket: the skills it needs are the ticket's own (Attributes → Skills needed); when it has none,
+ * the default skills of its type and tags (Settings → Ticket types / Tags). Agents are ranked by how many of those
+ * skills they have, then by who has the lightest plate right now.
  * Without any required skill the ranking is just the lightest plate (within the ticket's team when it has one).
  */
 import { type AgentWorkload, loadAgentWorkload } from '@/lib/agent-workload'
@@ -13,7 +14,7 @@ export type SuggestedAgent = Pick<AgentWorkload, 'userId' | 'name' | 'email' | '
   alreadyAssigned: boolean
 }
 
-export type TicketSuggestions = { requiredSkills: string[]; agents: SuggestedAgent[] }
+export type TicketSuggestions = { requiredSkills: string[]; /** 'ticket' = set on the ticket, 'default' = from its type / tags */ source: 'ticket' | 'default'; agents: SuggestedAgent[] }
 
 const key = (s: string) => s.trim().toLowerCase()
 
@@ -55,7 +56,8 @@ export function rankAgents(
     )
 }
 
-export async function suggestAgentsForTicket(ticketId: number, limit = 5): Promise<TicketSuggestions | null> {
+/** `skillsOverride`: the skills currently chosen in the form (not saved yet) */
+export async function suggestAgentsForTicket(ticketId: number, limit = 5, skillsOverride?: string[]): Promise<TicketSuggestions | null> {
   const ticket = await get(tickets, ticketId)
   if (!ticket) return null
   const [type, tagLinks, assigned, workload] = await Promise.all([
@@ -65,9 +67,10 @@ export async function suggestAgentsForTicket(ticketId: number, limit = 5): Promi
     loadAgentWorkload(),
   ])
   const tagRows = tagLinks.length ? await find(tags, { where: [['id', 'in', tagLinks.map((l) => l.tagId)]] }) : []
-  const requiredSkills = mergeRequiredSkills([type?.requiredSkills, ...tagRows.map((t) => t.requiredSkills)])
+  const own = mergeRequiredSkills([skillsOverride ?? ticket.requiredSkills])
+  const requiredSkills = own.length ? own : mergeRequiredSkills([type?.requiredSkills, ...tagRows.map((t) => t.requiredSkills)])
   const ranked = rankAgents(workload.agents, requiredSkills, { teamId: ticket.teamId, assignedIds: new Set(assigned.map((a) => a.userId)) })
   // With required skills, people without any of them are not suggestions
   const agents = (requiredSkills.length ? ranked.filter((a) => a.matched.length > 0 || a.alreadyAssigned) : ranked).slice(0, limit)
-  return { requiredSkills, agents }
+  return { requiredSkills, source: own.length ? 'ticket' : 'default', agents }
 }
