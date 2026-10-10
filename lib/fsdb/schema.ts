@@ -1247,6 +1247,8 @@ export type TagsRow = {
   name: string
   slug: string
   color: string | null
+  /** Agent skills this needs (routing: who to suggest for the ticket) */
+  requiredSkills: string[] | null
   companyId: string | null
   createdAt: Date
   updatedAt: Date
@@ -1257,6 +1259,7 @@ export type NewTagsRow = {
   name: string
   slug: string
   color?: string | null
+  requiredSkills?: string[] | null
   companyId?: string | null
   createdAt?: Date
   updatedAt?: Date
@@ -1264,7 +1267,7 @@ export type NewTagsRow = {
 
 export const tags = defineTable<TagsRow, NewTagsRow>({
   name: 'tags',
-  columns: ['id', 'name', 'slug', 'color', 'companyId', 'createdAt', 'updatedAt'],
+  columns: ['id', 'name', 'slug', 'color', 'requiredSkills', 'companyId', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',
@@ -1678,6 +1681,8 @@ export type TicketTypesRow = {
   color: string | null
   sortOrder: number | null
   isAgentOnly: boolean
+  /** Agent skills this needs (routing: who to suggest for the ticket) */
+  requiredSkills: string[] | null
   companyId: string | null
   createdAt: Date
   updatedAt: Date
@@ -1691,6 +1696,7 @@ export type NewTicketTypesRow = {
   color?: string | null
   sortOrder?: number | null
   isAgentOnly?: boolean
+  requiredSkills?: string[] | null
   companyId?: string | null
   createdAt?: Date
   updatedAt?: Date
@@ -1698,7 +1704,7 @@ export type NewTicketTypesRow = {
 
 export const ticketTypes = defineTable<TicketTypesRow, NewTicketTypesRow>({
   name: 'ticket_types',
-  columns: ['id', 'slug', 'title', 'description', 'color', 'sortOrder', 'isAgentOnly', 'companyId', 'createdAt', 'updatedAt'],
+  columns: ['id', 'slug', 'title', 'description', 'color', 'sortOrder', 'isAgentOnly', 'requiredSkills', 'companyId', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'seq',

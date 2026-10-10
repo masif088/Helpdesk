@@ -1,7 +1,7 @@
 'use client'
 
 import { PlusOutlined } from '@ant-design/icons'
-import { Button, Form, Input, InputNumber, Layout, message, Modal, Space, Switch, Table, Typography } from 'antd'
+import { Button, Form, Input, InputNumber, Layout, message, Modal, Space, Switch, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useState } from 'react'
 
@@ -10,6 +10,7 @@ import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import RowActions from '@/components/settings/RowActions'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import SkillsSelect from '@/components/settings/SkillsSelect'
 import { Chip, StatusPill } from '@/components/ticket/list/TicketChips'
 
 const { Content } = Layout
@@ -35,6 +36,7 @@ interface TicketTypeRecord {
   color: string
   sort_order: number
   is_agent_only?: boolean
+  required_skills?: string[]
   created_at: string
   updated_at: string
 }
@@ -128,6 +130,7 @@ export default function TicketTypesContent({ user: currentUser }: TicketTypesCon
       sort_order: record.sort_order,
       description: record.description ?? '',
       is_agent_only: record.is_agent_only ?? false,
+      required_skills: record.required_skills ?? [],
     })
     setModalVisible(true)
   }
@@ -158,6 +161,7 @@ export default function TicketTypesContent({ user: currentUser }: TicketTypesCon
         sort_order: Number(values.sort_order) ?? 0,
         description: typeof values.description === 'string' ? values.description : '',
         is_agent_only: Boolean(values.is_agent_only),
+        required_skills: Array.isArray(values.required_skills) ? values.required_skills : [],
       }
 
       if (editingType) {
@@ -211,6 +215,24 @@ export default function TicketTypesContent({ user: currentUser }: TicketTypesCon
       key: 'description',
       ellipsis: true,
       render: (d: string | undefined) => <span className="cell-muted">{(d ?? '').trim() || '—'}</span>,
+    },
+    {
+      title: 'Needs skills',
+      dataIndex: 'required_skills',
+      key: 'required_skills',
+      width: 200,
+      render: (skills: string[] | undefined) =>
+        skills?.length ? (
+          <Space size={[4, 4]} wrap>
+            {skills.map((s) => (
+              <Tag key={s} style={{ marginInlineEnd: 0 }}>
+                {s}
+              </Tag>
+            ))}
+          </Space>
+        ) : (
+          <span className="cell-muted">—</span>
+        ),
     },
     {
       title: 'Who can pick it',
@@ -311,6 +333,13 @@ export default function TicketTypesContent({ user: currentUser }: TicketTypesCon
                   rows={3}
                   placeholder="Shown on Reference page (ticket types tab) for all users who can open tickets"
                 />
+              </Form.Item>
+              <Form.Item
+                name="required_skills"
+                label="Needs skills"
+                tooltip="Agents with these skills are suggested when a ticket of this type needs an assignee."
+              >
+                <SkillsSelect />
               </Form.Item>
               <Form.Item
                 name="is_agent_only"

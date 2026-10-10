@@ -6,6 +6,8 @@ import { canAccessTicketAttributes } from '@/lib/auth-utils'
 import { find, insert, tags } from '@/lib/fsdb'
 import { logSettingsCreated } from '@/lib/settings-activity-log'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
+import { normalizeSkills } from '@/lib/user-skills'
+import { knownSkills } from '@/lib/user-skills-server'
 
 /** GET /api/tags - List all tags */
 export async function GET() {
@@ -21,6 +23,7 @@ export async function GET() {
     name: r.name,
     slug: r.slug,
     color: r.color ?? '#000000',
+    required_skills: r.requiredSkills ?? [],
     created_at: r.createdAt ? new Date(r.createdAt).toISOString() : '',
     updated_at: r.updatedAt ? new Date(r.updatedAt).toISOString() : '',
   }))
@@ -38,7 +41,7 @@ export async function POST(request: Request) {
   if (denied) return denied
 
   const body = await request.json()
-  const { name, slug, color } = body
+  const { name, slug, color, required_skills } = body
 
   if (!name || !slug) {
     return NextResponse.json({ error: 'name and slug required' }, { status: 400 })
@@ -52,6 +55,7 @@ export async function POST(request: Request) {
     name: String(name).trim(),
     slug: normalizedSlug,
     color: color || '#000000',
+    requiredSkills: normalizeSkills(required_skills, await knownSkills()),
   })
 
   if (!inserted) {
@@ -72,6 +76,7 @@ export async function POST(request: Request) {
     name: inserted.name,
     slug: inserted.slug,
     color: inserted.color ?? '#000000',
+    required_skills: inserted.requiredSkills ?? [],
     created_at: inserted.createdAt ? new Date(inserted.createdAt).toISOString() : '',
     updated_at: inserted.updatedAt ? new Date(inserted.updatedAt).toISOString() : '',
   })

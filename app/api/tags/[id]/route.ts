@@ -6,8 +6,10 @@ import { canAccessTicketAttributes } from '@/lib/auth-utils'
 import { deleteTagRestrict, get, type Patch, tags, update } from '@/lib/fsdb'
 import { logSettingsDeleted, logSettingsUpdated } from '@/lib/settings-activity-log'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
+import { normalizeSkills } from '@/lib/user-skills'
+import { knownSkills } from '@/lib/user-skills-server'
 
-const TAG_LOG_KEYS = ['name', 'slug', 'color']
+const TAG_LOG_KEYS = ['name', 'slug', 'color', 'required_skills']
 
 /** PATCH /api/tags/[id] - Update tag */
 export async function PATCH(
@@ -23,12 +25,13 @@ export async function PATCH(
 
   const { id } = await params
   const body = await request.json()
-  const { name, slug, color } = body
+  const { name, slug, color, required_skills } = body
 
   const values: Record<string, unknown> = {}
   if (name !== undefined) values.name = String(name).trim()
   if (slug !== undefined) values.slug = String(slug).trim().toLowerCase().replace(/\s+/g, '_')
   if (color !== undefined) values.color = color || '#000000'
+  if (required_skills !== undefined) values.requiredSkills = normalizeSkills(required_skills, await knownSkills())
 
   if (Object.keys(values).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
@@ -54,11 +57,13 @@ export async function PATCH(
       name: current.name,
       slug: current.slug,
       color: current.color ?? '#000000',
+      required_skills: current.requiredSkills ?? [],
     },
     after: {
       name: updated.name,
       slug: updated.slug,
       color: updated.color ?? '#000000',
+      required_skills: updated.requiredSkills ?? [],
     },
     keys: TAG_LOG_KEYS,
   })
@@ -69,6 +74,7 @@ export async function PATCH(
     name: updated.name,
     slug: updated.slug,
     color: updated.color ?? '#000000',
+    required_skills: updated.requiredSkills ?? [],
     created_at: updated.createdAt ? new Date(updated.createdAt).toISOString() : '',
     updated_at: updated.updatedAt ? new Date(updated.updatedAt).toISOString() : '',
   })

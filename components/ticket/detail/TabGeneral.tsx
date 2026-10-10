@@ -56,6 +56,7 @@ import CommentHtml from './CommentHtml'
 import CommentTaggedCcLines from './CommentTaggedCcLines'
 import CommentWysiwyg from './CommentWysiwyg'
 import CompanyTodayTotal from './CompanyTodayTotal'
+import SuggestedAgents from './SuggestedAgents'
 import TicketUserMention from './TicketUserMention'
 import TrackerElapsed from './TrackerElapsed'
 
@@ -1236,6 +1237,14 @@ export default function TabGeneral({
                     : '—'}
                 </Text>
               )}
+              {canEditAssignees && ticketData?.id ? (
+                <SuggestedAgents
+                  ticketId={ticketData.id}
+                  assigneeIds={sidebarDraft.assigneeIds}
+                  refreshKey={ticketData?.updated_at ?? ''}
+                  onAdd={(userId) => setSidebarDraft((d) => ({ ...d, assigneeIds: [...new Set([...d.assigneeIds, userId])] }))}
+                />
+              ) : null}
             </div>
 
             {/* Total Time */}

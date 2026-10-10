@@ -41,19 +41,19 @@ export async function GET(request: Request) {
     conditions.push(['startTime', '>=', new Date(start)])
     conditions.push(['startTime', '<=', new Date(end)])
   }
-  if (stoppedOnly) {
-    conditions.push(['stopTime', '!=', null])
-  }
+  // "Stopped" is filtered in memory: a stopTime inequality next to the startTime range would need its own
+  // composite index (the dashboard's "My time" query failed without it)
   if (activeOnly) {
     conditions.push(['stopTime', '==', null])
     conditions.push(['trackerType', '==', 'timer'])
   }
 
-  const trackers = await find(ticketTimeTracker, {
+  const found = await find(ticketTimeTracker, {
     where: conditions,
     orderBy: [['startTime', 'desc']],
-    limit,
+    ...(stoppedOnly ? {} : { limit }),
   })
+  const trackers = stoppedOnly ? found.filter((t) => t.stopTime != null).slice(0, limit) : found
   const ticketById = await getManyMap(tickets, trackers.map((t) => t.ticketId))
   const rows = trackers.map((tracker) => {
     const t = ticketById.get(String(tracker.ticketId))
@@ -91,7 +91,7 @@ export async function GET(request: Request) {
     return NextResponse.json(result)
   }
 
-  const allMatching = await find(ticketTimeTracker, { where: conditions })
+  const allMatching = (await find(ticketTimeTracker, { where: conditions })).filter((t) => !stoppedOnly || t.stopTime != null)
   const totals = new Map<number, number>()
   for (const r of allMatching) totals.set(r.ticketId, (totals.get(r.ticketId) ?? 0) + reportedDurationSeconds(r))
   const aggRows = [...totals].map(([ticketId, reported_seconds_total]) => ({ ticketId, reported_seconds_total }))

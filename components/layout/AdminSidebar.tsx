@@ -14,6 +14,7 @@ import {
   NotificationOutlined,
   ReadOutlined,
   SettingOutlined,
+  TeamOutlined,
   UserOutlined,
   WarningOutlined,
 } from '@ant-design/icons'
@@ -95,6 +96,7 @@ function selectedKeysForPathname(pathname: string | null, ticketsSearch: string)
   if (pathname === '/contacts' || pathname.startsWith('/contacts/')) return ['/contacts']
   if (pathname === '/reports/billing' || pathname.startsWith('/reports/billing/')) return ['/reports/billing']
   if (pathname === '/reports/support' || pathname.startsWith('/reports/support/')) return ['/reports/support']
+  if (pathname === '/reports/workload' || pathname.startsWith('/reports/workload/')) return ['/reports/workload']
   if (isSettingsHrefPathname(pathname)) return ['/settings']
   const topLevel = ['/dashboard']
   const top = topLevel.find((k) => pathname === k || (k !== '/dashboard' && pathname.startsWith(`${k}/`)))
@@ -198,6 +200,7 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
         title: 'Reports',
         items: [
           { key: '/reports/support', label: 'Support', icon: <BarChartOutlined /> },
+          { key: '/reports/workload', label: 'Workload', icon: <TeamOutlined /> },
           { key: '/reports/billing', label: 'Billing', icon: <DollarOutlined /> },
         ],
       })

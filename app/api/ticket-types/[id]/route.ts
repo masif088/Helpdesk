@@ -6,8 +6,10 @@ import { canAccessTicketAttributes } from '@/lib/auth-utils'
 import { deleteTicketTypeRestrict, get, type Patch, ticketTypes, update } from '@/lib/fsdb'
 import { logSettingsDeleted, logSettingsUpdated } from '@/lib/settings-activity-log'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
+import { normalizeSkills } from '@/lib/user-skills'
+import { knownSkills } from '@/lib/user-skills-server'
 
-const TYPE_LOG_KEYS = ['title', 'slug', 'color', 'sort_order', 'description', 'is_agent_only']
+const TYPE_LOG_KEYS = ['title', 'slug', 'color', 'sort_order', 'description', 'is_agent_only', 'required_skills']
 
 /** PATCH /api/ticket-types/[id] - Update ticket type */
 export async function PATCH(
@@ -28,7 +30,7 @@ export async function PATCH(
   }
 
   const body = await request.json()
-  const { title, slug, color, sort_order, description, is_agent_only } = body
+  const { title, slug, color, sort_order, description, is_agent_only, required_skills } = body
 
   const values: Record<string, unknown> = {}
   if (title !== undefined) values.title = String(title).trim()
@@ -37,6 +39,7 @@ export async function PATCH(
   if (sort_order !== undefined) values.sortOrder = Number(sort_order) ?? 0
   if (description !== undefined) values.description = typeof description === 'string' ? description : ''
   if (is_agent_only !== undefined) values.isAgentOnly = Boolean(is_agent_only)
+  if (required_skills !== undefined) values.requiredSkills = normalizeSkills(required_skills, await knownSkills())
 
   if (Object.keys(values).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
@@ -60,6 +63,7 @@ export async function PATCH(
     sort_order: r.sortOrder ?? 0,
     description: r.description ?? '',
     is_agent_only: r.isAgentOnly ?? false,
+    required_skills: r.requiredSkills ?? [],
   })
   await logSettingsUpdated({
     session,
@@ -80,6 +84,7 @@ export async function PATCH(
     color: updated.color ?? '#000000',
     sort_order: updated.sortOrder ?? 0,
     is_agent_only: updated.isAgentOnly ?? false,
+    required_skills: updated.requiredSkills ?? [],
     created_at: updated.createdAt ? new Date(updated.createdAt).toISOString() : '',
     updated_at: updated.updatedAt ? new Date(updated.updatedAt).toISOString() : '',
   })

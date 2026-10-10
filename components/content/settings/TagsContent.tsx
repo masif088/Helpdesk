@@ -1,7 +1,7 @@
 'use client'
 
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons'
-import { Button, Form, Input, Layout, message, Modal, Space, Table, Typography } from 'antd'
+import { Button, Form, Input, Layout, message, Modal, Space, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useState } from 'react'
 
@@ -10,6 +10,7 @@ import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import RowActions from '@/components/settings/RowActions'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import SkillsSelect from '@/components/settings/SkillsSelect'
 import { Chip } from '@/components/ticket/list/TicketChips'
 
 const { Content } = Layout
@@ -32,6 +33,7 @@ interface TagRecord {
   name: string
   slug: string
   color: string
+  required_skills?: string[]
   created_at: string
   updated_at: string
 }
@@ -119,6 +121,7 @@ export default function TagsContent({ user: currentUser }: TagsContentProps) {
       name: record.name,
       slug: record.slug,
       color: record.color || '#000000',
+      required_skills: record.required_skills ?? [],
     })
     setModalVisible(true)
   }
@@ -146,6 +149,7 @@ export default function TagsContent({ user: currentUser }: TagsContentProps) {
         name: String(values.name || '').trim(),
         slug: String(values.slug || '').trim().toLowerCase().replace(/\s+/g, '_'),
         color: (values.color as string) || '#000000',
+        required_skills: Array.isArray(values.required_skills) ? values.required_skills : [],
       }
 
       if (editingTag) {
@@ -177,6 +181,23 @@ export default function TagsContent({ user: currentUser }: TagsContentProps) {
       key: 'name',
       sorter: (a, b) => a.name.localeCompare(b.name),
       render: (_, r) => <Chip color={r.color}>{r.name}</Chip>,
+    },
+    {
+      title: 'Needs skills',
+      dataIndex: 'required_skills',
+      key: 'required_skills',
+      render: (skills: string[] | undefined) =>
+        skills?.length ? (
+          <Space size={[4, 4]} wrap>
+            {skills.map((s) => (
+              <Tag key={s} style={{ marginInlineEnd: 0 }}>
+                {s}
+              </Tag>
+            ))}
+          </Space>
+        ) : (
+          <span className="cell-muted">—</span>
+        ),
     },
     {
       title: 'Slug',
@@ -270,6 +291,13 @@ export default function TagsContent({ user: currentUser }: TagsContentProps) {
               </Form.Item>
               <Form.Item name="color" label="Color (hex)" initialValue="#000000">
                 <ColorPickerWithInput />
+              </Form.Item>
+              <Form.Item
+                name="required_skills"
+                label="Needs skills"
+                tooltip="Agents with these skills are suggested when a ticket with this tag needs an assignee."
+              >
+                <SkillsSelect />
               </Form.Item>
               <Form.Item label="Tag preview">
                 <KanbanTagPreview
