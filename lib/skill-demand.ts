@@ -1,11 +1,11 @@
 /**
  * Demand against supply per skill: how many open support tickets need a skill (the ticket's own skills, else the
- * default skills of its type and tags), how many of those nobody is assigned to, and who can take them.
+ * client's skills for its type, else the default skills of its type and tags), how many of those nobody is assigned to, and who can take them.
  */
-import { mergeRequiredSkills } from '@/lib/agent-suggestions'
 import type { AgentWorkload } from '@/lib/agent-workload'
-import { find, tags, ticketAssignees, tickets, ticketTags, ticketTypes } from '@/lib/fsdb'
+import { companies, find, tags, ticketAssignees, tickets, ticketTags, ticketTypes } from '@/lib/fsdb'
 import { DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
+import { resolveSkills } from '@/lib/ticket-skills'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
 export type SkillDemandRow = {
@@ -32,13 +32,15 @@ export type SkillDemand = {
 const key = (s: string) => s.trim().toLowerCase()
 
 export async function loadSkillDemand(agents: AgentWorkload[]): Promise<SkillDemand> {
-  const [ticketRows, types, tagRows, links, assignees] = await Promise.all([
-    find(tickets, { select: ['id', 'status', 'ticketType', 'dueDate', 'typeId', 'requiredSkills'] }),
+  const [ticketRows, types, tagRows, links, assignees, companyRows] = await Promise.all([
+    find(tickets, { select: ['id', 'status', 'ticketType', 'dueDate', 'typeId', 'companyId', 'requiredSkills'] }),
     find(ticketTypes, { select: ['id', 'requiredSkills'] }),
     find(tags, { select: ['id', 'requiredSkills'] }),
     find(ticketTags, { select: ['ticketId', 'tagId'] }),
     find(ticketAssignees, { select: ['ticketId', 'userId'] }),
+    find(companies, { select: ['id', 'skillsByType'] }),
   ])
+  const clientSkills = new Map(companyRows.map((c) => [c.id, c.skillsByType ?? null]))
   const typeSkills = new Map(types.map((t) => [t.id, t.requiredSkills ?? []]))
   const tagSkills = new Map(tagRows.map((t) => [t.id, t.requiredSkills ?? []]))
   const tagsByTicket = new Map<number, string[][]>()
@@ -54,8 +56,13 @@ export async function loadSkillDemand(agents: AgentWorkload[]): Promise<SkillDem
   let uncovered = 0
   for (const t of ticketRows) {
     if ((t.ticketType ?? DEFAULT_TICKET_TYPE) !== DEFAULT_TICKET_TYPE || isClosedLikeTicketStatus(t.status)) continue
-    const own = mergeRequiredSkills([t.requiredSkills])
-    const skills = own.length ? own : mergeRequiredSkills([typeSkills.get(t.typeId ?? -1), ...(tagsByTicket.get(t.id) ?? [])])
+    const { skills } = resolveSkills({
+      own: t.requiredSkills,
+      clientByType: t.companyId ? clientSkills.get(t.companyId) : null,
+      typeId: t.typeId,
+      typeDefaults: typeSkills.get(t.typeId ?? -1),
+      tagDefaults: tagsByTicket.get(t.id) ?? [],
+    })
     if (!skills.length) {
       withoutSkills++
       continue

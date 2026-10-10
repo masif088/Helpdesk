@@ -1229,7 +1229,11 @@ export default function TabGeneral({
                 <SkillsSelect
                   value={sidebarDraft.requiredSkills}
                   onChange={(skills) => setSidebarDraft((d) => ({ ...d, requiredSkills: skills }))}
-                  placeholder="e.g. WordPress, Billing"
+                  placeholder={
+                    Array.isArray(ticketData?.inherited_skills) && ticketData.inherited_skills.length
+                      ? `Inherited (${ticketData.inherited_from === 'client' ? 'client' : 'type / tags'}): ${ticketData.inherited_skills.join(', ')}`
+                      : 'e.g. WordPress, Billing'
+                  }
                   disabled={sidebarAttributesSaving}
                 />
               ) : (

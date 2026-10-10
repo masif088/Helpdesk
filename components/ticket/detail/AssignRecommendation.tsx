@@ -76,7 +76,10 @@ export default function AssignRecommendation({
       <BulbOutlined style={{ color: 'var(--brand-primary)', fontSize: 18 }} />
       <div style={{ flex: 1, minWidth: 220 }}>
         <div style={{ fontSize: 13 }}>
-          <Text type="secondary">Recommended assignee · needs {data.requiredSkills.join(', ')}</Text>
+          <Text type="secondary">
+            Recommended assignee · needs {data.requiredSkills.join(', ')}
+            {data.source === 'client' ? ' (client skills for this type)' : ''}
+          </Text>
         </div>
         <div style={{ fontWeight: 600 }}>
           {best.name} <Text type="secondary" style={{ fontWeight: 400, fontSize: 13 }}>— {detail(best)}</Text>

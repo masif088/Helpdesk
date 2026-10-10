@@ -5,7 +5,8 @@
  * Without any required skill the ranking is just the lightest plate (within the ticket's team when it has one).
  */
 import { type AgentWorkload, loadAgentWorkload } from '@/lib/agent-workload'
-import { find, get, tags, ticketAssignees, tickets, ticketTags, ticketTypes } from '@/lib/fsdb'
+import { companies, find, get, tags, ticketAssignees, tickets, ticketTags, ticketTypes } from '@/lib/fsdb'
+import { mergeSkills, resolveSkills, type SkillSource } from '@/lib/ticket-skills'
 
 export type SuggestedAgent = Pick<AgentWorkload, 'userId' | 'name' | 'email' | 'avatarUrl' | 'skills' | 'open' | 'overdue' | 'active'> & {
   /** Required skills this agent has */
@@ -16,16 +17,17 @@ export type SuggestedAgent = Pick<AgentWorkload, 'userId' | 'name' | 'email' | '
   alreadyAssigned: boolean
 }
 
-export type TicketSuggestions = { requiredSkills: string[]; /** 'ticket' = set on the ticket, 'default' = from its type / tags */ source: 'ticket' | 'default'; agents: SuggestedAgent[] }
+export type TicketSuggestions = {
+  requiredSkills: string[]
+  /** 'ticket' = set on the ticket, 'client' = the client's skills for its type, 'default' = from its type / tags, null = none */
+  source: SkillSource | null
+  agents: SuggestedAgent[]
+}
 
 const key = (s: string) => s.trim().toLowerCase()
 
 /** Skills a set of ticket types / tags ask for, one spelling per skill. */
-export function mergeRequiredSkills(lists: (string[] | null | undefined)[]): string[] {
-  const seen = new Map<string, string>()
-  for (const list of lists) for (const s of list ?? []) if (!seen.has(key(s))) seen.set(key(s), s)
-  return [...seen.values()]
-}
+export const mergeRequiredSkills = mergeSkills
 
 export function rankAgents(
   agents: AgentWorkload[],
@@ -63,19 +65,25 @@ export function rankAgents(
 export async function suggestAgentsForTicket(ticketId: number, limit = 5, skillsOverride?: string[]): Promise<TicketSuggestions | null> {
   const ticket = await get(tickets, ticketId)
   if (!ticket) return null
-  const [type, tagLinks, assigned, workload] = await Promise.all([
+  const [type, company, tagLinks, assigned, workload] = await Promise.all([
     ticket.typeId != null ? get(ticketTypes, ticket.typeId) : Promise.resolve(null),
+    ticket.companyId ? get(companies, ticket.companyId) : Promise.resolve(null),
     find(ticketTags, { where: [['ticketId', '==', ticketId]] }),
     find(ticketAssignees, { where: [['ticketId', '==', ticketId]] }),
     loadAgentWorkload(),
   ])
   const tagRows = tagLinks.length ? await find(tags, { where: [['id', 'in', tagLinks.map((l) => l.tagId)]] }) : []
-  const own = mergeRequiredSkills([skillsOverride ?? ticket.requiredSkills])
-  const requiredSkills = own.length ? own : mergeRequiredSkills([type?.requiredSkills, ...tagRows.map((t) => t.requiredSkills)])
+  const { skills: requiredSkills, source } = resolveSkills({
+    own: skillsOverride ?? ticket.requiredSkills,
+    clientByType: company?.skillsByType,
+    typeId: ticket.typeId,
+    typeDefaults: type?.requiredSkills,
+    tagDefaults: tagRows.map((t) => t.requiredSkills),
+  })
   const ranked = rankAgents(workload.agents, requiredSkills, { teamId: ticket.teamId, assignedIds: new Set(assigned.map((a) => a.userId)) })
   // With required skills, people without any of them are not suggestions
   const agents = (requiredSkills.length ? ranked.filter((a) => a.matched.length > 0 || a.alreadyAssigned) : ranked).slice(0, limit)
-  return { requiredSkills, source: own.length ? 'ticket' : 'default', agents }
+  return { requiredSkills, source, agents }
 }
 
 /**

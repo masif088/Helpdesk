@@ -31,6 +31,7 @@ import {
 import { getPublicUrl } from '@/lib/storage-provider'
 import { mapChecklistItemToDto } from '@/lib/ticket-checklist-map'
 import { coerceTicketType } from '@/lib/ticket-classification'
+import { resolveSkills } from '@/lib/ticket-skills'
 
 /** Initial / per-page comment batch size (newest-first window; UI shows oldest-at-top within batch). */
 export const TICKET_COMMENTS_PAGE_SIZE = 10
@@ -239,6 +240,23 @@ export async function getTicketDetail(ticketId: number, options?: TicketDetailOp
     comments_older_remaining,
   } = await fetchTicketCommentsWindow(ticketId, options, 'latest', null, TICKET_COMMENTS_PAGE_SIZE)
 
+  // What the ticket falls back on while it has no skills of its own (shown as the field's placeholder)
+  const inherited = options?.includeBilling
+    ? await (async () => {
+        const [type, company] = await Promise.all([
+          t.typeId != null ? get(ticketTypes, t.typeId) : Promise.resolve(null),
+          t.companyId ? get(companies, t.companyId) : Promise.resolve(null),
+        ])
+        return resolveSkills({
+          own: null,
+          clientByType: company?.skillsByType,
+          typeId: t.typeId,
+          typeDefaults: type?.requiredSkills,
+          tagDefaults: ticketTagsRows.map((r) => r.tag?.requiredSkills),
+        })
+      })()
+    : { skills: [] as string[], source: null }
+
   const ticketTypeCls = coerceTicketType(t.ticketType)
   let project_status: { id: number; title: string; slug: string; color: string } | null = null
   let project_statuses: Array<{ id: number; title: string; slug: string; color: string; sort_order: number }> = []
@@ -270,6 +288,7 @@ export async function getTicketDetail(ticketId: number, options?: TicketDetailOp
     original_description: t.originalDescription ?? null,
     short_note: t.shortNote ?? null,
     required_skills: t.requiredSkills ?? [],
+    ...(options?.includeBilling ? { inherited_skills: inherited.skills, inherited_from: inherited.source } : {}),
     created_by: t.createdBy,
     contact_user_id: t.contactUserId ?? null,
     due_date: t.dueDate ? new Date(t.dueDate).toISOString() : null,

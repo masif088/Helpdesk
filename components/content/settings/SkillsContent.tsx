@@ -144,7 +144,7 @@ export default function SkillsContent({ user }: Props) {
                   title: 'Default for',
                   key: 'defaults',
                   render: (_, r) =>
-                    r.types.length || r.tags.length ? (
+                    r.types.length || r.tags.length || r.clients.length ? (
                       <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4 }}>
                         {r.types.map((t) => (
                           <Tag key={`t${t.id}`} color="blue" style={{ marginInlineEnd: 0 }}>
@@ -154,6 +154,11 @@ export default function SkillsContent({ user }: Props) {
                         {r.tags.map((t) => (
                           <Tag key={`g${t.id}`} style={{ marginInlineEnd: 0 }}>
                             #{t.name}
+                          </Tag>
+                        ))}
+                        {r.clients.map((c, i) => (
+                          <Tag key={`c${c.id}${i}`} color="green" style={{ marginInlineEnd: 0 }}>
+                            {c.name} · {c.type}
                           </Tag>
                         ))}
                       </span>
@@ -189,7 +194,7 @@ export default function SkillsContent({ user }: Props) {
                       </Tooltip>
                       <Popconfirm
                         title={`Delete “${r.skill}”?`}
-                        description={`It is removed from ${r.agents.length} agent(s), ${r.types.length + r.tags.length} default(s) and ${r.allTickets} ticket(s).`}
+                        description={`It is removed from ${r.agents.length} agent(s), ${r.types.length + r.tags.length + r.clients.length} default(s) and ${r.allTickets} ticket(s).`}
                         okText="Delete"
                         okButtonProps={{ danger: true }}
                         onConfirm={() => post({ action: 'delete', skill: r.skill }, `Deleted “${r.skill}”`)}

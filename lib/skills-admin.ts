@@ -3,7 +3,7 @@
  * the skills they need. This reads the whole picture and changes a skill everywhere at once (rename / merge, delete,
  * who has it). Skills are matched case-insensitively; the spelling already in use wins.
  */
-import { find, tags, tickets, ticketTypes, update, users } from '@/lib/fsdb'
+import { companies, find, tags, tickets, ticketTypes, update, users } from '@/lib/fsdb'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 import { MAX_SKILL_LENGTH, normalizeSkills } from '@/lib/user-skills'
 
@@ -14,6 +14,8 @@ export type SkillOverview = {
   agents: { id: string; name: string }[]
   types: { id: number; title: string }[]
   tags: { id: string; name: string }[]
+  /** Clients whose tickets of a type need it ("Acme · Web") */
+  clients: { id: string; name: string; type: string }[]
   /** Tickets that name it themselves: open / all */
   openTickets: number
   allTickets: number
@@ -29,17 +31,19 @@ const isAgent = (u: { role: string | null; status: string; deletedAt: Date | nul
   !u.deletedAt && u.status === 'active' && !!u.role && u.role.toLowerCase() !== 'customer'
 
 export async function loadSkillsOverview(): Promise<SkillsOverview> {
-  const [userRows, typeRows, tagRows, ticketRows] = await Promise.all([
+  const [userRows, typeRows, tagRows, ticketRows, companyRows] = await Promise.all([
     find(users, { select: ['id', 'email', 'fullName', 'role', 'status', 'skills', 'deletedAt'] }),
     find(ticketTypes, { select: ['id', 'title', 'requiredSkills'] }),
     find(tags, { select: ['id', 'name', 'requiredSkills'] }),
     find(tickets, { select: ['id', 'status', 'ticketType', 'requiredSkills'] }),
+    find(companies, { select: ['id', 'name', 'skillsByType'] }),
   ])
+  const typeTitle = new Map(typeRows.map((t) => [String(t.id), t.title]))
   const map = new Map<string, SkillOverview>()
   const row = (skill: string) => {
     let r = map.get(key(skill))
     if (!r) {
-      r = { skill, agents: [], types: [], tags: [], openTickets: 0, allTickets: 0 }
+      r = { skill, agents: [], types: [], tags: [], clients: [], openTickets: 0, allTickets: 0 }
       map.set(key(skill), r)
     }
     return r
@@ -49,6 +53,11 @@ export async function loadSkillsOverview(): Promise<SkillsOverview> {
   for (const a of agents) for (const s of a.skills) row(s).agents.push({ id: a.id, name: a.name })
   for (const t of typeRows) for (const s of t.requiredSkills ?? []) row(s).types.push({ id: t.id, title: t.title })
   for (const t of tagRows) for (const s of t.requiredSkills ?? []) row(s).tags.push({ id: t.id, name: t.name })
+  for (const c of companyRows) {
+    for (const [typeId, list] of Object.entries(c.skillsByType ?? {})) {
+      for (const s of list) row(s).clients.push({ id: c.id, name: c.name, type: typeTitle.get(typeId) ?? `type ${typeId}` })
+    }
+  }
   for (const t of ticketRows) {
     for (const s of t.requiredSkills ?? []) {
       const r = row(s)
@@ -100,11 +109,12 @@ export async function deleteSkill(skillRaw: unknown): Promise<{ changed: number 
 }
 
 async function applyEverywhere(from: string, to: string | null): Promise<number> {
-  const [userRows, typeRows, tagRows, ticketRows] = await Promise.all([
+  const [userRows, typeRows, tagRows, ticketRows, companyRows] = await Promise.all([
     find(users, { select: ['id', 'skills'] }),
     find(ticketTypes, { select: ['id', 'requiredSkills'] }),
     find(tags, { select: ['id', 'requiredSkills'] }),
     find(tickets, { select: ['id', 'requiredSkills'] }),
+    find(companies, { select: ['id', 'skillsByType'] }),
   ])
   let changed = 0
   const now = new Date()
@@ -133,6 +143,22 @@ async function applyEverywhere(from: string, to: string | null): Promise<number>
     const next = rewrite(t.requiredSkills, from, to)
     if (next) {
       await update(tickets, t.id, { requiredSkills: next })
+      changed++
+    }
+  }
+  for (const c of companyRows) {
+    const byType = c.skillsByType
+    if (!byType) continue
+    let touched = false
+    const nextMap: Record<string, string[]> = {}
+    for (const [typeId, list] of Object.entries(byType)) {
+      const next = rewrite(list, from, to)
+      if (next) touched = true
+      const final = next ?? list
+      if (final.length) nextMap[typeId] = final
+    }
+    if (touched) {
+      await update(companies, c.id, { skillsByType: Object.keys(nextMap).length ? nextMap : null, updatedAt: now })
       changed++
     }
   }

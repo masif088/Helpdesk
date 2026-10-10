@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckSquareOutlined, DollarOutlined, EditOutlined, GlobalOutlined, InfoCircleOutlined, PlayCircleOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons'
+import { BulbOutlined, CheckSquareOutlined, DollarOutlined, EditOutlined, GlobalOutlined, InfoCircleOutlined, PlayCircleOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons'
 import { Button, Card, Col, Divider, Form, Input, InputNumber, Layout, message, Modal, Row, Select, Space, Switch, Tabs, Tag, Typography } from 'antd'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import BackLink from '@/components/common/BackLink'
 import { TabCrawling, TabInfo, TabTickets, TabUsers, TabWebsites } from '@/components/company'
 import CompanyBilling from '@/components/company/CompanyBilling'
+import TabSkills from '@/components/company/TabSkills'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import { StatusPill } from '@/components/ticket/list/TicketChips'
@@ -414,6 +415,19 @@ export default function CompanyDetailContent({
               </span>
             ),
             children: <CompanyBilling companyId={companyData.id} companyName={companyData.name} defaultCurrency={companyData.default_rate_currency} />,
+          },
+        ]
+      : []),
+    ...(canEdit
+      ? [
+          {
+            key: 'skills',
+            label: (
+              <span>
+                <BulbOutlined /> Skills
+              </span>
+            ),
+            children: <TabSkills companyId={companyData.id} />,
           },
         ]
       : []),
