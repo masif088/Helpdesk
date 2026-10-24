@@ -361,6 +361,10 @@ export default function SlaReportContent({ user }: Props) {
             />
           </section>
 
+          <Text style={{ display: 'block', marginTop: 12 }}>
+            <SpaNavLink href="/reports/ratings">See every rated ticket →</SpaNavLink>
+          </Text>
+
           <Text className="page-head__sub" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
             SLA counts support tickets created in the period that have a target (Settings → Ticket types, or Company → SLA). &ldquo;In time&rdquo; is out of the
             tickets already answered or resolved; ones still running are listed separately. Ratings are those given in the period, whenever the ticket was created.

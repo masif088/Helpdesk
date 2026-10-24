@@ -15,6 +15,7 @@ import {
   ReadOutlined,
   SettingOutlined,
   SmileOutlined,
+  StarOutlined,
   TeamOutlined,
   UserOutlined,
   WarningOutlined,
@@ -99,6 +100,7 @@ function selectedKeysForPathname(pathname: string | null, ticketsSearch: string)
   if (pathname === '/reports/billing' || pathname.startsWith('/reports/billing/')) return ['/reports/billing']
   if (pathname === '/reports/support' || pathname.startsWith('/reports/support/')) return ['/reports/support']
   if (pathname === '/reports/sla' || pathname.startsWith('/reports/sla/')) return ['/reports/sla']
+  if (pathname === '/reports/ratings') return ['/reports/ratings']
   if (pathname === '/reports/workload' || pathname.startsWith('/reports/workload/')) return ['/reports/workload']
   if (isSettingsHrefPathname(pathname)) return ['/settings']
   const topLevel = ['/dashboard']
@@ -205,6 +207,7 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
           { key: '/reports/support', label: 'Support', icon: <BarChartOutlined /> },
           { key: '/reports/workload', label: 'Workload', icon: <TeamOutlined /> },
           { key: '/reports/sla', label: 'SLA & satisfaction', icon: <SmileOutlined /> },
+          { key: '/reports/ratings', label: 'Ratings', icon: <StarOutlined /> },
           { key: '/reports/billing', label: 'Billing', icon: <DollarOutlined /> },
         ],
       })
