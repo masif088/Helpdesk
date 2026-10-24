@@ -341,7 +341,7 @@ export default function SlaReportContent({ user }: Props) {
               dataSource={data?.csat.byAgent ?? []}
               pagination={false}
               locale={{ emptyText: 'No ratings in this period' }}
-              columns={csatColumns('Agent', (r) => `/settings/users/${r.key}`)}
+              columns={csatColumns('Agent', (r) => (r.key === '__none__' ? '' : `/settings/users/${r.key}`))}
             />
           </section>
 

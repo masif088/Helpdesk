@@ -181,7 +181,8 @@ export async function getSlaReport(from: string, to: string): Promise<SlaReport>
   for (const t of rated) {
     const r = t.csatRating!
     distribution[r - 1]++
-    for (const uid of assigneesByTicket.get(t.id) ?? []) byAgent.set(uid, [...(byAgent.get(uid) ?? []), r])
+    // A ticket nobody was assigned to still counts, under "Unassigned"
+    for (const uid of assigneesByTicket.get(t.id)?.length ? assigneesByTicket.get(t.id)! : ['__none__']) byAgent.set(uid, [...(byAgent.get(uid) ?? []), r])
     const ck = t.companyId ?? '__none__'
     byCompany.set(ck, [...(byCompany.get(ck) ?? []), r])
   }
@@ -199,7 +200,7 @@ export async function getSlaReport(from: string, to: string): Promise<SlaReport>
       responses: rated.length,
       average: rated.length ? avg(rated.map((t) => t.csatRating!)) : null,
       distribution,
-      byAgent: rows(byAgent, (k) => people.get(k)?.fullName || people.get(k)?.email || 'Unknown'),
+      byAgent: rows(byAgent, (k) => (k === '__none__' ? 'Unassigned' : (people.get(k)?.fullName || people.get(k)?.email || 'Unknown'))),
       byCompany: rows(byCompany, (k) => (k === '__none__' ? 'No company' : (companyById.get(k)?.name ?? 'Deleted company'))),
       lowComments: rated
         .filter((t) => t.csatRating! <= 3 && t.csatComment)
