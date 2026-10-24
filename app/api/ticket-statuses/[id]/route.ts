@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { count, find, get, type Patch, remove, tickets, ticketStatuses, update } from '@/lib/fsdb'
 import { logSettingsDeleted, logSettingsUpdated } from '@/lib/settings-activity-log'
-import { isAgentDefault, isCustomerDefault } from '@/lib/ticket-status-defaults'
+import { isAgentDefault, isBallWithClient, isCustomerDefault } from '@/lib/ticket-status-defaults'
 import { materializeStatusDefaults } from '@/lib/ticket-status-defaults-store'
 import { isTicketStatusInKanban } from '@/lib/ticket-status-kanban'
 import { isLockedTicketStatusSlug } from '@/lib/ticket-status-locked-slugs'
@@ -18,6 +18,7 @@ const STATUS_LOG_KEYS = [
   'show_in_kanban',
   'agent_default_filter',
   'customer_default_filter',
+  'ball_with_client',
   'sort_order',
   'is_deletable',
   'is_active',
@@ -32,6 +33,7 @@ function statusSnapshot(r: {
   showInKanban?: boolean | null
   agentDefaultFilter?: boolean | null
   customerDefaultFilter?: boolean | null
+  ballWithClient?: boolean | null
   sortOrder?: number | null
   isDeletable?: boolean | null
   isActive?: boolean | null
@@ -45,6 +47,7 @@ function statusSnapshot(r: {
     show_in_kanban: isTicketStatusInKanban(r.showInKanban),
     agent_default_filter: r.agentDefaultFilter ?? null,
     customer_default_filter: r.customerDefaultFilter ?? null,
+    ball_with_client: r.ballWithClient ?? null,
     sort_order: r.sortOrder ?? 0,
     is_deletable: r.isDeletable ?? true,
     is_active: r.isActive ?? true,
@@ -77,6 +80,7 @@ export async function PATCH(
     show_in_kanban,
     agent_default_filter,
     customer_default_filter,
+    ball_with_client,
     sort_order,
     is_deletable,
     is_active,
@@ -89,6 +93,7 @@ export async function PATCH(
 
   if (agent_default_filter !== undefined) await materializeStatusDefaults('agent')
   if (customer_default_filter !== undefined) await materializeStatusDefaults('customer')
+  if (ball_with_client !== undefined) await materializeStatusDefaults('ball')
 
   const values: Record<string, unknown> = {}
   if (title !== undefined) values.title = String(title).trim()
@@ -99,6 +104,7 @@ export async function PATCH(
   if (show_in_kanban !== undefined) values.showInKanban = !!show_in_kanban
   if (agent_default_filter !== undefined) values.agentDefaultFilter = !!agent_default_filter
   if (customer_default_filter !== undefined) values.customerDefaultFilter = !!customer_default_filter
+  if (ball_with_client !== undefined) values.ballWithClient = !!ball_with_client
   if (sort_order !== undefined) values.sortOrder = Number(sort_order) ?? 0
   if (is_deletable !== undefined && !isLockedTicketStatusSlug(current.slug)) {
     values.isDeletable = !!is_deletable
@@ -139,6 +145,7 @@ export async function PATCH(
     show_in_kanban: isTicketStatusInKanban(updated.showInKanban),
     agent_default_filter: isAgentDefault(all, updated.slug),
     customer_default_filter: isCustomerDefault(all, updated.slug),
+    ball_with_client: isBallWithClient(all, updated.slug),
     is_deletable: updated.isDeletable,
     is_active: updated.isActive,
     sort_order: updated.sortOrder ?? 0,

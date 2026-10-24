@@ -7,7 +7,7 @@ import { getCustomerCompanyId } from '@/lib/customer-company'
 import { loadCustomerAccessibleTickets } from '@/lib/customer-ticket-access'
 import { find, getManyMap, sortRows, ticketComments, ticketStatuses, ticketTypes, users } from '@/lib/fsdb'
 import { DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
-import { customerDefaultSlugs } from '@/lib/ticket-status-defaults'
+import { ballWithClientSlugs } from '@/lib/ticket-status-defaults'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
 const COMPLETED_SLUGS = ['resolved', 'closed', 'completed']
@@ -91,7 +91,7 @@ export async function GET() {
   const lastMonthCompleted = completed.filter((t) => new Date(t.updatedAt) >= startOfLastMonth && new Date(t.updatedAt) < startOfThisMonth).length
 
   // Statuses where the team waits for the client (Settings -> Ticket statuses)
-  const awaitingSlugs = customerDefaultSlugs(statusRows)
+  const awaitingSlugs = ballWithClientSlugs(statusRows)
   const awaiting = byUpdated.filter((t) => awaitingSlugs.includes(t.status))
 
   // Latest replies from the team on the customer's tickets

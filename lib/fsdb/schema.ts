@@ -1666,8 +1666,10 @@ export type TicketStatusesRow = {
   showInKanban: boolean | null
   /** Selected by default in an agent's ticket filter; null until chosen (then the Kanban columns apply) */
   agentDefaultFilter: boolean | null
-  /** Selected by default in a client's filter = the ball is with the client; null until chosen */
+  /** Selected by default in a client's ticket filter; null until chosen (then every open status) */
   customerDefaultFilter: boolean | null
+  /** The ball is with the client (waiting for their reply or approval); null until chosen */
+  ballWithClient: boolean | null
   isDeletable: boolean
   isActive: boolean
   sortOrder: number | null
@@ -1685,6 +1687,7 @@ export type NewTicketStatusesRow = {
   showInKanban?: boolean | null
   agentDefaultFilter?: boolean | null
   customerDefaultFilter?: boolean | null
+  ballWithClient?: boolean | null
   isDeletable?: boolean
   isActive?: boolean
   sortOrder?: number | null
@@ -1694,7 +1697,7 @@ export type NewTicketStatusesRow = {
 
 export const ticketStatuses = defineTable<TicketStatusesRow, NewTicketStatusesRow>({
   name: 'ticket_statuses',
-  columns: ['id', 'slug', 'title', 'description', 'customerTitle', 'color', 'showInKanban', 'agentDefaultFilter', 'customerDefaultFilter', 'isDeletable', 'isActive', 'sortOrder', 'createdAt', 'updatedAt'],
+  columns: ['id', 'slug', 'title', 'description', 'customerTitle', 'color', 'showInKanban', 'agentDefaultFilter', 'customerDefaultFilter', 'ballWithClient', 'isDeletable', 'isActive', 'sortOrder', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'seq',

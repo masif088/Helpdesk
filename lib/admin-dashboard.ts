@@ -17,7 +17,7 @@ import {
   ticketTimeTracker,
   users,
 } from '@/lib/fsdb'
-import { customerDefaultSlugs } from '@/lib/ticket-status-defaults'
+import { ballWithClientSlugs } from '@/lib/ticket-status-defaults'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 
@@ -92,7 +92,7 @@ async function loadAdminDashboardData(includeBilling: boolean): Promise<AdminDas
   const statusRows = await find(ticketStatuses)
   const statusBySlug = new Map(statusRows.map((s) => [s.slug, s]))
   // Statuses where the ball is in the client's court (Settings -> Ticket statuses)
-  const WAITING_STATUSES = customerDefaultSlugs(statusRows)
+  const WAITING_STATUSES = ballWithClientSlugs(statusRows)
   const activeSlugs = statusRows
     .filter((s) => s.isActive !== false && !isClosedLikeTicketStatus(s.slug) && !WAITING_STATUSES.includes(s.slug))
     .map((s) => s.slug)

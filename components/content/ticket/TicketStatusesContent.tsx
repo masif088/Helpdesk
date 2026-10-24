@@ -29,8 +29,10 @@ interface TicketStatusRecord {
   show_in_kanban: boolean
   /** Selected by default in an agent's ticket filter */
   agent_default_filter?: boolean
-  /** Selected by default in a client's filter: the ball is with the client */
+  /** Selected by default in a client's ticket filter */
   customer_default_filter?: boolean
+  /** The ball is with the client (waiting for their reply or approval) */
+  ball_with_client?: boolean
   /** When false, row is protected (seeded); delete is disabled in UI and API. */
   is_deletable?: boolean
   /** When false, inactive — hidden from ticket status pickers / default kanban. */
@@ -124,7 +126,8 @@ export default function TicketStatusesContent({ user: currentUser }: TicketStatu
     form.setFieldsValue({
       show_in_kanban: true,
       agent_default_filter: true,
-      customer_default_filter: false,
+      customer_default_filter: true,
+      ball_with_client: false,
       is_deletable: true,
       is_active: true,
       sort_order: (statuses.length > 0 ? Math.max(...statuses.map((s) => s.sort_order)) : 0) + 1,
@@ -143,6 +146,7 @@ export default function TicketStatusesContent({ user: currentUser }: TicketStatu
       show_in_kanban: record.show_in_kanban,
       agent_default_filter: record.agent_default_filter === true,
       customer_default_filter: record.customer_default_filter === true,
+      ball_with_client: record.ball_with_client === true,
       is_deletable: record.is_deletable === true,
       is_active: record.is_active !== false,
       sort_order: record.sort_order,
@@ -180,6 +184,7 @@ export default function TicketStatusesContent({ user: currentUser }: TicketStatu
           : !!(values.show_in_kanban ?? true),
         agent_default_filter: Boolean(values.agent_default_filter),
         customer_default_filter: Boolean(values.customer_default_filter),
+        ball_with_client: Boolean(values.ball_with_client),
         is_deletable: values.is_deletable !== false,
         is_active: values.is_active !== false,
         sort_order: Number(values.sort_order) ?? 0,
@@ -248,10 +253,11 @@ export default function TicketStatusesContent({ user: currentUser }: TicketStatu
       key: 'default_filter',
       width: 190,
       render: (_: unknown, r: TicketStatusRecord) =>
-        r.agent_default_filter || r.customer_default_filter ? (
+        r.agent_default_filter || r.customer_default_filter || r.ball_with_client ? (
           <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
             {r.agent_default_filter ? <Chip color="#0F9D8A">Agent</Chip> : null}
-            {r.customer_default_filter ? <Chip color="#D97706">Client</Chip> : null}
+            {r.customer_default_filter ? <Chip color="#2563EB">Client</Chip> : null}
+            {r.ball_with_client ? <Chip color="#D97706">Ball: client</Chip> : null}
           </span>
         ) : (
           <span className="cell-muted">—</span>
@@ -371,9 +377,17 @@ export default function TicketStatusesContent({ user: currentUser }: TicketStatu
               </Form.Item>
               <Form.Item
                 name="customer_default_filter"
+                label="Selected by default for clients"
+                valuePropName="checked"
+                tooltip="Clients open their ticket list with the statuses switched on here already selected (they can change it). Keep it on for statuses a client always wants to see."
+              >
+                <Switch />
+              </Form.Item>
+              <Form.Item
+                name="ball_with_client"
                 label="Ball is with the client"
                 valuePropName="checked"
-                tooltip="The team is waiting for the client (a reply, an approval). Selected by default in the client's ticket list, and counted as 'Waiting on client' in Reports → Workload."
+                tooltip="The team is waiting for the client (a reply, an approval). Counted as 'Waiting on client' in Reports → Workload and on the dashboards."
               >
                 <Switch />
               </Form.Item>

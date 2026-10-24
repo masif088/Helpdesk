@@ -7,7 +7,7 @@ import dayjs from 'dayjs'
 
 import { find, teamMembers, ticketAssignees, tickets, ticketStatuses, ticketTimeTracker, users } from '@/lib/fsdb'
 import { DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
-import { customerDefaultSlugs } from '@/lib/ticket-status-defaults'
+import { ballWithClientSlugs } from '@/lib/ticket-status-defaults'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 
@@ -49,7 +49,7 @@ export async function loadAgentWorkload(): Promise<WorkloadSnapshot> {
     find(ticketStatuses, {}),
   ])
   // Statuses where the ball is with the client (Settings -> Ticket statuses), not with the team
-  const WAITING_ON_CLIENT = new Set(customerDefaultSlugs(statusRows))
+  const WAITING_ON_CLIENT = new Set(ballWithClientSlugs(statusRows))
 
   const open = new Map(
     ticketRows.filter((t) => (t.ticketType ?? DEFAULT_TICKET_TYPE) === DEFAULT_TICKET_TYPE && !isClosedLikeTicketStatus(t.status)).map((t) => [t.id, t])
