@@ -543,6 +543,9 @@ export async function POST(request: Request) {
   }
 
   if (role === 'customer') {
+    if (type_id === null || type_id === undefined || type_id === '') {
+      return NextResponse.json({ error: 'Please select a type' }, { status: 400 })
+    }
     const typeCheck = await assertCustomerMayUseTicketType(type_id ?? null)
     if (!typeCheck.ok) {
       return NextResponse.json({ error: typeCheck.error }, { status: 400 })

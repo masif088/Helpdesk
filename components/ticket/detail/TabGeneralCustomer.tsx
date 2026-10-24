@@ -498,7 +498,6 @@ export default function TabGeneralCustomer({
                   return <Tag color={found.color} style={{ margin: 0 }}>{found.title}</Tag>
                 }}
                 style={{ minWidth: 140, width: '100%' }}
-                allowClear
                 placeholder="Select type"
               />
             ) : (

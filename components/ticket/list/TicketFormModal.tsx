@@ -245,8 +245,8 @@ export default function TicketFormModal({
             </Col>
           ) : null}
           <Col span={showSimplifiedForm ? 12 : editingTicket ? 8 : 12}>
-            <Form.Item name="type_id" label="Type">
-              <Select placeholder="Select type" allowClear>
+            <Form.Item name="type_id" label="Type" rules={[{ required: true, message: 'Please select a type' }]}>
+              <Select placeholder="Select type">
                 {ticketTypes.map((t) => (
                   <Option key={t.id} value={t.id}>
                     <Space>

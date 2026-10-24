@@ -414,6 +414,11 @@ export async function PATCH(
     return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
   }
 
+  // A type can be changed but not taken away (a ticket that never had one may stay without)
+  if (actorRole === 'customer' && (type_id === null || type_id === '') && prioCtxRow.typeId != null) {
+    return NextResponse.json({ error: 'A ticket needs a type' }, { status: 400 })
+  }
+
   // A closed ticket is treated as done: the client reopens it before changing type or priority
   if (actorRole === 'customer' && (type_id !== undefined || priority !== undefined) && prioCtxRow.status === 'closed') {
     return NextResponse.json({ error: 'Reopen the ticket before changing its type or priority' }, { status: 400 })
