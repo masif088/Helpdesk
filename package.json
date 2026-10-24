@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "node --test \"tests/*.test.mjs\"",
     "db:seed": "npx tsx scripts/seed.ts",
+    "db:seed:test": "npx tsx --env-file=.env.local scripts/seed-test-data.ts",
     "prepare": "husky",
     "firebase:deploy-rules": "npx firebase-tools deploy --only firestore:rules,firestore:indexes,storage"
   },
