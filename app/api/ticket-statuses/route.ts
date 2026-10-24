@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { find, findOneBy, insert, ticketStatuses } from '@/lib/fsdb'
 import { logSettingsCreated } from '@/lib/settings-activity-log'
+import { isAgentDefault, isCustomerDefault } from '@/lib/ticket-status-defaults'
+import { materializeStatusDefaults } from '@/lib/ticket-status-defaults-store'
 import { isTicketStatusInKanban } from '@/lib/ticket-status-kanban'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
 
@@ -13,6 +15,8 @@ function statusSnapshot(r: {
   description?: string | null
   color?: string | null
   showInKanban?: boolean | null
+  agentDefaultFilter?: boolean | null
+  customerDefaultFilter?: boolean | null
   sortOrder?: number | null
   isDeletable?: boolean | null
   isActive?: boolean | null
@@ -24,6 +28,8 @@ function statusSnapshot(r: {
     description: r.description ?? '',
     color: r.color ?? '#8c8c8c',
     show_in_kanban: isTicketStatusInKanban(r.showInKanban),
+    agent_default_filter: r.agentDefaultFilter ?? null,
+    customer_default_filter: r.customerDefaultFilter ?? null,
     sort_order: r.sortOrder ?? 0,
     is_deletable: r.isDeletable ?? true,
     is_active: r.isActive ?? true,
@@ -47,6 +53,8 @@ export async function GET() {
     description: r.description ?? undefined,
     color: r.color,
     show_in_kanban: isTicketStatusInKanban(r.showInKanban),
+    agent_default_filter: isAgentDefault(rows, r.slug),
+    customer_default_filter: isCustomerDefault(rows, r.slug),
     is_deletable: r.isDeletable,
     is_active: r.isActive,
     sort_order: r.sortOrder ?? 0,
@@ -65,7 +73,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { title, slug, customer_title, description, color, show_in_kanban, sort_order, is_deletable, is_active } =
+  const { title, slug, customer_title, description, color, show_in_kanban, agent_default_filter, customer_default_filter, sort_order, is_deletable, is_active } =
     body
 
   if (!title || !slug) {
@@ -76,6 +84,8 @@ export async function POST(request: Request) {
   if (await findOneBy(ticketStatuses, { slug: normalizedSlug })) {
     return NextResponse.json({ error: 'A status with this slug already exists' }, { status: 409 })
   }
+  if (agent_default_filter !== undefined) await materializeStatusDefaults('agent')
+  if (customer_default_filter !== undefined) await materializeStatusDefaults('customer')
   const inserted = await insert(ticketStatuses, {
       title: String(title).trim(),
       slug: normalizedSlug,
@@ -83,6 +93,8 @@ export async function POST(request: Request) {
       description: description?.trim() || '',
       color: color || '#8c8c8c',
       showInKanban: !!show_in_kanban,
+      ...(agent_default_filter !== undefined && { agentDefaultFilter: !!agent_default_filter }),
+      ...(customer_default_filter !== undefined && { customerDefaultFilter: !!customer_default_filter }),
       isDeletable: is_deletable !== false,
       isActive: is_active !== false,
       sortOrder: Number(sort_order) ?? 0,
@@ -109,6 +121,8 @@ export async function POST(request: Request) {
     description: inserted.description ?? undefined,
     color: inserted.color,
     show_in_kanban: isTicketStatusInKanban(inserted.showInKanban),
+    agent_default_filter: inserted.agentDefaultFilter ?? false,
+    customer_default_filter: inserted.customerDefaultFilter ?? false,
     is_deletable: inserted.isDeletable,
     is_active: inserted.isActive,
     sort_order: inserted.sortOrder ?? 0,

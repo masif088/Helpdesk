@@ -61,6 +61,8 @@ async function loadTicketsLookupCatalog() {
       color: s.color,
       /** Raw DB value; clients use isTicketStatusInKanban */
       show_in_kanban: s.showInKanban,
+      agent_default_filter: s.agentDefaultFilter ?? null,
+      customer_default_filter: s.customerDefaultFilter ?? null,
       sort_order: s.sortOrder,
       is_active: s.isActive,
     })),

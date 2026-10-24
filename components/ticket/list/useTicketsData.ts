@@ -19,6 +19,7 @@ import {
   URL_PARAMS,
 } from '@/lib/ticket-filter-url'
 import type { TicketScope } from '@/lib/ticket-scope'
+import { agentDefaultSlugs, customerDefaultSlugs } from '@/lib/ticket-status-defaults'
 import { isTicketStatusInKanban, ticketStatusDisplayLabel } from '@/lib/ticket-status-kanban'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 import {
@@ -263,6 +264,8 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
   
   const [statusColumns, setStatusColumns] = useState<StatusColumn[]>([])
   const [lookupReady, setLookupReady] = useState(false)
+  /** Statuses selected by default in this user's filter (Settings -> Ticket statuses) */
+  const [defaultStatusSlugs, setDefaultStatusSlugs] = useState<string[] | null>(null)
   const [allStatusColumns, setAllStatusColumns] = useState<StatusColumn[]>(DEFAULT_ALL_STATUS_COLUMNS)
   const [allStatuses, setAllStatuses] = useState<Array<{ slug: string; title: string; is_active?: boolean }>>(
     DEFAULT_ALL_STATUSES
@@ -309,8 +312,8 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
   }, [filterStatus, allStatusColumns])
 
   const defaultKanbanStatusKey = useMemo(
-    () => [...statusColumns.map((c) => c.id)].sort().join(','),
-    [statusColumns]
+    () => [...(defaultStatusSlugs ?? statusColumns.map((c) => c.id))].sort().join(','),
+    [defaultStatusSlugs, statusColumns]
   )
 
   const statusFilterIsRestrictive = useMemo(() => {
@@ -520,7 +523,7 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
         ticketTypes: Array<{ id: number; title: string; slug: string; color: string }>
         companies: Array<{ id: string; name: string; color?: string }>
         tags: Array<{ id: string; name: string; slug: string; color?: string }>
-        statuses: Array<TicketStatusRecord & { show_in_kanban?: boolean | null; is_active?: boolean }>
+        statuses: Array<TicketStatusRecord & { show_in_kanban?: boolean | null; is_active?: boolean; agent_default_filter?: boolean | null; customer_default_filter?: boolean | null }>
       }>('/api/tickets/lookup')
 
       setTeams(data.teams || [])
@@ -546,6 +549,11 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
         const isActive = (s: { is_active?: boolean }) => s.is_active !== false
         const activeList = list.filter(isActive)
         const kanbanSlugs = activeList.filter(inKanban).map((s) => s.slug)
+        const nonClosedActive = activeList.filter((s) => !isClosedLikeTicketStatus(s.slug)).map((s) => s.slug)
+        // What the filter starts on: the statuses switched on in settings, else the old defaults
+        const chosenDefaults = isCustomer ? customerDefaultSlugs(list) : agentDefaultSlugs(list)
+        const defaultSlugs = chosenDefaults.length > 0 ? chosenDefaults : isCustomer ? nonClosedActive : kanbanSlugs
+        setDefaultStatusSlugs(defaultSlugs)
         setStatusColumns(
           activeList.filter(inKanban).map((s) => ({ id: s.slug, title: statusTitle(s), color: s.color }))
         )
@@ -564,9 +572,9 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
           const allSlugs = list.map((s) => s.slug)
           const nonClosedSlugs = list.filter((s) => !isClosedLikeTicketStatus(s.slug)).map((s) => s.slug)
           const resolvedStatus =
-            intersection.length > 0 ? intersection : isCustomer ? nonClosedSlugs : kanbanSlugs
+            intersection.length > 0 ? intersection : defaultSlugs
           setFilterStatus(resolvedStatus)
-          lastKanbanSlugsRef.current = kanbanSlugs
+          lastKanbanSlugsRef.current = defaultSlugs
           saveFiltersToStorage({ ...(stored || {}), filterStatus: resolvedStatus } as StoredFilter)
         } else {
           if (isCustomer) {
@@ -578,16 +586,16 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
               : null
             const nonClosedSlugs = list.filter((s) => !isClosedLikeTicketStatus(s.slug)).map((s) => s.slug)
             setFilterStatus(
-              fromStore !== null ? (fromStore.length > 0 ? fromStore : nonClosedSlugs) : nonClosedSlugs
+              fromStore !== null ? (fromStore.length > 0 ? fromStore : defaultSlugs) : defaultSlugs
             )
-            lastKanbanSlugsRef.current = kanbanSlugs
+            lastKanbanSlugsRef.current = defaultSlugs
           } else {
             // Merge newly kanban-visible slugs (e.g. user enabled Show in Kanban for Cancel/Archived) into the API filter.
             setFilterStatus((prev) => {
               let next: string[]
               if (prev.length > 0) {
                 const pruned = prev.filter((slug) => validSlugs.has(slug))
-                next = pruned.length > 0 ? pruned : kanbanSlugs
+                next = pruned.length > 0 ? pruned : defaultSlugs
               } else {
                 const hasStoredStatusPreference =
                   stored && 'filterStatus' in stored && Array.isArray(stored.filterStatus)
@@ -597,17 +605,17 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
                   )
                   next = intersection.length > 0 ? intersection : []
                 } else {
-                  next = kanbanSlugs
+                  next = defaultSlugs
                 }
               }
               const prevKanban = lastKanbanSlugsRef.current
-              lastKanbanSlugsRef.current = kanbanSlugs
+              lastKanbanSlugsRef.current = defaultSlugs
               if (prevKanban === null) {
                 if (next.length === 0) return []
-                const extra = next.filter((s) => !kanbanSlugs.includes(s) && validSlugs.has(s))
-                return [...new Set([...kanbanSlugs, ...extra])]
+                const extra = next.filter((s) => !defaultSlugs.includes(s) && validSlugs.has(s))
+                return [...new Set([...defaultSlugs, ...extra])]
               }
-              const newlyAdded = kanbanSlugs.filter((s) => !prevKanban.includes(s))
+              const newlyAdded = defaultSlugs.filter((s) => !prevKanban.includes(s))
               if (newlyAdded.length === 0) return next
               return [...new Set([...next, ...newlyAdded])]
             })

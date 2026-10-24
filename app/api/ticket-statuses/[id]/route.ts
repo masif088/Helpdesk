@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { count, get, type Patch, remove, tickets, ticketStatuses, update } from '@/lib/fsdb'
+import { count, find, get, type Patch, remove, tickets, ticketStatuses, update } from '@/lib/fsdb'
 import { logSettingsDeleted, logSettingsUpdated } from '@/lib/settings-activity-log'
+import { isAgentDefault, isCustomerDefault } from '@/lib/ticket-status-defaults'
+import { materializeStatusDefaults } from '@/lib/ticket-status-defaults-store'
 import { isTicketStatusInKanban } from '@/lib/ticket-status-kanban'
 import { isLockedTicketStatusSlug } from '@/lib/ticket-status-locked-slugs'
 import { revalidateTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
@@ -14,6 +16,8 @@ const STATUS_LOG_KEYS = [
   'description',
   'color',
   'show_in_kanban',
+  'agent_default_filter',
+  'customer_default_filter',
   'sort_order',
   'is_deletable',
   'is_active',
@@ -26,6 +30,8 @@ function statusSnapshot(r: {
   description?: string | null
   color?: string | null
   showInKanban?: boolean | null
+  agentDefaultFilter?: boolean | null
+  customerDefaultFilter?: boolean | null
   sortOrder?: number | null
   isDeletable?: boolean | null
   isActive?: boolean | null
@@ -37,6 +43,8 @@ function statusSnapshot(r: {
     description: r.description ?? '',
     color: r.color ?? '#8c8c8c',
     show_in_kanban: isTicketStatusInKanban(r.showInKanban),
+    agent_default_filter: r.agentDefaultFilter ?? null,
+    customer_default_filter: r.customerDefaultFilter ?? null,
     sort_order: r.sortOrder ?? 0,
     is_deletable: r.isDeletable ?? true,
     is_active: r.isActive ?? true,
@@ -67,6 +75,8 @@ export async function PATCH(
     description,
     color,
     show_in_kanban,
+    agent_default_filter,
+    customer_default_filter,
     sort_order,
     is_deletable,
     is_active,
@@ -77,6 +87,9 @@ export async function PATCH(
     return NextResponse.json({ error: 'Status not found' }, { status: 404 })
   }
 
+  if (agent_default_filter !== undefined) await materializeStatusDefaults('agent')
+  if (customer_default_filter !== undefined) await materializeStatusDefaults('customer')
+
   const values: Record<string, unknown> = {}
   if (title !== undefined) values.title = String(title).trim()
   if (slug !== undefined) values.slug = String(slug).trim().toLowerCase().replace(/\s+/g, '_')
@@ -84,6 +97,8 @@ export async function PATCH(
   if (description !== undefined) values.description = description?.trim() || ''
   if (color !== undefined) values.color = color || '#8c8c8c'
   if (show_in_kanban !== undefined) values.showInKanban = !!show_in_kanban
+  if (agent_default_filter !== undefined) values.agentDefaultFilter = !!agent_default_filter
+  if (customer_default_filter !== undefined) values.customerDefaultFilter = !!customer_default_filter
   if (sort_order !== undefined) values.sortOrder = Number(sort_order) ?? 0
   if (is_deletable !== undefined && !isLockedTicketStatusSlug(current.slug)) {
     values.isDeletable = !!is_deletable
@@ -113,6 +128,7 @@ export async function PATCH(
   })
 
   revalidateTicketsLookupCatalog()
+  const all = await find(ticketStatuses, {})
   return NextResponse.json({
     id: updated.id,
     slug: updated.slug,
@@ -121,6 +137,8 @@ export async function PATCH(
     description: updated.description ?? undefined,
     color: updated.color,
     show_in_kanban: isTicketStatusInKanban(updated.showInKanban),
+    agent_default_filter: isAgentDefault(all, updated.slug),
+    customer_default_filter: isCustomerDefault(all, updated.slug),
     is_deletable: updated.isDeletable,
     is_active: updated.isActive,
     sort_order: updated.sortOrder ?? 0,

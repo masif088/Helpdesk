@@ -5,13 +5,11 @@
  */
 import dayjs from 'dayjs'
 
-import { find, teamMembers, ticketAssignees, tickets, ticketTimeTracker, users } from '@/lib/fsdb'
+import { find, teamMembers, ticketAssignees, tickets, ticketStatuses, ticketTimeTracker, users } from '@/lib/fsdb'
 import { DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
+import { customerDefaultSlugs } from '@/lib/ticket-status-defaults'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
-
-/** Statuses where the ticket waits for the client, not for the team */
-const WAITING_ON_CLIENT = new Set(['question', 'client_review'])
 
 export type AgentWorkload = {
   userId: string
@@ -42,13 +40,16 @@ export type WorkloadSnapshot = {
 export async function loadAgentWorkload(): Promise<WorkloadSnapshot> {
   const weekStart = dayjs().startOf('day').subtract((dayjs().day() + 6) % 7, 'day')
   const today = dayjs().startOf('day')
-  const [userRows, ticketRows, assigneeRows, memberRows, sessions] = await Promise.all([
+  const [userRows, ticketRows, assigneeRows, memberRows, sessions, statusRows] = await Promise.all([
     find(users, { select: ['id', 'email', 'fullName', 'role', 'status', 'avatarUrl', 'skills', 'deletedAt'] }),
     find(tickets, { select: ['id', 'status', 'ticketType', 'dueDate'] }),
     find(ticketAssignees, { select: ['ticketId', 'userId'] }),
     find(teamMembers, { select: ['teamId', 'userId'] }),
     find(ticketTimeTracker, { where: [['startTime', '>=', weekStart.toDate()]], select: ['userId', 'startTime', 'stopTime', 'durationSeconds', 'durationAdjustment'] }),
+    find(ticketStatuses, {}),
   ])
+  // Statuses where the ball is with the client (Settings -> Ticket statuses), not with the team
+  const WAITING_ON_CLIENT = new Set(customerDefaultSlugs(statusRows))
 
   const open = new Map(
     ticketRows.filter((t) => (t.ticketType ?? DEFAULT_TICKET_TYPE) === DEFAULT_TICKET_TYPE && !isClosedLikeTicketStatus(t.status)).map((t) => [t.id, t])
