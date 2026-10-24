@@ -8,7 +8,7 @@ import dayjs from 'dayjs'
 import { find, teamMembers, ticketAssignees, tickets, ticketStatuses, ticketTimeTracker, users } from '@/lib/fsdb'
 import { DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
 import { ballWithClientSlugs } from '@/lib/ticket-status-defaults'
-import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
+import { CLOSED_LIKE_TICKET_STATUSES, isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 import { reportedDurationSeconds } from '@/lib/time-tracker-reported'
 
 export type AgentWorkload = {
@@ -40,10 +40,14 @@ export type WorkloadSnapshot = {
 export async function loadAgentWorkload(): Promise<WorkloadSnapshot> {
   const weekStart = dayjs().startOf('day').subtract((dayjs().day() + 6) % 7, 'day')
   const today = dayjs().startOf('day')
-  const [userRows, ticketRows, assigneeRows, memberRows, sessions, statusRows] = await Promise.all([
+  // Only the open support tickets are read (not the whole history), and only their assignees
+  const ticketRows = await find(tickets, {
+    where: [['ticketType', '==', DEFAULT_TICKET_TYPE], ['status', 'not-in', CLOSED_LIKE_TICKET_STATUSES]],
+    select: ['id', 'status', 'ticketType', 'dueDate'],
+  })
+  const [userRows, assigneeRows, memberRows, sessions, statusRows] = await Promise.all([
     find(users, { select: ['id', 'email', 'fullName', 'role', 'status', 'avatarUrl', 'skills', 'deletedAt'] }),
-    find(tickets, { select: ['id', 'status', 'ticketType', 'dueDate'] }),
-    find(ticketAssignees, { select: ['ticketId', 'userId'] }),
+    ticketRows.length ? find(ticketAssignees, { where: [['ticketId', 'in', ticketRows.map((t) => t.id)]], select: ['ticketId', 'userId'] }) : Promise.resolve([]),
     find(teamMembers, { select: ['teamId', 'userId'] }),
     find(ticketTimeTracker, { where: [['startTime', '>=', weekStart.toDate()]], select: ['userId', 'startTime', 'stopTime', 'durationSeconds', 'durationAdjustment'] }),
     find(ticketStatuses, {}),

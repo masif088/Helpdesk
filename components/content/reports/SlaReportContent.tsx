@@ -1,7 +1,7 @@
 'use client'
 
 import { AlertOutlined, ClockCircleOutlined, MessageOutlined, SmileOutlined } from '@ant-design/icons'
-import { App, DatePicker, Layout, Progress, Rate, Segmented, Table, Typography } from 'antd'
+import { App, Button, DatePicker, Layout, Progress, Rate, Segmented, Table, Typography } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useState } from 'react'
@@ -82,10 +82,10 @@ export default function SlaReportContent({ user }: Props) {
   const [data, setData] = useState<SlaReport | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (refresh = false) => {
     setLoading(true)
     try {
-      const qs = new URLSearchParams({ from: range[0].format('YYYY-MM-DD'), to: range[1].format('YYYY-MM-DD') })
+      const qs = new URLSearchParams({ from: range[0].format('YYYY-MM-DD'), to: range[1].format('YYYY-MM-DD'), ...(refresh && { refresh: '1' }) })
       const res = await fetch(`/api/reports/sla?${qs}`, { credentials: 'include' })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'Could not load the report')
@@ -182,6 +182,12 @@ export default function SlaReportContent({ user }: Props) {
                 }
               }}
             />
+            <Button loading={loading} onClick={() => void load(true)}>
+              Refresh
+            </Button>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Kept for the day to save reads
+            </Text>
           </div>
 
           <div className="billing-kpis">
