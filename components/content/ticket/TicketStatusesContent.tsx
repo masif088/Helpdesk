@@ -318,8 +318,9 @@ export default function TicketStatusesContent({ user: currentUser }: TicketStatu
               form.resetFields()
             }}
             footer={null}
+            width={760}
           >
-            <Form form={form} layout="vertical" onFinish={handleSubmit}>
+            <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', columnGap: 16 }}>
               <Form.Item
                 name="title"
                 label="Title"
@@ -330,7 +331,7 @@ export default function TicketStatusesContent({ user: currentUser }: TicketStatu
               <Form.Item name="customer_title" label="Customer Title">
                 <Input placeholder="e.g. In Progress (shown to customer)" />
               </Form.Item>
-              <Form.Item name="description" label="Description">
+              <Form.Item name="description" label="Description" style={{ gridColumn: '1 / -1' }}>
                 <Input.TextArea rows={3} placeholder="Description of this status" />
               </Form.Item>
               <Form.Item
@@ -342,6 +343,9 @@ export default function TicketStatusesContent({ user: currentUser }: TicketStatu
                 ]}
               >
                 <Input placeholder="e.g. in_progress" disabled={!!editingStatus} />
+              </Form.Item>
+              <Form.Item name="sort_order" label="Sort order" rules={[{ required: true }]}>
+                <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
               <Form.Item name="color" label="Color (hex)" initialValue="#1890ff">
                 <ColorPickerWithInput />
@@ -393,10 +397,7 @@ export default function TicketStatusesContent({ user: currentUser }: TicketStatu
                   unCheckedChildren="No"
                 />
               </Form.Item>
-              <Form.Item name="sort_order" label="Sort order" rules={[{ required: true }]}>
-                <InputNumber min={0} style={{ width: '100%' }} />
-              </Form.Item>
-              <Form.Item>
+              <Form.Item style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
                 <Space>
                   <Button type="primary" htmlType="submit">
                     {editingStatus ? 'Update' : 'Create'}
