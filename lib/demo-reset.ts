@@ -9,7 +9,7 @@
  *
  * Files uploaded to Firebase Storage for removed tickets are not deleted.
  */
-import { AUTO_OPEN_RULE, companiesToKeep, COMPANY_CHILD_TABLES, COUNTERS_TO_RESET, DEMO_RESET_OPERATOR, splitUsers, WIPE_TABLES } from '@/lib/demo-reset-plan'
+import { AUTO_OPEN_RULE, companiesToKeep, COMPANY_CHILD_TABLES, COUNTERS_TO_RESET, DEMO_RESET_OPERATOR, RAW_WIPE_COLLECTIONS, splitUsers, WIPE_TABLES } from '@/lib/demo-reset-plan'
 import { deleteAuthUser } from '@/lib/firebase/auth-server'
 import * as db from '@/lib/fsdb'
 import {
@@ -64,6 +64,7 @@ async function loadAccounts() {
 export async function getDemoResetPlan(): Promise<DemoResetPlan> {
   const [{ keep, gone, keepCompanyIds, companyRows }, integrations, last] = await Promise.all([loadAccounts(), find(db.emailIntegrations, {}), get(appSettings, LAST_RESET_KEY)])
   const counted = await Promise.all(WIPE_TABLES.map(async (name) => ({ table: name as string, rows: await count(table(name)) })))
+  const raw = await Promise.all(RAW_WIPE_COLLECTIONS.map(async (name) => ({ table: name as string, rows: (await fdb().collection(name).count().get()).data().count })))
   let lastReset: DemoResetPlan['lastReset'] = null
   try {
     lastReset = last?.value ? (JSON.parse(last.value) as { at: string; by: string }) : null
@@ -75,7 +76,7 @@ export async function getDemoResetPlan(): Promise<DemoResetPlan> {
     removeUsers: gone.length,
     keepCompanies: companyRows.filter((c) => keepCompanyIds.has(c.id)).map((c) => c.name),
     removeCompanies: companyRows.filter((c) => !keepCompanyIds.has(c.id)).length,
-    rows: counted.filter((c) => c.rows > 0),
+    rows: [...counted, ...raw].filter((c) => c.rows > 0),
     mailboxes: integrations.map((i) => i.emailAddress ?? i.provider),
     lastReset,
   }
@@ -164,6 +165,13 @@ export async function runDemoReset(actorEmail: string, opts: { withSample: boole
   })
 
   for (const name of WIPE_TABLES) await run(`Empty ${name}`, async () => `${await wipe(name)} rows`)
+  for (const name of RAW_WIPE_COLLECTIONS) {
+    await run(`Empty ${name}`, async () => {
+      const n = (await fdb().collection(name).count().get()).data().count
+      await fdb().recursiveDelete(fdb().collection(name)) // also removes documents that only exist through their subcollections
+      return `${n} rows`
+    })
+  }
   await run('Ticket numbers', async () => {
     for (const c of COUNTERS_TO_RESET) await fdb().collection('_counters').doc(c).delete()
     return 'start again from 1'
