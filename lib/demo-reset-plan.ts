@@ -72,6 +72,12 @@ export const WIPE_TABLES = [
   'automationRules',
 ] as const
 
+/**
+ * Collections the app writes to directly, outside the table definitions: live-update versions per ticket and who is looking at
+ * a ticket. Ticket numbers start again, so leftovers would point at the wrong tickets.
+ */
+export const RAW_WIPE_COLLECTIONS = ['ticket_data_sync', 'ticket_presence'] as const
+
 /** Per company that is removed */
 export const COMPANY_CHILD_TABLES = ['companyAttributes', 'companyDatas', 'companyWebsites', 'companyKnowledgeBases', 'companyUsers'] as const
 
