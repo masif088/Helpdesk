@@ -146,6 +146,36 @@ export const appSettings = defineTable<AppSettingsRow, NewAppSettingsRow>({
   nowFields: ['updatedAt'],
 })
 
+/** One summary per day for the SLA & satisfaction report (see lib/sla-daily.ts); the document id is the date, YYYY-MM-DD */
+export type SlaDailyRow = {
+  date: string
+  /** DaySla: tickets created that day */
+  sla: unknown
+  /** DayCsat: ratings given that day */
+  csat: unknown
+  slaFinal: boolean
+  csatFinal: boolean
+  computedAt: Date
+}
+
+export type NewSlaDailyRow = {
+  date: string
+  sla: unknown
+  csat: unknown
+  slaFinal?: boolean
+  csatFinal?: boolean
+  computedAt?: Date
+}
+
+export const slaDaily = defineTable<SlaDailyRow, NewSlaDailyRow>({
+  name: 'sla_daily',
+  columns: ['date', 'sla', 'csat', 'slaFinal', 'csatFinal', 'computedAt'],
+  docKey: ['date'],
+  idField: 'date',
+  defaults: { slaFinal: false, csatFinal: false },
+  nowFields: ['computedAt'],
+})
+
 export type AutomationRulesRow = {
   id: number
   name: string | null
@@ -1974,4 +2004,4 @@ export const users = defineTable<UsersRow, NewUsersRow>({
   nowFields: ['createdAt', 'updatedAt'],
 })
 
-export const allTables = [invoices, cannedResponses, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const
+export const allTables = [invoices, cannedResponses, slaDaily, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const
