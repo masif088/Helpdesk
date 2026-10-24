@@ -43,6 +43,8 @@ interface CompanyRecord {
   active_team_id?: string | null
   active_manager_id?: string | null
   is_customer?: boolean
+  /** Answers emails from this company automatically ("we received your request") */
+  email_auto_reply?: boolean
   created_at: string
   updated_at: string
   last_ticket_updated_at?: string | null
@@ -296,6 +298,22 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
     }
   }
 
+  /** Switch automatic email replies for one company straight from the list */
+  const toggleAutoReply = async (record: CompanyRecord, on: boolean) => {
+    setCompanies((rows) => rows.map((c) => (c.id === record.id ? { ...c, email_auto_reply: on } : c)))
+    try {
+      await apiFetch(`/api/companies/${record.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_auto_reply: on }),
+      })
+      message.success(`${record.name}: automatic email replies ${on ? 'on' : 'off'}`)
+    } catch (error: unknown) {
+      setCompanies((rows) => rows.map((c) => (c.id === record.id ? { ...c, email_auto_reply: !on } : c)))
+      message.error((error as Error).message || 'Could not change the setting')
+    }
+  }
+
   const columns: ColumnsType<CompanyRecord> = [
     {
       title: 'Name',
@@ -325,6 +343,19 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       sortDirections: ['ascend', 'descend'],
       render: (is_customer: boolean | undefined) => (
         <StatusPill color={is_customer ? '#0F9D8A' : '#94A3B8'} title={is_customer ? 'Customer' : 'Internal'} />
+      ),
+    },
+    {
+      title: (
+        <Tooltip title="When this company emails the support inbox, they get a 'we received your request' email. Off: the ticket is still created, but nothing is sent back automatically.">
+          <span>Auto reply</span>
+        </Tooltip>
+      ),
+      key: 'email_auto_reply',
+      width: 110,
+      align: 'center',
+      render: (_: unknown, record: CompanyRecord) => (
+        <Switch size="small" checked={record.email_auto_reply !== false} disabled={!canEditBilling} onChange={(on) => void toggleAutoReply(record, on)} aria-label={`Automatic email replies for ${record.name}`} />
       ),
     },
     ...(canEditBilling

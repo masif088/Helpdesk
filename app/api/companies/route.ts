@@ -73,6 +73,7 @@ export async function GET(request: Request) {
     active_team_id: r.activeTeamId ?? null,
     active_manager_id: r.activeManagerId ?? null,
     is_customer: r.isCustomer ?? false,
+    email_auto_reply: r.emailAutoReply !== false,
     ...(showBilling
       ? { default_hourly_rate: r.defaultHourlyRate ?? null, default_rate_currency: r.defaultRateCurrency ?? null }
       : {}),
