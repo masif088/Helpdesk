@@ -1,6 +1,6 @@
 'use client'
 
-import { ApartmentOutlined, ApiOutlined, AppstoreOutlined, ArrowRightOutlined, BgColorsOutlined, BulbOutlined, CarryOutOutlined, FieldTimeOutlined, IdcardOutlined, MailOutlined, MessageOutlined, PushpinOutlined, ReadOutlined, RobotOutlined, ScheduleOutlined, SearchOutlined, SlackOutlined, SoundOutlined, SyncOutlined, TagsOutlined, TeamOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import { ApartmentOutlined, ApiOutlined, AppstoreOutlined, ArrowRightOutlined, BgColorsOutlined, BulbOutlined, CarryOutOutlined, DeleteOutlined, FieldTimeOutlined, IdcardOutlined, MailOutlined, MessageOutlined, PushpinOutlined, ReadOutlined, RobotOutlined, ScheduleOutlined, SearchOutlined, SlackOutlined, SoundOutlined, SyncOutlined, TagsOutlined, TeamOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { Input, Layout, Typography } from 'antd'
 import type { CSSProperties, ReactNode } from 'react'
 import { useMemo, useState } from 'react'
@@ -9,6 +9,7 @@ import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import { canAccessAiSettings, canAccessAutomationRules, canAccessChecklistTemplates, canAccessEmailIntegration, canAccessKnowledgeBase, canAccessMessageTemplates, canAccessRecurringTickets, canAccessSlackNotifications, canAccessTeams, canAccessTicketAttributes, canAccessUsers, canManageDashboardAnnouncements, canManageGlobalAnnouncement, isAdmin, isAdminOrManager, isInternalUser } from '@/lib/auth-utils'
+import { mayDemoReset } from '@/lib/demo-reset-plan'
 
 const { Content } = Layout
 const { Title, Text } = Typography
@@ -21,6 +22,8 @@ type SettingItem = {
   /** Extra search words */
   keywords?: string
   show: (role: string) => boolean
+  /** Extra condition on the signed-in account (e.g. one operator only) */
+  only?: (email: string | null | undefined) => boolean
 }
 
 type SettingGroup = {
@@ -107,6 +110,7 @@ const GROUPS: SettingGroup[] = [
     items: [
       { title: 'Branding', description: 'App name, logo, favicon and email sender name', href: '/settings/app-branding', icon: <BgColorsOutlined />, keywords: 'logo name favicon sender', show: isAdmin },
       { title: 'Scheduled jobs', description: 'Email sync, recurring tickets, time triggers: last run and setup', href: '/settings/scheduled-jobs', icon: <ScheduleOutlined />, keywords: 'cron apps script scheduler sync', show: isAdmin },
+      { title: 'Demo reset', description: 'Empty the whole app for a fresh demo: tickets, accounts, mailbox and automation', href: '/settings/demo-reset', icon: <DeleteOutlined />, keywords: 'reset wipe clear demo clean', show: isAdmin, only: mayDemoReset },
       { title: 'Connection status', description: 'Database, storage, Firebase, email and AI checks', href: '/settings/connection-status', icon: <ApiOutlined />, keywords: 'health check firebase storage', show: isAdmin },
     ],
   },
@@ -141,6 +145,7 @@ export default function SettingsContent({ user: currentUser }: SettingsContentPr
       items: g.items.filter(
         (it) =>
           it.show(role) &&
+          (!it.only || it.only(currentUser.email)) &&
           (!q || `${it.title} ${it.description} ${it.keywords ?? ''} ${g.title}`.toLowerCase().includes(q))
       ),
     })).filter((g) => g.items.length > 0)
