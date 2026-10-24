@@ -157,6 +157,7 @@ export default function CompanyDetailContent({
       active_team_id: companyData.active_team_id || undefined,
       active_manager_id: companyData.active_manager_id || undefined,
       is_customer: companyData.is_customer ?? false,
+      email_auto_reply: companyData.email_auto_reply !== false,
       default_hourly_rate: companyData.default_hourly_rate ?? null,
       default_rate_currency: companyData.default_rate_currency ?? DEFAULT_RATE_CURRENCY,
     })
@@ -194,6 +195,7 @@ export default function CompanyDetailContent({
             active_team_id: values.active_team_id ?? null,
             active_manager_id: values.active_manager_id ?? null,
             is_customer: values.is_customer === true,
+            email_auto_reply: values.email_auto_reply !== false,
             ...(canEditBilling
               ? {
                   default_hourly_rate: values.default_hourly_rate ?? null,
@@ -609,6 +611,14 @@ export default function CompanyDetailContent({
                         </Form.Item>
                       </Col>
                     </Row>
+                    <Form.Item
+                      name="email_auto_reply"
+                      label="Reply to their emails automatically"
+                      valuePropName="checked"
+                      tooltip="When this company emails the support inbox, a ticket is created and they get a 'we received your request' email (new senders also get a welcome email). Switch off if this company does not want that; the ticket is still created and agents reply by hand."
+                    >
+                      <Switch checkedChildren="On" unCheckedChildren="Off" />
+                    </Form.Item>
                     <Form.Item name="active_team_id" label="Active team">
                       <Select
                         allowClear

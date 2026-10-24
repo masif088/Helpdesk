@@ -114,6 +114,7 @@ export async function PUT(
       updateData.activeManagerId = activeManagerId
     }
     if (isCustomerCompany !== undefined) updateData.isCustomer = isCustomerCompany
+    if (body.email_auto_reply !== undefined) updateData.emailAutoReply = body.email_auto_reply !== false
   }
 
   const defaultRate = parseHourlyRateBody(body, { rate: 'default_hourly_rate', currency: 'default_rate_currency' })
@@ -188,6 +189,7 @@ export async function PUT(
       active_team_id: row.activeTeamId ?? null,
       active_manager_id: row.activeManagerId ?? null,
       is_customer: row.isCustomer ?? false,
+      email_auto_reply: row.emailAutoReply !== false,
       ...(isAdminOrManager(role)
         ? { default_hourly_rate: row.defaultHourlyRate ?? null, default_rate_currency: row.defaultRateCurrency ?? null }
         : {}),

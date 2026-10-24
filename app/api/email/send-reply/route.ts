@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
 import { emailIntegrations, emailMessages, findBy, findOneBy, get, insert, sortRows, tickets, update } from '@/lib/fsdb'
+import { portalGmail } from '@/lib/portal-gmail'
 import { getObjectBuffer } from '@/lib/storage-provider'
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -179,7 +180,7 @@ export async function POST(request: NextRequest) {
       oauth2Client.setCredentials({ access_token: accessToken })
     }
 
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+    const gmail = portalGmail(oauth2Client, { human: true })
     const fromEmailAddress = integration.emailAddress || 'noreply@example.com'
 
     const appSettings = await getAppSettings()

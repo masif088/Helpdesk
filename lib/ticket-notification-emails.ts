@@ -16,6 +16,7 @@ import {
   type UsersRow,
 } from '@/lib/fsdb'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
+import { portalGmail } from '@/lib/portal-gmail'
 
 async function fetchCompanyName(companyId: string | null | undefined): Promise<string | null> {
   if (!companyId) return null
@@ -77,7 +78,7 @@ async function getGmailSender(): Promise<GmailSender | null> {
   }
 
   return {
-    gmail: google.gmail({ version: 'v1', auth: oauth2Client }),
+    gmail: portalGmail(oauth2Client),
     fromEmail: integration.emailAddress || 'noreply@example.com',
     integrationId: integration.id,
   }

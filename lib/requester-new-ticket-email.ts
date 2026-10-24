@@ -3,6 +3,7 @@ import { google } from 'googleapis'
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
 import { companies, companyUsers, emailIntegrations, find, findOneBy, get, messageTemplates, update, users } from '@/lib/fsdb'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
+import { portalGmail } from '@/lib/portal-gmail'
 
 export const REQUESTER_NEW_TICKET_TEMPLATE_KEY = 'requester_notification_new_ticket_created' as const
 
@@ -122,7 +123,7 @@ export async function sendRequesterTicketCreatedEmail(
     oauth2Client.setCredentials({ access_token: accessToken })
   }
 
-  const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+  const gmail = portalGmail(oauth2Client)
   const fromEmail = integration.emailAddress || 'noreply@example.com'
   const appSettings = await getAppSettings()
   const fromHeader = formatFromHeader(appSettings.email_sender_name, fromEmail)

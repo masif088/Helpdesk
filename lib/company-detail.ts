@@ -101,6 +101,7 @@ export async function getCompanyDetail(id: string, opts?: { includeBilling?: boo
     active_manager_id: company.activeManagerId ?? null,
     active_manager_display,
     is_customer: company.isCustomer ?? false,
+    email_auto_reply: company.emailAutoReply !== false,
     freshdesk_id: company.freshdeskId ?? null,
     ...(opts?.includeBilling
       ? {

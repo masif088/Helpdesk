@@ -9,11 +9,13 @@ import { sendAutomationLog } from '@/lib/automation-log-webhook'
 import { companyDefaultRate } from '@/lib/billing-rate-server'
 import { looksAutomatedEmail } from '@/lib/contact-kind'
 import { isCronRequest } from '@/lib/cron-auth'
+import { autoReplyBlock, isAutoSubmitted } from '@/lib/email-autoreply'
 import { bumpTicketDataVersion } from '@/lib/firebase/ticket-sync-server'
 import { commentAttachments, companies, companyUsers, emailIntegrations, emailMessages, emailSkipList, find, findBy, findOne, findOneBy, get, insert, insertIgnore, insertMany, messageTemplates, sortRows, ticketAttachments, ticketCcRecipients, ticketComments, tickets, update, updateByKey, users } from '@/lib/fsdb'
 import { isInboxAutoUserActivationEmailEnabled } from '@/lib/inbox-user-activation'
 import { withJobRun } from '@/lib/job-runs'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
+import { portalGmail } from '@/lib/portal-gmail'
 import { sendRequesterTicketCreatedEmail } from '@/lib/requester-new-ticket-email'
 import { uploadBuffer } from '@/lib/storage-provider'
 import { logTicketActivity } from '@/lib/ticket-activity-log'
@@ -248,7 +250,10 @@ async function sendNewInboxUserOnboardingEmails(params: {
   recipientUserId: string
   integrationActorUserId: string
   temporaryPassword: string
+  /** false: this email (or its company) must not get an automatic answer */
+  allow?: boolean
 }): Promise<void> {
+  if (params.allow === false) return
   // Temporarily off — set INBOX_AUTO_USER_ACTIVATION_EMAIL_ENABLED=true in lib/inbox-user-activation.ts
   if (!isInboxAutoUserActivationEmailEnabled()) {
     console.info(
@@ -558,7 +563,7 @@ async function syncInbox(request: NextRequest) {
       oauth2Client.setCredentials({ access_token: accessToken })
     }
 
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+    const gmail = portalGmail(oauth2Client)
 
     // Fetch only since last sync (or 2 days for first sync)
     const lastSyncAt = integration.lastSyncAt ? new Date(integration.lastSyncAt) : null
@@ -681,6 +686,24 @@ async function syncInbox(request: NextRequest) {
       const textBodies = extractEmailTextBodies(msg.payload || {})
       const body = (textBodies.html || textBodies.plain || '').trim()
       const rfcMessageId = getHeader('Message-ID')?.trim() || null
+
+      // Automatic answers ("we received your request", welcome email) are never sent to another ticket portal, auto-generated mail,
+      // bulk / list mail, bounces or no-reply senders, nor to a company that switched them off.
+      const replyBlockedBy = autoReplyBlock(getHeader, senderEmail, { ownAddress: integration.emailAddress, isAutomatedAddress: looksAutomatedEmail })
+      const autoSubmitted = isAutoSubmitted(getHeader)
+      const autoReplyOk = async (companyId: string | null | undefined) => {
+        if (replyBlockedBy) {
+          if (isDebug) debugLog.push({ email: senderEmail, subject: subject || '', reason: `INFO: no automatic reply (${replyBlockedBy})` })
+          return false
+        }
+        if (!companyId) return true
+        const co = await get(companies, companyId)
+        if (co?.emailAutoReply === false) {
+          if (isDebug) debugLog.push({ email: senderEmail, subject: subject || '', reason: `INFO: no automatic reply (switched off for ${co.name})` })
+          return false
+        }
+        return true
+      }
 
       try {
         await insert(emailMessages, {
@@ -826,6 +849,7 @@ async function syncInbox(request: NextRequest) {
               try {
                 await sendNewInboxUserOnboardingEmails({
                   gmail,
+                  allow: await autoReplyOk(ticketRow.companyId),
                   fromEmail: integration.emailAddress || 'noreply@example.com',
                   toEmail: senderEmail,
                   baseUrl,
@@ -1246,7 +1270,7 @@ async function syncInbox(request: NextRequest) {
               companyId: ticketCompanyId,
               ...(await companyDefaultRate(ticketCompanyId)),
               createdVia: 'email',
-              ticketType: isSpam ? 'spam' : senderIsAutomated ? 'notification' : DEFAULT_TICKET_TYPE,
+              ticketType: isSpam ? 'spam' : senderIsAutomated || autoSubmitted ? 'notification' : DEFAULT_TICKET_TYPE,
               /** NULL first; then append to end of company queue. */
               priority: ticketCompanyId ? null : 0,
               ...(emailDateIso && { createdAt: new Date(emailDateIso) }),
@@ -1300,6 +1324,7 @@ async function syncInbox(request: NextRequest) {
                     try {
                       await sendNewInboxUserOnboardingEmails({
                         gmail,
+                        allow: await autoReplyOk(ticketCompanyId),
                         fromEmail: integration.emailAddress || 'noreply@example.com',
                         toEmail: ccEmail.trim(),
                         baseUrl,
@@ -1369,7 +1394,7 @@ async function syncInbox(request: NextRequest) {
           })
 
           if (!skipNotifications) {
-            if (creatorUserId) {
+            if (creatorUserId && (await autoReplyOk(ticketCompanyId))) {
               try {
                 const notifResult = await sendRequesterTicketCreatedEmail({
                   creatorUserId,
@@ -1452,6 +1477,7 @@ async function syncInbox(request: NextRequest) {
               try {
                 await sendNewInboxUserOnboardingEmails({
                   gmail,
+                  allow: await autoReplyOk(ticketCompanyId),
                   fromEmail: integration.emailAddress || 'noreply@example.com',
                   toEmail: senderEmail,
                   baseUrl,

@@ -3,6 +3,7 @@ import { google } from 'googleapis'
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
 import { companies, emailIntegrations, findOneBy, get, messageTemplates, update, users } from '@/lib/fsdb'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
+import { portalGmail } from '@/lib/portal-gmail'
 
 export const RECURRING_TICKET_CREATED_TEMPLATE_KEY =
   'requester_notification_recurring_ticket_created' as const
@@ -115,7 +116,7 @@ export async function sendRecurringTicketCreatedEmail(
     oauth2Client.setCredentials({ access_token: accessToken })
   }
 
-  const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+  const gmail = portalGmail(oauth2Client)
   const fromEmail = integration.emailAddress || 'noreply@example.com'
   const appSettings = await getAppSettings()
   const fromHeader = formatFromHeader(appSettings.email_sender_name, fromEmail)

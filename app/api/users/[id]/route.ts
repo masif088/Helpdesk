@@ -22,6 +22,7 @@ import {
   users,
 } from '@/lib/fsdb'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
+import { portalGmail } from '@/lib/portal-gmail'
 import {
   actorRoleFromSession,
   logSystemActivity,
@@ -91,7 +92,7 @@ async function sendCustomerResetPasswordEmail(params: {
     oauth2Client.setCredentials({ access_token: accessToken })
   }
 
-  const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+  const gmail = portalGmail(oauth2Client)
   const fromEmail = integration.emailAddress || 'noreply@example.com'
   const appSettings = await getAppSettings()
   const fromHeader = formatFromHeader(appSettings.email_sender_name, fromEmail)
@@ -192,7 +193,7 @@ async function sendUserActivationEmail(params: { toEmail: string }) {
     oauth2Client.setCredentials({ access_token: accessToken })
   }
 
-  const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+  const gmail = portalGmail(oauth2Client)
   const fromEmail = integration.emailAddress || 'noreply@example.com'
   const appSettings = await getAppSettings()
   const fromHeader = formatFromHeader(appSettings.email_sender_name, fromEmail)

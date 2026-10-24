@@ -7,6 +7,7 @@ import { findUserByEmail, setUserPassword } from '@/lib/app-users'
 import { BRANDING } from '@/lib/branding'
 import { companies, emailIntegrations, findOneBy, get, messageTemplates, update, users } from '@/lib/fsdb'
 import { mergeMessageTemplateHtml, userRowToMergeMap } from '@/lib/message-template-merge'
+import { portalGmail } from '@/lib/portal-gmail'
 
 function encodeSubjectHeader(subject: string): string {
   if (/^[\x01-\x7F]*$/.test(subject)) return subject
@@ -90,7 +91,7 @@ async function sendResetEmail(params: {
     oauth2Client.setCredentials({ access_token: accessToken })
   }
 
-  const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+  const gmail = portalGmail(oauth2Client)
   const fromEmail = integration.emailAddress || 'noreply@example.com'
   const appSettings = await getAppSettings()
   const fromHeader = formatFromHeader(appSettings.email_sender_name, fromEmail)

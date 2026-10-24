@@ -341,6 +341,8 @@ export type CompaniesRow = {
   retainer: Retainer | null
   /** Staff were told the deposit no longer covers what is owed (cleared once it does again) */
   lowDepositNotifiedAt: Date | null
+  /** Answer emails from this company automatically ("we received your request", welcome email). null = on */
+  emailAutoReply: boolean | null
   createdAt: Date
   updatedAt: Date
 }
@@ -362,13 +364,14 @@ export type NewCompaniesRow = {
   slaByType?: Record<string, SlaTarget> | null
   retainer?: Retainer | null
   lowDepositNotifiedAt?: Date | null
+  emailAutoReply?: boolean | null
   createdAt?: Date
   updatedAt?: Date
 }
 
 export const companies = defineTable<CompaniesRow, NewCompaniesRow>({
   name: 'companies',
-  columns: ['id', 'name', 'isActive', 'email', 'domainList', 'color', 'activeTeamId', 'activeManagerId', 'isCustomer', 'freshdeskId', 'defaultHourlyRate', 'defaultRateCurrency', 'skillsByType', 'slaByType', 'retainer', 'lowDepositNotifiedAt', 'createdAt', 'updatedAt'],
+  columns: ['id', 'name', 'isActive', 'email', 'domainList', 'color', 'activeTeamId', 'activeManagerId', 'isCustomer', 'freshdeskId', 'defaultHourlyRate', 'defaultRateCurrency', 'skillsByType', 'slaByType', 'retainer', 'lowDepositNotifiedAt', 'emailAutoReply', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',
