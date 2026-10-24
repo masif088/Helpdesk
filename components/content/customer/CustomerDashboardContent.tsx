@@ -393,7 +393,7 @@ export default function CustomerDashboardContent({ user }: CustomerDashboardCont
                 <Col xs={24} xl={10}>
                   <Card title={<SectionTitle>Tickets by type and status</SectionTitle>} style={{ height: '100%' }}>
                     {barChartData.length ? (
-                      <div className="customer-dash-recharts" style={{ height: 200 }}>
+                      <div className="customer-dash-recharts" style={{ height: 240 }}>
                         <LazyCustomerDashboardBarBlock
                           barChartData={barChartData}
                           tooltipStyle={RECHARTS_TOOLTIP_STYLE}
