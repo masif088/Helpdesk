@@ -217,6 +217,7 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       active_team_id: record.active_team_id || undefined,
       active_manager_id: record.active_manager_id || undefined,
       is_customer: record.is_customer ?? false,
+      email_auto_reply: record.email_auto_reply !== false,
       default_hourly_rate: record.default_hourly_rate ?? null,
       default_rate_currency: record.default_rate_currency ?? DEFAULT_RATE_CURRENCY,
     })
@@ -241,6 +242,7 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
     active_team_id?: string | null
     active_manager_id?: string | null
     is_customer?: boolean
+    email_auto_reply?: boolean
     default_hourly_rate?: number | null
     default_rate_currency?: string | null
   }) => {
@@ -248,6 +250,7 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       active_team_id: values.active_team_id ?? null,
       active_manager_id: values.active_manager_id ?? null,
       is_customer: values.is_customer === true,
+      email_auto_reply: values.email_auto_reply !== false,
       ...(canEditBilling
         ? {
             default_hourly_rate: values.default_hourly_rate ?? null,
@@ -298,22 +301,6 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
     }
   }
 
-  /** Switch automatic email replies for one company straight from the list */
-  const toggleAutoReply = async (record: CompanyRecord, on: boolean) => {
-    setCompanies((rows) => rows.map((c) => (c.id === record.id ? { ...c, email_auto_reply: on } : c)))
-    try {
-      await apiFetch(`/api/companies/${record.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email_auto_reply: on }),
-      })
-      message.success(`${record.name}: automatic email replies ${on ? 'on' : 'off'}`)
-    } catch (error: unknown) {
-      setCompanies((rows) => rows.map((c) => (c.id === record.id ? { ...c, email_auto_reply: !on } : c)))
-      message.error((error as Error).message || 'Could not change the setting')
-    }
-  }
-
   const columns: ColumnsType<CompanyRecord> = [
     {
       title: 'Name',
@@ -343,19 +330,6 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
       sortDirections: ['ascend', 'descend'],
       render: (is_customer: boolean | undefined) => (
         <StatusPill color={is_customer ? '#0F9D8A' : '#94A3B8'} title={is_customer ? 'Customer' : 'Internal'} />
-      ),
-    },
-    {
-      title: (
-        <Tooltip title="When this company emails the support inbox, they get a 'we received your request' email. Off: the ticket is still created, but nothing is sent back automatically.">
-          <span>Auto reply</span>
-        </Tooltip>
-      ),
-      key: 'email_auto_reply',
-      width: 110,
-      align: 'center',
-      render: (_: unknown, record: CompanyRecord) => (
-        <Switch size="small" checked={record.email_auto_reply !== false} disabled={!canEditBilling} onChange={(on) => void toggleAutoReply(record, on)} aria-label={`Automatic email replies for ${record.name}`} />
       ),
     },
     ...(canEditBilling
@@ -618,6 +592,16 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
                   </Form.Item>
                 </Col>
               </Row>
+
+              <Form.Item
+                name="email_auto_reply"
+                label="Reply to their emails automatically"
+                valuePropName="checked"
+                initialValue
+                tooltip="When this company emails the support inbox, a ticket is created and they get a 'we received your request' email (new senders also get a welcome email). Switch off if this company does not want that: the ticket is still created and agents reply by hand."
+              >
+                <Switch checkedChildren="On" unCheckedChildren="Off" />
+              </Form.Item>
 
               <Form.Item>
                 <Space>

@@ -146,6 +146,7 @@ export async function POST(request: Request) {
     activeTeamId,
     activeManagerId,
     isCustomer: isCustomerCompany,
+    emailAutoReply: body.email_auto_reply !== false,
     ...(defaultRate && !('error' in defaultRate)
       ? { defaultHourlyRate: defaultRate.hourlyRate, defaultRateCurrency: defaultRate.rateCurrency }
       : {}),
