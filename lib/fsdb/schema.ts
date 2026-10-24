@@ -449,6 +449,11 @@ export type InvoicesRow = {
   sentTo: string | null
   /** Staff were notified that it is past its due date (once per invoice) */
   overdueNotifiedAt: Date | null
+  /** Open online payment page (Midtrans / Xendit): provider, our reference, where the customer pays */
+  gatewayProvider: string | null
+  gatewayOrderId: string | null
+  gatewayUrl: string | null
+  gatewayCreatedAt: Date | null
   createdBy: string | null
   createdAt: Date
   updatedAt: Date
@@ -474,6 +479,10 @@ export type NewInvoicesRow = {
   sentAt?: Date | null
   sentTo?: string | null
   overdueNotifiedAt?: Date | null
+  gatewayProvider?: string | null
+  gatewayOrderId?: string | null
+  gatewayUrl?: string | null
+  gatewayCreatedAt?: Date | null
   createdBy?: string | null
   createdAt?: Date
   updatedAt?: Date
@@ -481,7 +490,7 @@ export type NewInvoicesRow = {
 
 export const invoices = defineTable<InvoicesRow, NewInvoicesRow>({
   name: 'invoices',
-  columns: ['id', 'number', 'companyId', 'currency', 'periodFrom', 'periodTo', 'issueDate', 'dueDate', 'lines', 'total', 'status', 'notes', 'paymentId', 'paidVia', 'paidAt', 'balanceAfter', 'sentAt', 'sentTo', 'overdueNotifiedAt', 'createdBy', 'createdAt', 'updatedAt'],
+  columns: ['id', 'number', 'companyId', 'currency', 'periodFrom', 'periodTo', 'issueDate', 'dueDate', 'lines', 'total', 'status', 'notes', 'paymentId', 'paidVia', 'paidAt', 'balanceAfter', 'sentAt', 'sentTo', 'overdueNotifiedAt', 'gatewayProvider', 'gatewayOrderId', 'gatewayUrl', 'gatewayCreatedAt', 'createdBy', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests/",
+    "test": "node --test \"tests/*.test.mjs\"",
     "db:seed": "npx tsx scripts/seed.ts",
     "prepare": "husky",
     "firebase:deploy-rules": "npx firebase-tools deploy --only firestore:rules,firestore:indexes,storage"

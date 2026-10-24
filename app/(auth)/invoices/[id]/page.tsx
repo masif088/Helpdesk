@@ -9,6 +9,7 @@ import { customerBillingCompanyId } from '@/lib/customer-billing'
 import { companies, get, invoices } from '@/lib/fsdb'
 import { defaultInvoiceRecipients } from '@/lib/invoice-email'
 import { companyDepositBalance, invoiceToJson } from '@/lib/invoices'
+import { gatewayConfig, mayPayOnline } from '@/lib/payment-gateway'
 
 /**
  * Who may open this invoice: admin / manager, or a client (portal admin) for their own company's invoices,
@@ -64,6 +65,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
       initialDoc={(await searchParams).doc === 'receipt' && inv.status === 'paid' ? 'receipt' : 'invoice'}
       readOnly={!staff}
       defaultRecipients={recipients}
+      onlinePayment={mayPayOnline(inv, gatewayConfig())}
     />
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckCircleOutlined, DownloadOutlined, MailOutlined, StopOutlined, UndoOutlined, WalletOutlined } from '@ant-design/icons'
+import { CheckCircleOutlined, CreditCardOutlined, DownloadOutlined, MailOutlined, StopOutlined, UndoOutlined, WalletOutlined } from '@ant-design/icons'
 import { App, Button, Input, Modal, Segmented, Tooltip } from 'antd'
 import dayjs from 'dayjs'
 import { useRouter } from 'next/navigation'
@@ -26,6 +26,8 @@ interface Props {
   readOnly?: boolean
   /** Staff: who "Send by email" goes to by default (company email, else its portal admins) */
   defaultRecipients?: string[]
+  /** A payment provider is set up and this invoice can be paid on its page (issued, rupiah) */
+  onlinePayment?: boolean
 }
 
 const fmtDate = (d: string | null) => (d ? dayjs(d).format('D MMM YYYY') : '—')
@@ -39,7 +41,7 @@ const STATUS: Record<string, { label: string; color: string }> = {
 }
 
 /** Invoice (bill to the client) and, once paid, its receipt. A4 layout; "Download PDF" prints to PDF. */
-export default function InvoiceDocument({ invoice: initial, client, issuer, depositAvailable, initialDoc, readOnly = false, defaultRecipients = [] }: Props) {
+export default function InvoiceDocument({ invoice: initial, client, issuer, depositAvailable, initialDoc, readOnly = false, defaultRecipients = [], onlinePayment = false }: Props) {
   const { message, modal } = App.useApp()
   const router = useRouter()
   const [inv, setInv] = useState(initial)
@@ -74,6 +76,19 @@ export default function InvoiceDocument({ invoice: initial, client, issuer, depo
       message.error((e as Error).message)
       return false
     } finally {
+      setBusy(false)
+    }
+  }
+
+  const payOnline = async () => {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/invoices/${inv.id}/pay-online`, { method: 'POST', credentials: 'include' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.url) throw new Error(data.error || 'Could not open the payment page')
+      window.location.href = data.url
+    } catch (e) {
+      message.error((e as Error).message)
       setBusy(false)
     }
   }
@@ -134,6 +149,11 @@ export default function InvoiceDocument({ invoice: initial, client, issuer, depo
               { value: 'receipt', label: 'Receipt' },
             ]}
           />
+        ) : null}
+        {onlinePayment && inv.status === 'issued' ? (
+          <Button type={readOnly ? 'primary' : 'default'} icon={<CreditCardOutlined />} loading={busy} onClick={() => void payOnline()}>
+            Pay online
+          </Button>
         ) : null}
         {!readOnly && inv.status === 'issued' ? (
           <>
