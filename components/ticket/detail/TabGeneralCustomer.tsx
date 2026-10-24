@@ -482,7 +482,7 @@ export default function TabGeneralCustomer({
             </Tag>
           </Descriptions.Item>
           <Descriptions.Item label="Type">
-            {onSaveChanges ? (
+            {onSaveChanges && !isTicketClosed ? (
               <Select
                 value={typeDraft ?? undefined}
                 onChange={(v) => setTypeDraft(v ?? null)}
@@ -510,7 +510,7 @@ export default function TabGeneralCustomer({
             )}
           </Descriptions.Item>
           <Descriptions.Item label="Priority">
-            {onSaveChanges ? (
+            {onSaveChanges && !isTicketClosed ? (
               <InputNumber
                 min={1}
                 precision={0}

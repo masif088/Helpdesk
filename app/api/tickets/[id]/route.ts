@@ -414,6 +414,11 @@ export async function PATCH(
     return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
   }
 
+  // A closed ticket is treated as done: the client reopens it before changing type or priority
+  if (actorRole === 'customer' && (type_id !== undefined || priority !== undefined) && prioCtxRow.status === 'closed') {
+    return NextResponse.json({ error: 'Reopen the ticket before changing its type or priority' }, { status: 400 })
+  }
+
   let companyIdUpdate: string | null | undefined = undefined
   if (company_id !== undefined) {
     companyIdUpdate = company_id || null
