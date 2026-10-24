@@ -984,6 +984,43 @@ export const knowledgeBaseArticles = defineTable<KnowledgeBaseArticlesRow, NewKn
   nowFields: ['createdAt', 'updatedAt'],
 })
 
+export type CannedResponsesRow = {
+  id: string
+  title: string
+  /** Optional short word to find it by, e.g. "refund" */
+  shortcut: string | null
+  /** HTML. May contain {{customer_name}}, {{ticket_number}}, {{agent_name}}, {{company}} */
+  content: string
+  /** shared: everyone on the team; personal: only the owner */
+  scope: string
+  ownerId: string | null
+  usageCount: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type NewCannedResponsesRow = {
+  id?: string
+  title: string
+  shortcut?: string | null
+  content: string
+  scope?: string
+  ownerId?: string | null
+  usageCount?: number
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+export const cannedResponses = defineTable<CannedResponsesRow, NewCannedResponsesRow>({
+  name: 'canned_responses',
+  columns: ['id', 'title', 'shortcut', 'content', 'scope', 'ownerId', 'usageCount', 'createdAt', 'updatedAt'],
+  docKey: ['id'],
+  idField: 'id',
+  idGen: 'uuid',
+  defaults: {'scope': 'shared', 'usageCount': 0},
+  nowFields: ['createdAt', 'updatedAt'],
+})
+
 export type MessageTemplatesRow = {
   id: string
   type: string
@@ -1919,4 +1956,4 @@ export const users = defineTable<UsersRow, NewUsersRow>({
   nowFields: ['createdAt', 'updatedAt'],
 })
 
-export const allTables = [invoices, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const
+export const allTables = [invoices, cannedResponses, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const

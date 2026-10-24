@@ -5,16 +5,28 @@ import {
   DeleteOutlined,
   PaperClipOutlined,
   PlusOutlined,
+  SearchOutlined,
   SendOutlined,
+  ThunderboltOutlined,
   UserAddOutlined,
 } from '@ant-design/icons'
-import { Button, Flex, message, Modal, Select } from 'antd'
+import { Button, Flex, Input, message, Modal, Popover, Select } from 'antd'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { linkifyRichHtml } from '@/lib/linkify-rich-html'
 import { uploadTicketFile } from '@/utils/storage'
 
 import CommentWysiwyg from './CommentWysiwyg'
+
+type CannedItem = { id: string; title: string; shortcut: string; content: string; scope: string }
+
+const cannedPreview = (html: string) =>
+  html
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .trim()
+    .slice(0, 110)
 
 export type CommentExtra = {
   taggedUserIds?: string[]
@@ -94,6 +106,48 @@ export default function CommentComposer({
   })
   const [bccEmails, setBccEmails] = useState<string[]>([])
   const isReplyMode = (showNoteOption && mode === 'reply') || !showNoteOption
+
+  // Canned responses (agents only): loaded the first time the picker opens, filtered as the agent types
+  const [cannedOpen, setCannedOpen] = useState(false)
+  const [canned, setCanned] = useState<CannedItem[] | null>(null)
+  const [cannedQuery, setCannedQuery] = useState('')
+  const [cannedBusy, setCannedBusy] = useState(false)
+  const openCanned = async (open: boolean) => {
+    setCannedOpen(open)
+    if (!open || canned) return
+    try {
+      const res = await fetch('/api/canned-responses', { credentials: 'include', cache: 'no-store' })
+      setCanned(res.ok ? await res.json() : [])
+    } catch {
+      setCanned([])
+    }
+  }
+  const insertCanned = async (item: CannedItem) => {
+    setCannedBusy(true)
+    try {
+      const res = await fetch(`/api/canned-responses/${item.id}/use`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketId }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { html?: string; error?: string }
+      if (!res.ok || !data.html) throw new Error(data.error || 'Could not insert the reply')
+      const html = data.html
+      // an empty box takes the reply as it is; otherwise it goes under what was already written
+      setDraft((prev) => (isBlankEditorValue(prev) ? html : `${prev}${html}`))
+      setCannedOpen(false)
+      setCannedQuery('')
+    } catch (e) {
+      message.error((e as Error).message)
+    } finally {
+      setCannedBusy(false)
+    }
+  }
+  const cannedShown = (canned ?? []).filter((c) => {
+    const q = cannedQuery.trim().toLowerCase().replace(/^\//, '')
+    return !q || `${c.title} ${c.shortcut} ${cannedPreview(c.content)}`.toLowerCase().includes(q)
+  })
 
   useEffect(() => {
     if (isBlankEditorValue(draft) && attachments.length === 0) return
@@ -434,13 +488,55 @@ export default function CommentComposer({
       {/* Action bar */}
       <div style={{ padding: '8px 12px', borderTop: `1px solid ${accentColor}` }}>
         <Flex justify="space-between" align="center">
-          <Button
-            icon={<PaperClipOutlined />}
-            onClick={() => document.getElementById('comment-files-input')?.click()}
-            loading={uploading}
-          >
-            Attach files
-          </Button>
+          <Flex gap={8}>
+            <Button
+              icon={<PaperClipOutlined />}
+              onClick={() => document.getElementById('comment-files-input')?.click()}
+              loading={uploading}
+            >
+              Attach files
+            </Button>
+            {showNoteOption && (
+              <Popover
+                trigger="click"
+                placement="topLeft"
+                open={cannedOpen}
+                onOpenChange={(o) => void openCanned(o)}
+                content={
+                  <div style={{ width: 340 }}>
+                    <Input allowClear autoFocus prefix={<SearchOutlined />} placeholder="Search canned responses…" value={cannedQuery} onChange={(e) => setCannedQuery(e.target.value)} />
+                    <div style={{ maxHeight: 280, overflowY: 'auto', marginTop: 8 }}>
+                      {canned === null ? (
+                        <div style={{ padding: 8, color: '#8c8c8c' }}>Loading…</div>
+                      ) : cannedShown.length === 0 ? (
+                        <div style={{ padding: 8, color: '#8c8c8c' }}>{canned.length === 0 ? 'No canned responses yet. Add some in Settings.' : 'Nothing matches.'}</div>
+                      ) : (
+                        cannedShown.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            disabled={cannedBusy}
+                            onClick={() => void insertCanned(c)}
+                            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 8px', border: 0, background: 'transparent', cursor: 'pointer', borderRadius: 6 }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,0,0,0.05)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <div style={{ fontWeight: 600 }}>
+                              {c.title}
+                              {c.shortcut ? <span style={{ fontWeight: 400, color: '#8c8c8c' }}>  /{c.shortcut}</span> : null}
+                            </div>
+                            <div style={{ fontSize: 12, color: '#8c8c8c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cannedPreview(c.content)}</div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                }
+              >
+                <Button icon={<ThunderboltOutlined />}>Canned responses</Button>
+              </Popover>
+            )}
+          </Flex>
           <Flex gap={8}>
             <Button
               onClick={() => {

@@ -8,7 +8,7 @@ import { useMemo, useState } from 'react'
 import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import { canAccessAiSettings, canAccessAutomationRules, canAccessChecklistTemplates, canAccessEmailIntegration, canAccessKnowledgeBase, canAccessMessageTemplates, canAccessRecurringTickets, canAccessSlackNotifications, canAccessTeams, canAccessTicketAttributes, canAccessUsers, canManageDashboardAnnouncements, canManageGlobalAnnouncement, isAdmin, isAdminOrManager } from '@/lib/auth-utils'
+import { canAccessAiSettings, canAccessAutomationRules, canAccessChecklistTemplates, canAccessEmailIntegration, canAccessKnowledgeBase, canAccessMessageTemplates, canAccessRecurringTickets, canAccessSlackNotifications, canAccessTeams, canAccessTicketAttributes, canAccessUsers, canManageDashboardAnnouncements, canManageGlobalAnnouncement, isAdmin, isAdminOrManager, isInternalUser } from '@/lib/auth-utils'
 
 const { Content } = Layout
 const { Title, Text } = Typography
@@ -59,6 +59,7 @@ const GROUPS: SettingGroup[] = [
       { title: 'Automation rules', description: 'When a ticket matches, set fields, tags, notes…', href: '/settings/automation-rules', icon: <ThunderboltOutlined />, keywords: 'trigger action time', show: canAccessAutomationRules },
       { title: 'Recurring tickets', description: 'Create tickets automatically on a schedule', href: '/settings/recurring-tickets', icon: <SyncOutlined />, keywords: 'schedule repeat', show: canAccessRecurringTickets },
       { title: 'Message templates', description: 'Email notifications and reply templates', href: '/settings/message-templates', icon: <MessageOutlined />, keywords: 'email reply notification', show: canAccessMessageTemplates },
+      { title: 'Canned responses', description: 'Ready-made replies to insert in a comment', href: '/settings/canned-responses', icon: <ThunderboltOutlined />, keywords: 'reply macro shortcut snippet saved', show: isInternalUser },
     ],
   },
   {
