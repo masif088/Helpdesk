@@ -8,8 +8,9 @@ import { useCallback, useEffect, useState } from 'react'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
+import type { BaselineInfo } from '@/lib/demo-baseline'
 import type { DemoResetPlan, DemoResetResult } from '@/lib/demo-reset'
-import { DEMO_RESET_PHRASE } from '@/lib/demo-reset-plan'
+import { BASELINE_RESTORE_PHRASE, BASELINE_SAVE_PHRASE, DEMO_RESET_PHRASE } from '@/lib/demo-reset-plan'
 
 const { Content } = Layout
 const { Text } = Typography
@@ -22,7 +23,9 @@ interface Props {
 export default function DemoResetContent({ user }: Props) {
   const { message } = App.useApp()
   const [collapsed, setCollapsed] = useState(false)
-  const [plan, setPlan] = useState<DemoResetPlan | null>(null)
+  const [plan, setPlan] = useState<(DemoResetPlan & { baseline: BaselineInfo | null }) | null>(null)
+  const [saveTyped, setSaveTyped] = useState('')
+  const [restoreTyped, setRestoreTyped] = useState('')
   const [loading, setLoading] = useState(true)
   const [typed, setTyped] = useState('')
   const [withSample, setWithSample] = useState(true)
@@ -47,16 +50,23 @@ export default function DemoResetContent({ user }: Props) {
     void load()
   }, [load])
 
-  const run = async () => {
+  const run = async (action?: 'save-baseline' | 'restore-baseline') => {
     setRunning(true)
     setResult(null)
     try {
-      const res = await fetch('/api/demo-reset', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: typed, withSample }) })
+      const confirm = action === 'save-baseline' ? saveTyped : action === 'restore-baseline' ? restoreTyped : typed
+      const res = await fetch('/api/demo-reset', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, confirm, withSample }) })
       const body = await res.json()
-      if (!res.ok) throw new Error(body.error || 'The reset failed')
-      setResult(body)
+      if (!res.ok) throw new Error(body.error || 'It failed')
       setTyped('')
-      message[body.ok ? 'success' : 'warning'](body.ok ? 'Demo reset done' : 'Reset finished with problems, see the steps below')
+      setSaveTyped('')
+      setRestoreTyped('')
+      if (action === 'save-baseline') {
+        message.success('Rollback point saved')
+      } else {
+        setResult(body)
+        message[body.ok ? 'success' : 'warning'](body.ok ? (action ? 'Restored to the rollback point' : 'Demo reset done') : 'Finished with problems, see the steps below')
+      }
       await load()
     } catch (e) {
       message.error((e as Error).message)
@@ -143,6 +153,33 @@ export default function DemoResetContent({ user }: Props) {
                     Last reset: {dayjs(plan.lastReset.at).format('D MMM YYYY HH:mm')} by {plan.lastReset.by}
                   </Text>
                 ) : null}
+              </section>
+
+              <section className="ticket-surface" style={{ padding: 16, display: 'grid', gap: 12 }}>
+                <div className="cell-strong">Rollback point</div>
+                <Text type="secondary">
+                  A copy of ALL data (tickets, accounts, companies, settings, everything) that you can put back later. Set it up the way the demo should start, save it, then restore it
+                  after every demo instead of resetting to empty. Sign-in passwords are not part of the copy.
+                </Text>
+                {plan.baseline ? (
+                  <Text>
+                    Saved {dayjs(plan.baseline.savedAt).format('D MMM YYYY HH:mm')} by {plan.baseline.savedBy}: {Object.values(plan.baseline.collections).reduce((n, v) => n + v, 0)} documents, {plan.baseline.accounts} accounts
+                  </Text>
+                ) : (
+                  <Text type="warning">No rollback point saved yet.</Text>
+                )}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <Input style={{ width: 220 }} value={saveTyped} onChange={(e) => setSaveTyped(e.target.value)} placeholder={BASELINE_SAVE_PHRASE} disabled={running} />
+                  <Button loading={running} disabled={saveTyped.trim() !== BASELINE_SAVE_PHRASE} onClick={() => void run('save-baseline')}>
+                    Save current state as rollback point
+                  </Button>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <Input style={{ width: 220 }} value={restoreTyped} onChange={(e) => setRestoreTyped(e.target.value)} placeholder={BASELINE_RESTORE_PHRASE} disabled={running || !plan.baseline} />
+                  <Button danger loading={running} disabled={!plan.baseline || restoreTyped.trim() !== BASELINE_RESTORE_PHRASE} onClick={() => void run('restore-baseline')}>
+                    Restore the rollback point
+                  </Button>
+                </div>
               </section>
 
               {result ? (

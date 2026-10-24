@@ -93,3 +93,37 @@ export const AUTO_OPEN_RULE = {
 
 /** Ticket numbers start again from 1 */
 export const COUNTERS_TO_RESET = ['tickets'] as const
+
+// ---------- Rollback point: a copy of all data that a demo can be put back to
+
+export const BASELINE_SAVE_PHRASE = 'SAVE ROLLBACK'
+export const BASELINE_RESTORE_PHRASE = 'RESTORE ROLLBACK'
+
+export const isBaselineSavePhrase = (typed: unknown) => typeof typed === 'string' && typed.trim() === BASELINE_SAVE_PHRASE
+export const isBaselineRestorePhrase = (typed: unknown) => typeof typed === 'string' && typed.trim() === BASELINE_RESTORE_PHRASE
+
+/** Where the copy lives: one document per original document, plus one info document */
+export const BASELINE_DATA_COLLECTION = '_baseline_data'
+export const BASELINE_META_COLLECTION = '_baseline_meta'
+
+/** Live-update leftovers that are never copied: they are rebuilt by use */
+const NOT_COPIED = new Set(['ticket_presence', 'ticket_data_sync', BASELINE_DATA_COLLECTION, BASELINE_META_COLLECTION])
+
+/** Is this top-level collection part of a rollback point? */
+export const inBaseline = (name: string) => !NOT_COPIED.has(name)
+
+/** Collections that restoring must leave alone while it empties the rest */
+export const keptWhileRestoring = (name: string) => name === BASELINE_DATA_COLLECTION || name === BASELINE_META_COLLECTION
+
+/** Id of the copy of one document (Firestore ids cannot contain a slash) */
+export const baselineDocId = (collection: string, id: string) => `${collection}~${encodeURIComponent(id)}`
+
+/** Decide what restoring does to the sign-in accounts: remove the ones the rollback point does not know, add the missing ones. */
+export function authDiff(current: { uid: string; email: string | null }[], baselineUids: Set<string>, protectedEmail: string) {
+  const protect = protectedEmail.trim().toLowerCase()
+  const have = new Set(current.map((u) => u.uid))
+  return {
+    remove: current.filter((u) => !baselineUids.has(u.uid) && (u.email ?? '').toLowerCase() !== protect).map((u) => u.uid),
+    missing: [...baselineUids].filter((uid) => !have.has(uid)),
+  }
+}

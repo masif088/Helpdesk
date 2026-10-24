@@ -54,3 +54,30 @@ describe('what is wiped', () => {
     assert.deepEqual(AUTO_OPEN_RULE.conditions.conditions, [])
   })
 })
+
+describe('rollback point', () => {
+  it('has its own phrases, different from the reset', async () => {
+    const m = await import('../lib/demo-reset-plan.ts')
+    assert.equal(m.isBaselineSavePhrase('SAVE ROLLBACK'), true)
+    assert.equal(m.isBaselineRestorePhrase('RESTORE ROLLBACK'), true)
+    assert.equal(m.isBaselineRestorePhrase('SAVE ROLLBACK'), false)
+    assert.equal(m.isBaselineSavePhrase('RESET DEMO'), false)
+  })
+  it('copies data collections but not live-update leftovers or itself', async () => {
+    const m = await import('../lib/demo-reset-plan.ts')
+    for (const c of ['tickets', 'users', 'app_settings', '_counters', 'ticket_statuses']) assert.equal(m.inBaseline(c), true, c)
+    for (const c of ['ticket_presence', 'ticket_data_sync', '_baseline_data', '_baseline_meta']) assert.equal(m.inBaseline(c), false, c)
+  })
+  it('makes safe document ids', async () => {
+    const m = await import('../lib/demo-reset-plan.ts')
+    assert.equal(m.baselineDocId('tickets', '12'), 'tickets~12')
+    assert.ok(!m.baselineDocId('x', 'a/b').includes('/'))
+  })
+  it('restoring removes unknown accounts, adds missing ones and never the operator', async () => {
+    const m = await import('../lib/demo-reset-plan.ts')
+    const current = [{ uid: 'a', email: 'mokhamadasif@gmail.com' }, { uid: 'b', email: 'x@y.test' }, { uid: 'c', email: 'masiftesting@gmail.com' }]
+    const d = m.authDiff(current, new Set(['c', 'd']), 'mokhamadasif@gmail.com')
+    assert.deepEqual(d.remove, ['b'])
+    assert.deepEqual(d.missing, ['d'])
+  })
+})
