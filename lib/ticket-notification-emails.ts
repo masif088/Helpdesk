@@ -1,6 +1,7 @@
 import { google } from 'googleapis'
 
 import { formatFromHeader, getAppSettings } from '@/lib/app-settings'
+import { publicRatingUrl } from '@/lib/csat'
 import {
   companies,
   emailIntegrations,
@@ -160,10 +161,16 @@ export async function sendAgentClosesTicketEmail(params: {
     : `<p>Hello ${recipientMap.full_name !== '—' ? recipientMap.full_name : ''},</p>` +
       `<p>Your ticket <strong>#${ticketId}: ${ticketTitle}</strong> has been closed.</p>` +
       `<p>View ticket: <a href="${ticketUrl}">${ticketUrl}</a></p>`
-  // Clients are asked how it went (they rate on the ticket page in the portal)
+  // Clients are asked how it went: one tap on a star opens the rating page, no login needed (portal link when no signed link can be made)
+  const stars = (n: number) => publicRatingUrl(baseUrl, ticketRow, n)
   const bodyHtml =
     recipient.role?.toLowerCase() === 'customer'
-      ? mergedHtml + `<p style="margin-top:16px;">How did we do? <a href="${ticketUrl}">Rate this ticket</a> — it takes a few seconds.</p>`
+      ? mergedHtml +
+        (stars(5)
+          ? `<p style="margin-top:16px;">How did we do? Tap a rating — it takes a few seconds, no login needed.</p>` +
+            `<p style="font-size:20px;letter-spacing:6px;">${[1, 2, 3, 4, 5].map((n) => `<a href="${stars(n)}" style="text-decoration:none;" title="${n} of 5">&#9733;</a>`).join('')}</p>` +
+            `<p style="font-size:12px;color:#64748b;">1 = very poor, 5 = excellent</p>`
+          : `<p style="margin-top:16px;">How did we do? <a href="${ticketUrl}">Rate this ticket</a> — it takes a few seconds.</p>`)
       : mergedHtml
 
   await sendRawEmail(gmailSender, recipient.email, subject, bodyHtml, fromHeader, { gmailThreadId: ticketRow.gmailThreadId })
