@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 import { BottomNav } from '../_components'
-import { PRIORITY_COLOR } from '../_mock'
+import { PRIORITY_COLOR } from '../_constants'
 
 type FilterKey = 'open' | 'in_progress' | 'need_response' | 'completed'
 

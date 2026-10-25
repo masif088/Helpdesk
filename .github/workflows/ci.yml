@@ -1,0 +1,41 @@
+# Checks only (no deploy: Firebase App Hosting builds and deploys from the repo by itself).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  HUSKY: 0
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, types and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: ci-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 22.18+ runs the .ts files the tests import without a build step
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Types
+        run: npx tsc --noEmit
+
+      - name: Tests
+        run: npm test

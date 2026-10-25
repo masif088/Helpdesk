@@ -38,6 +38,8 @@ GOOGLE_CLIENT_ID="....apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET="..."
 # Shared secret for scheduled jobs (email sync, recurring tickets); Cloud Scheduler sends it as a Bearer token
 SYNC_INBOX_CRON_SECRET="..."
+# Optional: signs the "Rate this ticket" links in the closing email (falls back to SYNC_INBOX_CRON_SECRET)
+CSAT_LINK_SECRET="..."
 ```
 
 Create the OAuth client in Google Cloud Console → APIs & Services → Credentials → *OAuth client ID*

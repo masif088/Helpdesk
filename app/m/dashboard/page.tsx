@@ -3,8 +3,8 @@ import Link from 'next/link'
 import { BRANDING } from '@/lib/branding'
 
 import { BottomNav } from '../_components'
+import { PRIORITY_COLOR } from '../_constants'
 import { getMobileDashboardStats, getMobileSession, getMobileTickets } from '../_data'
-import { PRIORITY_COLOR } from '../_mock'
 
 export default async function MobileDashboard() {
   const [, stats, recent] = await Promise.all([
