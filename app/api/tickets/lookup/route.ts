@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { unauthorizedResponse } from '@/lib/api-key-http'
 import { getCustomerCompanyId } from '@/lib/customer-company'
 import { findBy, teamMembers } from '@/lib/fsdb'
 import { getTicketsLookupCatalog } from '@/lib/tickets-lookup-catalog-cache'
@@ -10,7 +11,7 @@ export async function GET() {
   try {
     const session = await auth()
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return unauthorizedResponse(session)
     }
 
     const userId = session.user.id!
@@ -38,9 +39,10 @@ export async function GET() {
       userCompanyId,
       userTeamIds,
       teams: visibleTeams,
-      users: catalog.users,
+      // An API key never gets the people list; a customer's key gets only its own company
+      users: session.apiKey ? [] : catalog.users,
       ticketTypes: ticketTypesFiltered,
-      companies: catalog.companies,
+      companies: session.apiKey && role === 'customer' ? catalog.companies.filter((c) => c.id === userCompanyId) : catalog.companies,
       tags: catalog.tags,
       statuses: catalog.statuses,
     }

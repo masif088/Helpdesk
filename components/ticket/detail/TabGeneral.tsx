@@ -127,6 +127,8 @@ interface Comment {
   tagged_users?: { id: string; full_name: string | null; email: string }[]
   cc_emails?: string[]
   bcc_emails?: string[]
+  /** Made through an API key, e.g. "API · Claude (Acme)" */
+  via?: string | null
   edited_by_user_id?: string | null
   edited_at?: string | null
   edited_by_user?: { id: string; full_name: string | null; email: string } | null
@@ -896,6 +898,11 @@ export default function TabGeneral({
                           ) : (
                             <Paragraph style={{ margin: 0, color: 'var(--ticket-thread-text)' }}>{comment.comment}</Paragraph>
                           )}
+                        {comment.via && (
+                          <Tag color="geekblue" style={{ marginTop: 6, marginInlineEnd: 0 }}>
+                            {comment.via}
+                          </Tag>
+                        )}
                         {comment.edited_at && editingComment !== comment.id && (
                           <Text style={{ fontSize: 11, color: 'var(--ticket-thread-meta)', fontStyle: 'italic', display: 'block', marginTop: 4 }}>
                             Edited

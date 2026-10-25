@@ -156,6 +156,7 @@ interface Comment {
     tagged_users?: { id: string; full_name: string | null; email: string }[]
     cc_emails?: string[]
     bcc_emails?: string[]
+    via?: string | null
     edited_by_user_id?: string | null
     edited_at?: string | null
     edited_by_user?: { id: string; full_name: string | null; email: string } | null

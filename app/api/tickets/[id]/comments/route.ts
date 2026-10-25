@@ -2,6 +2,8 @@ import { google } from 'googleapis'
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { apiViaLabel } from '@/lib/api-key-core'
+import { unauthorizedResponse } from '@/lib/api-key-http'
 import { createAppUser, findUserByEmail } from '@/lib/app-users'
 import { runTicketCommentAutomation } from '@/lib/automation-engine'
 import { assertCustomerMayAccessTicket } from '@/lib/customer-ticket-access'
@@ -180,16 +182,18 @@ export async function POST(
 ) {
   const session = await auth()
   const authUser = session?.user
-  if (!authUser?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!authUser?.id) return unauthorizedResponse(session)
 
   const { id } = await params
   const ticketId = parseInt(id, 10)
   if (isNaN(ticketId)) return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 })
 
+  const apiKey = session?.apiKey ?? null
   const body = await request.json()
   const {
     comment,
-    visibility = 'reply',
+    // Staff keys write internal notes unless they ask for a reply; customers can only reply
+    visibility = apiKey ? 'note' : 'reply',
     author_type = 'agent',
     attachments = [],
     tagged_user_ids = [],
@@ -234,6 +238,7 @@ export async function POST(
       effectiveCcEmails.length > 0 ? effectiveCcEmails.filter((e: string) => e?.trim()) : null,
     bccEmails:
       effectiveBccEmails.length > 0 ? effectiveBccEmails.filter((e: string) => e?.trim()) : null,
+    via: apiKey ? apiViaLabel(apiKey.name) : null,
   })
 
   if (!row) return NextResponse.json({ error: 'Failed to create' }, { status: 500 })
@@ -252,6 +257,7 @@ export async function POST(
     metadata: {
       visibility: effectiveVisibility,
       author_type: effectiveAuthorType,
+      ...(apiKey ? { via: apiViaLabel(apiKey.name), api_key_id: apiKey.id } : {}),
       body_preview: (comment || '')
         .replace(/<[^>]+>/g, ' ')
         .replace(/&nbsp;/gi, ' ')
@@ -491,6 +497,7 @@ export async function POST(
     tagged_users,
     cc_emails: row.ccEmails ?? [],
     bcc_emails: row.bccEmails ?? [],
+    via: row.via ?? null,
     user: { id: authUser.id, full_name: authUser.name, email: authUser.email, avatar_url: authUser.image },
     comment_attachments: commentAttachmentsOut,
   })
