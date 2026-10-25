@@ -1,6 +1,6 @@
 import { companies, find, findBy, get, slackTicketNotificationRules, teams, tickets, ticketTags, ticketTypes, users } from '@/lib/fsdb'
 
-export type SlackTicketNotifyEvent = 'ticket_created' | 'status_changed' | 'client_reply' | 'tag_added'
+export type SlackTicketNotifyEvent = 'ticket_created' | 'status_changed' | 'client_reply' | 'tag_added' | 'sla_warning' | 'sla_breach'
 
 export type SlackNotifyRuleFilter = {
   /** Default true */
@@ -11,6 +11,10 @@ export type SlackNotifyRuleFilter = {
   on_client_reply?: boolean
   /** A tag was added to a ticket — default false */
   on_tag_added?: boolean
+  /** An SLA clock is about to run out — default false */
+  on_sla_warning?: boolean
+  /** An SLA clock has run out — default false */
+  on_sla_breach?: boolean
   /** Non-empty = ticket must match one of these (null field on ticket = no match) */
   team_ids?: string[]
   company_ids?: string[]
@@ -42,6 +46,9 @@ export type SlackTicketPayload = {
   actorName?: string
   /** Tag names that were added (for tag_added event) */
   addedTagNames?: string[]
+  /** For SLA events: which clock ("first response" / "resolution") and how it stands ("1h left of 4h", "30m past 4h") */
+  slaClock?: string
+  slaDetail?: string
 }
 
 function parseFilter(raw: unknown): SlackNotifyRuleFilter {
@@ -54,6 +61,8 @@ function eventAllowed(filter: SlackNotifyRuleFilter, event: SlackTicketNotifyEve
   if (event === 'status_changed') return filter.on_status_changed === true
   if (event === 'client_reply') return filter.on_client_reply === true
   if (event === 'tag_added') return filter.on_tag_added === true
+  if (event === 'sla_warning') return filter.on_sla_warning === true
+  if (event === 'sla_breach') return filter.on_sla_breach === true
   return false
 }
 
@@ -201,6 +210,10 @@ function buildMessage(
       ? maskForSlack(ticket.bodyPreview.trim(), 220)
       : '(no text / attachment only)'
     return `*Client replied* ${link}\n${companyLine}${meta}\n_${who}:_ ${preview}`
+  }
+  if (event === 'sla_warning' || event === 'sla_breach') {
+    const head = event === 'sla_breach' ? ':rotating_light: *SLA breached*' : ':warning: *SLA at risk*'
+    return `${head} ${link}\n${companyLine}${meta}\n${ticket.slaClock ?? 'SLA'}: ${ticket.slaDetail ?? ''}`.trimEnd()
   }
   if (event === 'tag_added') {
     const tagList = ticket.addedTagNames && ticket.addedTagNames.length > 0

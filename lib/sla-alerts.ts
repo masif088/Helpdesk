@@ -2,12 +2,13 @@
  * SLA alerts as bell notifications (run with the hourly inbox reminders):
  *   - a clock is about to run out (under 20% of the target left): the ticket's assignees (admins / managers when nobody is assigned)
  *   - a clock ran out: the assignees and the admins / managers
- * Clocks that are stopped (waiting on the client) raise no alert. Each alert is sent once per ticket and clock (`tickets.slaNotified`).
+ * Clocks that are stopped (waiting on the client) raise no alert. Slack rules with "SLA at risk" / "SLA breached" get the same alerts. Each alert is sent once per ticket and clock (`tickets.slaNotified`).
  */
 import { notifyTicketUsers } from '@/lib/firebase/ticket-notifications-server'
 import { find, ticketAssignees, tickets, update, users } from '@/lib/fsdb'
 import { getTicketSla, loadSlaContext, slaTargetFor } from '@/lib/sla'
 import { formatSlaDuration } from '@/lib/sla-format'
+import { notifySlackTicketEvent } from '@/lib/slack-ticket-notify'
 import { DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
 
 const CLOSED_LIKE = ['resolved', 'closed', 'completed', 'cancel', 'archived', 'pending']
@@ -23,7 +24,7 @@ export async function runSlaAlerts(opts: { dryRun?: boolean } = {}): Promise<Sla
         ['ticketType', '==', DEFAULT_TICKET_TYPE],
         ['status', 'not-in', CLOSED_LIKE],
       ],
-      select: ['id', 'title', 'status', 'ticketType', 'typeId', 'companyId', 'createdAt', 'slaNotified'],
+      select: ['id', 'title', 'status', 'ticketType', 'typeId', 'companyId', 'teamId', 'priority', 'createdAt', 'slaNotified'],
     }),
     find(users, { where: [['role', 'in', ['admin', 'manager']]] }),
   ])
@@ -62,6 +63,20 @@ export async function runSlaAlerts(opts: { dryRun?: boolean } = {}): Promise<Sla
           actorUserId: 'system',
           actorName: 'SLA',
           actorRole: 'system',
+        })
+        // Slack channels that asked for SLA alerts (never blocks the alert run)
+        const targetText = formatSlaDuration(c.targetMinutes * 60)
+        const leftText = formatSlaDuration(c.remainingSeconds ?? 0)
+        await notifySlackTicketEvent(kind === 'breach' ? 'sla_breach' : 'sla_warning', {
+          id: t.id,
+          title: t.title,
+          status: t.status,
+          teamId: t.teamId ?? null,
+          priority: t.priority ?? null,
+          companyId: t.companyId ?? null,
+          typeId: t.typeId ?? null,
+          slaClock: what,
+          slaDetail: kind === 'breach' ? `${leftText} past its target of ${targetText}` : `${leftText} left of ${targetText}`,
         })
         sent[`${name}_${kind}`] = new Date().toISOString()
         changed = true

@@ -46,6 +46,8 @@ function filterFromApi(f: Record<string, unknown> | undefined) {
     on_status_changed: raw.on_status_changed === true,
     on_client_reply: raw.on_client_reply === true,
     on_tag_added: raw.on_tag_added === true,
+    on_sla_warning: raw.on_sla_warning === true,
+    on_sla_breach: raw.on_sla_breach === true,
     team_ids: Array.isArray(raw.team_ids) ? (raw.team_ids as string[]) : [],
     company_ids: Array.isArray(raw.company_ids) ? (raw.company_ids as string[]) : [],
     type_ids: Array.isArray(raw.type_ids) ? (raw.type_ids as number[]) : [],
@@ -184,6 +186,8 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
       on_status_changed: false,
       on_client_reply: false,
       on_tag_added: false,
+      on_sla_warning: false,
+      on_sla_breach: false,
       team_ids: [],
       company_ids: [],
       type_ids: [],
@@ -207,6 +211,8 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
       on_status_changed: f.on_status_changed,
       on_client_reply: f.on_client_reply,
       on_tag_added: f.on_tag_added,
+      on_sla_warning: f.on_sla_warning,
+      on_sla_breach: f.on_sla_breach,
       team_ids: f.team_ids,
       company_ids: f.company_ids,
       type_ids: f.type_ids,
@@ -230,6 +236,8 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
       on_status_changed: v.on_status_changed === true,
       on_client_reply: v.on_client_reply === true,
       on_tag_added: v.on_tag_added === true,
+      on_sla_warning: v.on_sla_warning === true,
+      on_sla_breach: v.on_sla_breach === true,
       team_ids: v.team_ids?.length ? v.team_ids : [],
       company_ids: v.company_ids?.length ? v.company_ids : [],
       type_ids: v.type_ids?.length ? v.type_ids : [],
@@ -335,6 +343,8 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
           f.on_status_changed ? <Chip key="s" color="#6366F1">Status</Chip> : null,
           f.on_client_reply ? <Chip key="r" color="#D97706">Client reply</Chip> : null,
           f.on_tag_added ? <Chip key="t" color="#0EA5E9">Tag added</Chip> : null,
+          f.on_sla_warning ? <Chip key="w" color="#D97706">SLA at risk</Chip> : null,
+          f.on_sla_breach ? <Chip key="b" color="#DC2626">SLA breached</Chip> : null,
         ].filter(Boolean)
         return chips.length ? <Space size={4} wrap>{chips}</Space> : <span className="cell-muted">—</span>
       },
@@ -494,6 +504,12 @@ export default function SlackNotificationRulesContent({ user }: SlackNotificatio
           </Form.Item>
           <Form.Item name="on_tag_added" valuePropName="checked">
             <Checkbox>Tag added to ticket</Checkbox>
+          </Form.Item>
+          <Form.Item name="on_sla_warning" valuePropName="checked">
+            <Checkbox>SLA at risk</Checkbox>
+          </Form.Item>
+          <Form.Item name="on_sla_breach" valuePropName="checked">
+            <Checkbox>SLA breached</Checkbox>
           </Form.Item>
           </Flex>
         
