@@ -106,14 +106,17 @@ export const isBaselineRestorePhrase = (typed: unknown) => typeof typed === 'str
 export const BASELINE_DATA_COLLECTION = '_baseline_data'
 export const BASELINE_META_COLLECTION = '_baseline_meta'
 
+/** Collection of the manual unlock switch (see DEMO_RESET_GUARD): never copied into a rollback point, never emptied by a restore */
+const GUARD_COLLECTION = '_guards'
+
 /** Live-update leftovers that are never copied: they are rebuilt by use */
-const NOT_COPIED = new Set(['ticket_presence', 'ticket_data_sync', BASELINE_DATA_COLLECTION, BASELINE_META_COLLECTION])
+const NOT_COPIED = new Set(['ticket_presence', 'ticket_data_sync', BASELINE_DATA_COLLECTION, BASELINE_META_COLLECTION, GUARD_COLLECTION])
 
 /** Is this top-level collection part of a rollback point? */
 export const inBaseline = (name: string) => !NOT_COPIED.has(name)
 
 /** Collections that restoring must leave alone while it empties the rest */
-export const keptWhileRestoring = (name: string) => name === BASELINE_DATA_COLLECTION || name === BASELINE_META_COLLECTION
+export const keptWhileRestoring = (name: string) => name === BASELINE_DATA_COLLECTION || name === BASELINE_META_COLLECTION || name === GUARD_COLLECTION
 
 /** Id of the copy of one document (Firestore ids cannot contain a slash) */
 export const baselineDocId = (collection: string, id: string) => `${collection}~${encodeURIComponent(id)}`
@@ -127,3 +130,6 @@ export function authDiff(current: { uid: string; email: string | null }[], basel
     missing: [...baselineUids].filter((uid) => !have.has(uid)),
   }
 }
+
+/** Where the manual unlock switch lives (see lib/demo-reset-guard.ts): set `enabled` to true by hand in Firestore. */
+export const DEMO_RESET_GUARD = { collection: GUARD_COLLECTION, doc: 'demo_reset', field: 'enabled' } as const

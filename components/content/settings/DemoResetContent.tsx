@@ -10,7 +10,7 @@ import AdminSidebar from '@/components/layout/AdminSidebar'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import type { BaselineInfo } from '@/lib/demo-baseline'
 import type { DemoResetPlan, DemoResetResult } from '@/lib/demo-reset'
-import { BASELINE_RESTORE_PHRASE, BASELINE_SAVE_PHRASE, DEMO_RESET_PHRASE } from '@/lib/demo-reset-plan'
+import { BASELINE_RESTORE_PHRASE, BASELINE_SAVE_PHRASE, DEMO_RESET_GUARD, DEMO_RESET_PHRASE } from '@/lib/demo-reset-plan'
 
 const { Content } = Layout
 const { Text } = Typography
@@ -23,7 +23,7 @@ interface Props {
 export default function DemoResetContent({ user }: Props) {
   const { message } = App.useApp()
   const [collapsed, setCollapsed] = useState(false)
-  const [plan, setPlan] = useState<(DemoResetPlan & { baseline: BaselineInfo | null }) | null>(null)
+  const [plan, setPlan] = useState<(DemoResetPlan & { baseline: BaselineInfo | null; unlocked: boolean }) | null>(null)
   const [saveTyped, setSaveTyped] = useState('')
   const [restoreTyped, setRestoreTyped] = useState('')
   const [loading, setLoading] = useState(true)
@@ -86,6 +86,22 @@ export default function DemoResetContent({ user }: Props) {
             <Spin />
           ) : (
             <div style={{ display: 'grid', gap: 16 }}>
+              {plan.unlocked ? (
+                <Alert type="success" showIcon message="Unlocked" description="The next reset, restore or save will run, then the switch turns itself off again." />
+              ) : (
+                <Alert
+                  type="error"
+                  showIcon
+                  message="Locked"
+                  description={
+                    <>
+                      Nothing on this page can run until you unlock it by hand in the database: Firebase Console → Firestore → collection{' '}
+                      <code>{DEMO_RESET_GUARD.collection}</code> → document <code>{DEMO_RESET_GUARD.doc}</code> → field{' '}
+                      <code>{DEMO_RESET_GUARD.field}</code> (boolean) = <code>true</code>. It locks itself again after one use. Reload this page after unlocking.
+                    </>
+                  }
+                />
+              )}
               <Alert
                 type="warning"
                 showIcon
@@ -144,7 +160,7 @@ export default function DemoResetContent({ user }: Props) {
                   <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={DEMO_RESET_PHRASE} disabled={running} />
                 </label>
                 <div>
-                  <Button danger type="primary" icon={<DeleteOutlined />} loading={running} disabled={typed.trim() !== DEMO_RESET_PHRASE} onClick={() => void run()}>
+                  <Button danger type="primary" icon={<DeleteOutlined />} loading={running} disabled={!plan.unlocked || typed.trim() !== DEMO_RESET_PHRASE} onClick={() => void run()}>
                     Reset everything
                   </Button>
                 </div>
@@ -170,13 +186,13 @@ export default function DemoResetContent({ user }: Props) {
                 )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <Input style={{ width: 220 }} value={saveTyped} onChange={(e) => setSaveTyped(e.target.value)} placeholder={BASELINE_SAVE_PHRASE} disabled={running} />
-                  <Button loading={running} disabled={saveTyped.trim() !== BASELINE_SAVE_PHRASE} onClick={() => void run('save-baseline')}>
+                  <Button loading={running} disabled={!plan.unlocked || saveTyped.trim() !== BASELINE_SAVE_PHRASE} onClick={() => void run('save-baseline')}>
                     Save current state as rollback point
                   </Button>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <Input style={{ width: 220 }} value={restoreTyped} onChange={(e) => setRestoreTyped(e.target.value)} placeholder={BASELINE_RESTORE_PHRASE} disabled={running || !plan.baseline} />
-                  <Button danger loading={running} disabled={!plan.baseline || restoreTyped.trim() !== BASELINE_RESTORE_PHRASE} onClick={() => void run('restore-baseline')}>
+                  <Button danger loading={running} disabled={!plan.unlocked || !plan.baseline || restoreTyped.trim() !== BASELINE_RESTORE_PHRASE} onClick={() => void run('restore-baseline')}>
                     Restore the rollback point
                   </Button>
                 </div>

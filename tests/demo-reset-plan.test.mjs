@@ -68,6 +68,12 @@ describe('rollback point', () => {
     for (const c of ['tickets', 'users', 'app_settings', '_counters', 'ticket_statuses']) assert.equal(m.inBaseline(c), true, c)
     for (const c of ['ticket_presence', 'ticket_data_sync', '_baseline_data', '_baseline_meta']) assert.equal(m.inBaseline(c), false, c)
   })
+  it('keeps the manual unlock switch out of a rollback point and out of a restore', async () => {
+    const m = await import('../lib/demo-reset-plan.ts')
+    assert.equal(m.DEMO_RESET_GUARD.collection, '_guards')
+    assert.equal(m.inBaseline(m.DEMO_RESET_GUARD.collection), false)
+    assert.equal(m.keptWhileRestoring(m.DEMO_RESET_GUARD.collection), true)
+  })
   it('makes safe document ids', async () => {
     const m = await import('../lib/demo-reset-plan.ts')
     assert.equal(m.baselineDocId('tickets', '12'), 'tickets~12')
