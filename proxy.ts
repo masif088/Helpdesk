@@ -47,6 +47,14 @@ export async function proxy(req: NextRequest) {
   const isLoggedIn = sessionCookieLooksValid(req.cookies.get(SESSION_COOKIE_NAME)?.value)
   const { pathname } = req.nextUrl
 
+  // The app sent the visitor here because the session cookie belongs to no user (deleted account, new database): show the
+  // login page and drop the cookie, instead of bouncing back to the dashboard and round again forever.
+  if (pathname === '/login' && req.nextUrl.searchParams.has('reason')) {
+    const res = NextResponse.next()
+    res.cookies.delete(SESSION_COOKIE_NAME)
+    return res
+  }
+
   if (pathname === '/login' && isLoggedIn) {
     return NextResponse.redirect(new URL('/dashboard', req.url))
   }

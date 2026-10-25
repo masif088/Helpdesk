@@ -11,7 +11,8 @@ export default async function AuthLayout({
   const session = await auth()
 
   if (!session?.user) {
-    redirect('/login')
+    // `reason` tells the proxy this is not a normal visit: the cookie it still accepts belongs to no user, so it is dropped
+    redirect('/login?reason=no_session')
   }
 
   if (session.user.mustChangePassword) {
