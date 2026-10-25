@@ -2,7 +2,7 @@
  * SLA alerts as bell notifications (run with the hourly inbox reminders):
  *   - a clock is about to run out (under 20% of the target left): the ticket's assignees (admins / managers when nobody is assigned)
  *   - a clock ran out: the assignees and the admins / managers
- * Each alert is sent once per ticket and clock (`tickets.slaNotified`).
+ * Clocks that are stopped (waiting on the client) raise no alert. Each alert is sent once per ticket and clock (`tickets.slaNotified`).
  */
 import { notifyTicketUsers } from '@/lib/firebase/ticket-notifications-server'
 import { find, ticketAssignees, tickets, update, users } from '@/lib/fsdb'
@@ -40,7 +40,8 @@ export async function runSlaAlerts(opts: { dryRun?: boolean } = {}): Promise<Sla
     const assignees = (await find(ticketAssignees, { where: [['ticketId', '==', t.id]], select: ['userId'] })).map((a) => a.userId)
 
     for (const [name, c] of [['respond', sla.respond], ['resolve', sla.resolve]] as const) {
-      if (!c || c.doneAt || (c.state !== 'at_risk' && c.state !== 'breached')) continue
+      // A clock that is stopped (waiting on the client) raises no new alert
+      if (!c || c.doneAt || c.paused || (c.state !== 'at_risk' && c.state !== 'breached')) continue
       const kind = c.state === 'breached' ? 'breach' : 'warn'
       if (sent[`${name}_${kind}`] || (kind === 'warn' && sent[`${name}_breach`])) continue
       const what = name === 'respond' ? 'first response' : 'resolution'

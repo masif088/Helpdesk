@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { type AppSettingsMap,getAppSettings, setAppSetting } from '@/lib/app-settings'
 import { isAdmin } from '@/lib/auth-utils'
+import { cleanCalendar } from '@/lib/sla-calendar'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +34,10 @@ export async function PUT(req: NextRequest) {
     if (key in body) {
       await setAppSetting(key, (body[key] as string | null) ?? null)
     }
+  }
+  if ('sla_calendar' in body) {
+    // Stored cleaned, so a bad value can never reach the SLA clocks
+    await setAppSetting('sla_calendar', body.sla_calendar ? JSON.stringify(cleanCalendar(body.sla_calendar)) : null)
   }
   if ('inbox_reminder_hours' in body) {
     const n = Number(body.inbox_reminder_hours)

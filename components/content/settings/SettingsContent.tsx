@@ -49,6 +49,7 @@ const GROUPS: SettingGroup[] = [
       { title: 'Types', description: 'Request categories: bug, feature, question…', href: '/settings/ticket-types', icon: <AppstoreOutlined />, keywords: 'category', show: canAccessTicketAttributes },
       { title: 'Tags', description: 'Labels for organizing and filtering tickets', href: '/settings/tags', icon: <TagsOutlined />, keywords: 'label', show: canAccessTicketAttributes },
       { title: 'Checklist templates', description: 'Reusable checklists, grouped, applied to tickets', href: '/settings/checklist-templates', icon: <CarryOutOutlined />, keywords: 'todo task', show: canAccessChecklistTemplates },
+      { title: 'SLA calendar', description: 'Business hours and holidays: when SLA clocks run', href: '/settings/sla-calendar', icon: <FieldTimeOutlined />, keywords: 'sla hours holiday working time', show: isAdmin },
       { title: 'Job types', description: 'Work categories for the time tracker, billable or not', href: '/settings/job-types-catalog', icon: <FieldTimeOutlined />, keywords: 'time tracker billable hours', show: isAdmin },
     ],
   },

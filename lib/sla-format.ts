@@ -10,6 +10,12 @@ export type SlaClock = {
   state: SlaState
   /** Seconds left (negative when overdue); null once done */
   remainingSeconds: number | null
+  /** Waiting on the client: the clock is stopped */
+  paused?: boolean
+  /** The clock is counting right now (not paused, inside business hours) */
+  ticking?: boolean
+  /** When `remainingSeconds` was measured (ISO); a ticking clock counts down from here */
+  asOf?: string
 }
 
 export type TicketSla = { respond: SlaClock | null; resolve: SlaClock | null }

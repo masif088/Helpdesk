@@ -21,23 +21,27 @@ function useNow(ms = 30_000): number {
 /** The clock as the viewer sees it right now (a running clock changes state as time passes). */
 function liveState(c: SlaClock, now: number): { state: SlaClock['state']; remaining: number | null } {
   if (c.doneAt) return { state: c.state, remaining: null }
-  const remaining = Math.round((new Date(c.dueAt).getTime() - now) / 1000)
+  // Count down from the moment the server measured it, and only while the clock is running
+  const elapsed = c.ticking && c.asOf ? Math.max(0, Math.round((now - new Date(c.asOf).getTime()) / 1000)) : 0
+  const remaining = (c.remainingSeconds ?? 0) - elapsed
   const state = remaining < 0 ? 'breached' : remaining < c.targetMinutes * 60 * 0.2 ? 'at_risk' : 'ok'
   return { state, remaining }
 }
 
 function Pill({ label, clock, now }: { label: string; clock: SlaClock; now: number }) {
   const { state, remaining } = liveState(clock, now)
-  const color = COLOR[state]
+  const color = clock.paused && state !== 'breached' ? '#64748B' : COLOR[state]
   const text =
     state === 'met'
       ? `${label} on time`
       : state === 'missed'
         ? `${label} late`
-        : remaining != null && remaining < 0
-          ? `${label} ${formatSlaDuration(remaining)} overdue`
-          : `${label} ${formatSlaDuration(remaining ?? 0)} left`
-  const title = `${label} target: ${formatSlaDuration(clock.targetMinutes * 60)} · due ${dayjs(clock.dueAt).format('D MMM YYYY HH:mm')}${clock.doneAt ? ` · done ${dayjs(clock.doneAt).format('D MMM HH:mm')}` : ''}`
+        : clock.paused
+          ? `${label} paused · ${formatSlaDuration(remaining ?? 0)} left`
+          : remaining != null && remaining < 0
+            ? `${label} ${formatSlaDuration(remaining)} overdue`
+            : `${label} ${formatSlaDuration(remaining ?? 0)} left`
+  const title = `${label} target: ${formatSlaDuration(clock.targetMinutes * 60)} · ${clock.paused ? 'stopped while waiting on the client' : `due ${dayjs(clock.dueAt).format('D MMM YYYY HH:mm')}`}${clock.doneAt ? ` · done ${dayjs(clock.doneAt).format('D MMM HH:mm')}` : ''}`
   return (
     <Tooltip title={title}>
       <span className="status-pill" style={{ background: `${color}22`, color, whiteSpace: 'nowrap' }}>

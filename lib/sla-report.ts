@@ -32,6 +32,8 @@ import {
   loadSlaContext,
   type SlaContext,
   slaTargetFor,
+  slaTimeFor,
+  slaTimesFor,
   ticketsOpenedByClient,
 } from '@/lib/sla'
 import {
@@ -130,7 +132,8 @@ async function buildDays(dates: string[], ctx: SlaContext): Promise<Map<string, 
   const support = createdRows.filter((t) => (t.ticketType ?? DEFAULT_TICKET_TYPE) === DEFAULT_TICKET_TYPE && wanted.has(dayOf(t.createdAt)) && slaTargetFor(ctx, t))
   const opened = await ticketsOpenedByClient(support)
   const needReplies = support.filter((t) => !t.firstRespondedAt && opened.has(t.id)).map((t) => t.id)
-  const needLog = support.filter((t) => FINISHED_STATUSES.has(t.status)).map((t) => t.id)
+  // Activity is read for finished tickets (when they finished) and, when pauses apply, for every ticket
+  const needLog = support.filter((t) => ctx.waiting.size > 0 || FINISHED_STATUSES.has(t.status)).map((t) => t.id)
   const [commentRows, logRows] = await Promise.all([
     Promise.all(chunks(needReplies).map((ids) => find(ticketComments, { where: [['ticketId', 'in', ids]], select: ['ticketId', 'authorType', 'visibility', 'createdAt'] }))).then((r) => r.flat()),
     Promise.all(chunks(needLog).map((ids) => find(ticketActivityLog, { where: [['ticketId', 'in', ids]], select: ['ticketId', 'action', 'metadata', 'createdAt'] }))).then((r) => r.flat()),
@@ -148,6 +151,7 @@ async function buildDays(dates: string[], ctx: SlaContext): Promise<Map<string, 
       openedByClient: opened.has(t.id),
       firstReplyAt: t.firstRespondedAt ? new Date(t.firstRespondedAt) : firstTeamReply(repliesByTicket.get(t.id) ?? []),
       finishedAt: finished ? (finishedAtFromLog(logByTicket.get(t.id) ?? []) ?? t.updatedAt) : null,
+      ...slaTimeFor(ctx, t, logByTicket.get(t.id) ?? []),
     })
     if (!sla.respond && !sla.resolve) continue
     const day = out.get(dayOf(t.createdAt))!.sla
@@ -180,6 +184,7 @@ async function atRiskNow(ctx: SlaContext, companyName: (id: string | null) => st
   const openRows = await find(tickets, { where: [['ticketType', '==', DEFAULT_TICKET_TYPE], ['status', 'not-in', CLOSED_LIKE_TICKET_STATUSES]] })
   const opened = await ticketsOpenedByClient(openRows)
   const atRisk: SlaAtRisk[] = []
+  const times = await slaTimesFor(ctx, openRows.filter((t) => slaTargetFor(ctx, t)))
   for (const t of openRows) {
     const target = slaTargetFor(ctx, t)
     if (!target) continue
@@ -188,6 +193,7 @@ async function atRiskNow(ctx: SlaContext, companyName: (id: string | null) => st
       openedByClient: opened.has(t.id),
       firstReplyAt: needsReply ? await firstResponseAt(t) : t.firstRespondedAt ? new Date(t.firstRespondedAt) : null,
       finishedAt: null,
+      ...times.get(t.id),
     })
     for (const [name, c] of [['respond', sla.respond], ['resolve', sla.resolve]] as const) {
       if (!c || c.doneAt || (c.state !== 'breached' && c.state !== 'at_risk')) continue
