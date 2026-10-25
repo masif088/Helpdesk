@@ -617,38 +617,13 @@ html::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.35); }
 .app-sidebar__footer {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
   padding: 10px;
   border-top: 1px solid rgba(148, 163, 184, 0.14);
   flex-shrink: 0;
 }
-.app-sidebar--rail .app-sidebar__footer { flex-direction: column; }
-.app-sidebar__user {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px;
-  border: 0;
-  border-radius: 12px;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-.app-sidebar--rail .app-sidebar__user { flex: none; justify-content: center; }
-.app-sidebar__user:hover { background: rgba(148, 163, 184, 0.12); }
-.app-sidebar__user-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
-.app-sidebar__user-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: #F8FAFC;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.app-sidebar__user-role { font-size: 11px; color: rgba(148, 163, 184, 0.9); text-transform: capitalize; }
+.app-sidebar--rail .app-sidebar__footer { flex-direction: column; justify-content: center; }
 .app-sidebar__toggle {
   width: 32px;
   height: 32px;
