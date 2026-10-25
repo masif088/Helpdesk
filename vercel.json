@@ -1,8 +1,0 @@
-{
-  "functions": {
-    "app/api/crawl/start/route.ts": {
-      "maxDuration": 300
-    }
-  }
-}
-
