@@ -45,7 +45,7 @@ const GROUPS: SettingGroup[] = [
     icon: <AppstoreOutlined />,
     tone: '#0F9D8A',
     items: [
-      { title: 'Statuses', description: 'Workflow states and Kanban columns', href: '/settings/ticket-statuses', icon: <ApartmentOutlined />, keywords: 'workflow kanban column', show: canAccessTicketAttributes },
+      { title: 'Statuses', description: 'Ticket statuses, default filters and where the ball is with the client (stops SLA)', href: '/settings/ticket-statuses', icon: <ApartmentOutlined />, keywords: 'workflow kanban column ball client waiting default filter sla', show: canAccessTicketAttributes },
       { title: 'Types', description: 'Request categories: bug, feature, question…', href: '/settings/ticket-types', icon: <AppstoreOutlined />, keywords: 'category', show: canAccessTicketAttributes },
       { title: 'Tags', description: 'Labels for organizing and filtering tickets', href: '/settings/tags', icon: <TagsOutlined />, keywords: 'label', show: canAccessTicketAttributes },
       { title: 'Checklist templates', description: 'Reusable checklists, grouped, applied to tickets', href: '/settings/checklist-templates', icon: <CarryOutOutlined />, keywords: 'todo task', show: canAccessChecklistTemplates },
