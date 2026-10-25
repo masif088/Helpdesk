@@ -2,12 +2,13 @@
 
 import { CopyOutlined, DownloadOutlined } from '@ant-design/icons'
 import { Alert, App, Button, Layout, Table, Tag, Typography } from 'antd'
+import Link from 'next/link'
 import { useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
-import { DEFAULT_RATE_LIMIT_PER_HOUR } from '@/lib/api-key-core'
+import { DEFAULT_RATE_LIMIT_PER_HOUR, SELF_KEY_DAYS } from '@/lib/api-key-core'
 
 const { Content } = Layout
 const { Text, Paragraph, Title } = Typography
@@ -17,6 +18,8 @@ interface Props {
   baseUrl: string
   /** The SKILL.md text for the AI, with this portal's address filled in */
   skill: string
+  /** Admins make keys under Settings and for others; everyone else makes their own under Profile */
+  isAdmin?: boolean
 }
 
 const preStyle = { margin: 0, padding: 12, overflow: 'auto', fontSize: 12, background: 'var(--ant-color-fill-quaternary, #f5f5f5)', borderRadius: 6 } as const
@@ -26,7 +29,7 @@ function Code({ children }: { children: string }) {
 }
 
 /** Settings -> API keys -> Tutorial: how to hand a key to someone, how they call it, and the skill file for their AI. */
-export default function ApiKeysTutorialContent({ user, baseUrl, skill }: Props) {
+export default function ApiKeysTutorialContent({ user, baseUrl, skill, isAdmin = true }: Props) {
   const { message } = App.useApp()
   const [collapsed, setCollapsed] = useState(false)
 
@@ -48,14 +51,34 @@ export default function ApiKeysTutorialContent({ user, baseUrl, skill }: Props) 
       <AdminSidebar user={user} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={user}>
         <Content className="settings-page" style={{ padding: 24, width: '100%', maxWidth: 900 }}>
-          <SettingsPageHeader title="API tutorial" description="Give someone's AI access to tickets, step by step." />
+          {isAdmin ? (
+            <SettingsPageHeader title="API tutorial" description="Give someone's AI access to tickets, step by step." />
+          ) : (
+            <div style={{ marginBottom: 16 }}>
+              <Link href="/profile">← Profile</Link>
+              <Title level={2} style={{ margin: '4px 0 0' }}>
+                API tutorial
+              </Title>
+              <Text type="secondary">Let your AI work with tickets as you, step by step.</Text>
+            </div>
+          )}
 
           <div style={{ display: 'grid', gap: 20 }}>
             <section className="ticket-surface" style={{ padding: 16, display: 'grid', gap: 8 }}>
               <Title level={4} style={{ margin: 0 }}>1. Make a key</Title>
               <Paragraph style={{ margin: 0 }}>
-                Settings → API keys → <b>New key</b>. Name it <Text code>Claude (Acme)</Text>: that name is shown on every ticket and comment the key makes. Under <b>Acts as</b> pick the
-                customer's contact, so the key sees only that company. Keep the calls per hour at {DEFAULT_RATE_LIMIT_PER_HOUR} unless there is a reason. Copy the key when it is shown: it appears once.
+                {isAdmin ? (
+                  <>
+                    Settings → API keys → <b>New key</b>. Name it <Text code>Claude (Acme)</Text>: that name is shown on every ticket and comment the key makes. Under <b>Acts as</b> pick the
+                    customer's contact, so the key sees only that company. Keep the calls per hour at {DEFAULT_RATE_LIMIT_PER_HOUR} unless there is a reason. Copy the key when it is shown: it appears once.
+                    Users can also make their own keys under Profile (they last {SELF_KEY_DAYS} days).
+                  </>
+                ) : (
+                  <>
+                    Profile → <b>API keys for your AI</b> → <b>New key</b>. Name it <Text code>Claude (my laptop)</Text>: that name is shown on every ticket and comment the key makes. The key acts as you and sees what you see.
+                    It lasts {SELF_KEY_DAYS} days and allows {DEFAULT_RATE_LIMIT_PER_HOUR} calls per hour; make a new one when it expires. Copy the key when it is shown: it appears once.
+                  </>
+                )}
               </Paragraph>
               <Alert type="warning" showIcon message="Send the key privately (password manager, not email or chat history). If it leaks, Revoke it and make a new one." />
             </section>
