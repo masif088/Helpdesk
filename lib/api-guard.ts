@@ -1,5 +1,5 @@
 /**
- * Role checks for API routes. The edge middleware only knows that a session cookie exists, so every
+ * Role checks for API routes. The proxy only knows that a session cookie exists, so every
  * route decides who may call it: `denyUnless` for a role rule, `denyTicketRead` / `denyCompanyRead` for
  * data a customer may read only when it is their own.
  */

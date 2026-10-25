@@ -6,8 +6,8 @@ import { bearerApiKey, scopeForRequest } from '@/lib/api-key-core'
 const SESSION_COOKIE_NAME = '__session'
 
 /**
- * Edge-only redirect helper. It only decodes the Firebase session cookie's expiry — the signature is
- * verified server-side by `auth()` (firebase-admin cannot run on Edge). Also forwards the pathname
+ * Redirect helper. It only decodes the Firebase session cookie's expiry — the signature is
+ * verified server-side by `auth()` (keeps firebase-admin out of the proxy bundle). Also forwards the pathname
  * so the (auth) layout can enforce "must change password".
  */
 function sessionCookieLooksValid(value: string | undefined): boolean {
@@ -41,7 +41,7 @@ function apiRequest(req: NextRequest) {
   return NextResponse.next({ request: { headers } })
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   if (req.nextUrl.pathname.startsWith('/api/')) return apiRequest(req)
 
   const isLoggedIn = sessionCookieLooksValid(req.cookies.get(SESSION_COOKIE_NAME)?.value)

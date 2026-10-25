@@ -1,4 +1,4 @@
-// Pure helpers for API keys (no database, no path aliases: also used by the Edge middleware and by tests).
+// Pure helpers for API keys (no database, no path aliases: also used by the proxy and by tests).
 
 export const API_KEY_PREFIX = 'tk_live_'
 

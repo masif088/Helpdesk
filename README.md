@@ -237,7 +237,7 @@ When `firestore.indexes.json`, `firestore.rules` or `storage.rules` change, depl
   document (uid = `users.id`). Client code uses `useSession` / `signIn` / `signOut` from `lib/auth-client.tsx`.
 - Users are created with `createAppUser()` (`lib/app-users.ts`), which writes the `users` document and the Auth
   account together; passwords are set with `setUserPassword()` — no password hashes are stored in Firestore.
-- `middleware.ts` only checks that a session cookie exists (Edge); real verification happens in `auth()`.
+- `proxy.ts` (formerly `middleware.ts`) only checks that a session cookie exists; real verification happens in `auth()`.
 - Roles: `admin`, `staff`, `customer`. Most API routes gate on `session.user.role`.
 - `mustChangePassword` on the user — the `(auth)` layout redirects to `/change-password` if set. Cleared automatically on successful password change.
 

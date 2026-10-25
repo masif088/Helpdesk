@@ -99,7 +99,7 @@ function countApiCall(keyId: string, limit: number, requestId: string | null) {
 
 /**
  * A request with an API key acts as the key's user (their role and company decide what it sees), but only for the endpoints and
- * scope the middleware matched for this request (`x-api-scope`, set after the path allowlist check; any client-sent value is overwritten).
+ * scope the proxy matched for this request (`x-api-scope`, set after the path allowlist check; any client-sent value is overwritten).
  * Anything unknown, revoked, expired, out of scope or not matched is simply "not signed in".
  */
 async function sessionFromApiKey(rawKey: string): Promise<Session | null> {
