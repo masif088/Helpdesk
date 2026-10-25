@@ -161,6 +161,13 @@ added in `schema.ts` and default to `null` on old documents.
 
 ### First setup
 
+**On a new database, just open the app.** With no users yet, `/login` sends you to `/setup`: name the app, create the
+first admin, and the starting data (statuses, ticket types, job types, message templates) is created for you. The page
+and `POST /api/setup` stop working as soon as one user exists. On a public server set `SETUP_TOKEN` first; the setup
+page then asks for it, so nobody else can claim the app.
+
+From a terminal instead:
+
 ```bash
 npm run db:seed          # statuses, types, job types + first admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD)
 ```
