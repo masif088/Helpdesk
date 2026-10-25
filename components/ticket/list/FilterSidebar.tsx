@@ -10,8 +10,6 @@ import type { Dayjs } from 'dayjs'
 
 import { ticketStatusDisplayLabel } from '@/lib/ticket-status-kanban'
 
-import type { StatusColumn } from './types'
-
 const { Text } = Typography
 const { Option } = Select
 
@@ -49,37 +47,7 @@ interface FilterSidebarProps {
   onSaveViewPreset?: (name: string) => { ok: boolean; error?: string }
 }
 
-export default function FilterSidebar({
-  collapsed,
-  onCollapsedChange,
-  filterStatus,
-  onFilterStatusChange,
-  filterTypeIds,
-  onFilterTypeIdsChange,
-  filterCompanyIds,
-  onFilterCompanyIdsChange,
-  filterTagIds,
-  onFilterTagIdsChange,
-  filterTeamIds,
-  onFilterTeamIdsChange,
-  filterDateRange,
-  onFilterDateRangeChange,
-  filterDueDateRange,
-  onFilterDueDateRangeChange,
-  filterSearch,
-  onFilterSearchChange,
-  allStatuses,
-  ticketTypes,
-  teams,
-  companies,
-  allTags,
-  hasActiveFilters,
-  filteredCount,
-  totalCount,
-  onClearFilters,
-  isCustomer = false,
-  onSaveViewPreset,
-}: FilterSidebarProps) {
+export default function FilterSidebar({ collapsed, onCollapsedChange, filterStatus, onFilterStatusChange, filterTypeIds, onFilterTypeIdsChange, filterCompanyIds, onFilterCompanyIdsChange, filterTagIds, onFilterTagIdsChange, filterTeamIds, onFilterTeamIdsChange, filterDateRange, onFilterDateRangeChange, filterDueDateRange, onFilterDueDateRangeChange, allStatuses, ticketTypes, teams, companies, allTags, hasActiveFilters, filteredCount, totalCount, onClearFilters, isCustomer = false, onSaveViewPreset }: FilterSidebarProps) {
   const [savePresetOpen, setSavePresetOpen] = useState(false)
   const [savePresetForm] = Form.useForm<{ name: string }>()
 

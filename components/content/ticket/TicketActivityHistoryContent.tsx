@@ -47,7 +47,6 @@ interface TicketActivityHistoryContentProps {
 
 export default function TicketActivityHistoryContent({ user: currentUser }: TicketActivityHistoryContentProps) {
   const router = useRouter()
-  const isCustomer = ((currentUser as { role?: string }).role ?? '').toLowerCase() === 'customer'
   const [collapsed, setCollapsed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<TicketActivityRow[]>([])

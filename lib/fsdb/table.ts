@@ -29,7 +29,7 @@ export function defineTable<Row, Insert>(opts: TableOptions<Row>): Table<Row, In
   return opts as Table<Row, Insert>
 }
 
-export type AnyTable = Table<any, any> // eslint-disable-line @typescript-eslint/no-explicit-any
+export type AnyTable = Table<any, any>  
 export type RowOf<T> = T extends Table<infer R, unknown> ? R : never
 export type InsertOf<T> = T extends Table<infer _R, infer I> ? I : never
 

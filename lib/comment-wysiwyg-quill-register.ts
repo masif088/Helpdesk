@@ -6,7 +6,7 @@
  */
 import Quill from 'quill'
 import { BlockEmbed } from 'quill/blots/block.js'
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const EmbedBlot = Quill.import('blots/embed') as any
 
 const DIVIDER_ICON =
@@ -38,7 +38,7 @@ class LineBreakBlot extends EmbedBlot {
     return true
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   optimize(context: any) {
     // Prevent Quill from merging this blot with adjacent text
     super.optimize(context)

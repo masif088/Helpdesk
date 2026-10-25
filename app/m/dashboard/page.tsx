@@ -7,7 +7,7 @@ import { getMobileDashboardStats, getMobileSession, getMobileTickets } from '../
 import { PRIORITY_COLOR } from '../_mock'
 
 export default async function MobileDashboard() {
-  const [user, stats, recent] = await Promise.all([
+  const [, stats, recent] = await Promise.all([
     getMobileSession(),
     getMobileDashboardStats(),
     getMobileTickets(),

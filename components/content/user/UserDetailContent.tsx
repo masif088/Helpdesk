@@ -187,7 +187,7 @@ export default function UserDetailContent({ user: currentUser, userData: initial
       } else if (filter === 'custom' && dateRange?.[0] && dateRange?.[1]) {
         url += `&start=${dateRange[0].startOf('day').toISOString()}&end=${dateRange[1].endOf('day').toISOString()}`
       }
-      const raw = await apiFetch<{ sessions: any[]; ticket_summary: UserTimeTrackerTicketSummary } | any[]>(url)
+      const raw = await apiFetch<{ sessions: unknown[]; ticket_summary: UserTimeTrackerTicketSummary } | unknown[]>(url)
       if (Array.isArray(raw)) {
         setTimeTrackerData(raw || [])
         setTimeTrackerTicketSummary(null)
@@ -207,7 +207,7 @@ export default function UserDetailContent({ user: currentUser, userData: initial
   const fetchAllTimeTrackerData = useCallback(async () => {
     if (!userData?.id) return
     try {
-      const data = await apiFetch<any[]>(`/api/users/time-tracker?user_id=${userData.id}&filter=all`)
+      const data = await apiFetch<unknown[]>(`/api/users/time-tracker?user_id=${userData.id}&filter=all`)
 
       
       // Calculate overview
@@ -243,7 +243,7 @@ export default function UserDetailContent({ user: currentUser, userData: initial
         thisWeek: weekTotal,
         thisMonth: monthTotal,
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch all time tracker data:', error)
     }
   }, [userData?.id])

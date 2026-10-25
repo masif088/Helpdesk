@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   try {
     await batch.commit()
     return NextResponse.json({ ok: true })
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: 'Failed to update' }, { status: 500 })
   }
 }

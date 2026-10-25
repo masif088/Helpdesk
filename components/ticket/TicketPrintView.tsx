@@ -14,7 +14,7 @@ interface Comment {
 }
 
 interface TicketPrintViewProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   ticketData: Record<string, any>
   comments: Comment[]
   isAgent?: boolean

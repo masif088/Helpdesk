@@ -30,7 +30,7 @@ interface CrawlPageRecord {
   status: string
   http_status_code: number | null
   content_type: string | null
-  heading_hierarchy: any
+  heading_hierarchy: unknown
   meta_tags: any
   links: string[] | null
   error_message: string | null
@@ -465,7 +465,7 @@ export default function CrawlSessionDetailContent({ user: currentUser, crawlSess
   }
 
   // Render meta tags with missing required tags highlighted
-  const renderMetaTags = (metaTags: any) => {
+  const renderMetaTags = (metaTags: unknown) => {
     if (!metaTags || typeof metaTags !== 'object' || Object.keys(metaTags).length === 0) {
       return (
         <div style={{ padding: '12px', background: crawlUi.errorBg, borderRadius: 4, border: crawlUi.errBorderSolid }}>
@@ -569,7 +569,7 @@ export default function CrawlSessionDetailContent({ user: currentUser, crawlSess
   }
 
   // Render social media previews (Facebook, Twitter/X, Slack, WhatsApp)
-  const renderSocialPreviews = (record: CrawlPageRecord | null = null, customMetaTags: any = null, customUrl: string = '') => {
+  const renderSocialPreviews = (record: CrawlPageRecord | null = null, customMetaTags: unknown = null, customUrl: string = '') => {
     const metaTags = customMetaTags || record?.meta_tags || {}
     const url = customUrl || record?.url || ''
     const title = metaTags['og:title'] || metaTags['twitter:title'] || record?.title || 'No Title'
@@ -578,12 +578,10 @@ export default function CrawlSessionDetailContent({ user: currentUser, crawlSess
     const hasImage = image && image.trim() !== ''
     
     let domain = 'example.com'
-    let siteName = metaTags['og:site_name'] || domain
     try {
       if (url) {
         const urlObj = new URL(url)
         domain = urlObj.hostname
-        siteName = metaTags['og:site_name'] || domain
       }
     } catch (e) {
       // If URL parsing fails, use default
@@ -863,7 +861,7 @@ export default function CrawlSessionDetailContent({ user: currentUser, crawlSess
   }
 
   // Flatten heading hierarchy in order to detect skipped levels
-  const flattenHeadingsInOrder = (hierarchy: any, result: Array<{ title: string; level: number; node: any; path: string[] }> = [], path: string[] = []): Array<{ title: string; level: number; node: any; path: string[] }> => {
+  const flattenHeadingsInOrder = (hierarchy: unknown, result: Array<{ title: string; level: number; node: unknown; path: string[] }> = [], path: string[] = []): Array<{ title: string; level: number; node: unknown; path: string[] }> => {
     if (!hierarchy || typeof hierarchy !== 'object') {
       return result
     }
@@ -890,7 +888,7 @@ export default function CrawlSessionDetailContent({ user: currentUser, crawlSess
   }
 
   // Create a map of skipped headings based on their path
-  const getSkippedHeadingsMap = (hierarchy: any): Set<string> => {
+  const getSkippedHeadingsMap = (hierarchy: unknown): Set<string> => {
     const flatHeadings = flattenHeadingsInOrder(hierarchy)
     const skippedPaths = new Set<string>()
     let previousLevel = 0
@@ -906,7 +904,7 @@ export default function CrawlSessionDetailContent({ user: currentUser, crawlSess
     return skippedPaths
   }
 
-  const renderHeadingHierarchy = (hierarchy: any, depth: number = 0, skippedPaths: Set<string> = new Set(), currentPath: string[] = []) => {
+  const renderHeadingHierarchy = (hierarchy: unknown, depth: number = 0, skippedPaths: Set<string> = new Set(), currentPath: string[] = []) => {
     if (!hierarchy || typeof hierarchy !== 'object') {
       return null
     }

@@ -56,7 +56,7 @@ export default function ScreenshotsContent({ user, screenshots: initialScreensho
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null])
   const [selectedScreenshot, setSelectedScreenshot] = useState<Screenshot | null>(null)
   const [modalVisible, setModalVisible] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [, setLoading] = useState(false)
 
   // Filter screenshots
   useEffect(() => {

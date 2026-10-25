@@ -54,7 +54,7 @@ export async function GET() {
     }).filter((row) => row.ticketId > 0 || row.href)
 
     return NextResponse.json({ items })
-  } catch (e) {
+  } catch {
     return NextResponse.json({ items: [], error: 'fetch_failed' })
   }
 }

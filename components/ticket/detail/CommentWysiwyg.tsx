@@ -160,7 +160,7 @@ export default function CommentWysiwyg({
         /** Tab inside a list item → indent (sub-bullet / sub-numbering). */
         listTab: {
           key: 'Tab',
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           handler(this: { quill: any }, range: unknown, context: { format?: { list?: unknown } }) {
             if (context.format?.list) {
               this.quill.format('indent', '+1', 'user')
@@ -173,7 +173,7 @@ export default function CommentWysiwyg({
         listShiftTab: {
           key: 'Tab',
           shiftKey: true,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           handler(this: { quill: any }, range: unknown, context: { format?: { list?: unknown } }) {
             if (context.format?.list) {
               this.quill.format('indent', '-1', 'user')

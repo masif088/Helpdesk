@@ -6,7 +6,7 @@
  * - Customer: limited (handled separately in sidebar)
  */
 
-export function everyOneCanAccess(role: string | undefined): boolean {
+export function everyOneCanAccess(_role?: string): boolean {
   return true
 }
 

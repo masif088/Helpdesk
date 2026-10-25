@@ -11,11 +11,11 @@ import DateDisplay from '@/components/common/DateDisplay'
 const { Text } = Typography
 
 interface TabWebsitesProps {
-  websites: any[]
+  websites: unknown[]
   loadingWebsites: boolean
   getLastCrawlSession: (websiteId: string) => any
   onAddWebsite: () => void
-  onEditWebsite: (record: any) => void
+  onEditWebsite: (record: unknown) => void
   onDeleteWebsite: (id: string) => void
 }
 
@@ -29,7 +29,7 @@ export default function TabWebsites({
 }: TabWebsitesProps) {
   const router = useRouter()
 
-  const columns: ColumnsType<any> = [
+  const columns: ColumnsType<unknown> = [
     {
       title: 'Primary',
       dataIndex: 'is_primary',

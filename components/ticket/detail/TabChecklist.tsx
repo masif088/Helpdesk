@@ -96,22 +96,7 @@ export type TabChecklistProps = {
 
 type TemplateSummary = { id: string; title: string; description: string | null }
 
-export default function TabChecklist({
-  ticketId,
-  checklistItems,
-  totalChecklistCount,
-  completedChecklistCount,
-  newChecklistTitle,
-  onNewChecklistTitleChange,
-  onAddChecklistItem,
-  onCompleteChecklistItem,
-  onUncompleteChecklistItem,
-  onUpdateChecklistNote,
-  onDeleteChecklistItem,
-  onMoveToGroup,
-  onDeleteGroup,
-  onTemplateApplied,
-}: TabChecklistProps) {
+export default function TabChecklist({ ticketId, checklistItems, newChecklistTitle, onNewChecklistTitleChange, onAddChecklistItem, onCompleteChecklistItem, onUncompleteChecklistItem, onUpdateChecklistNote, onDeleteChecklistItem, onMoveToGroup, onDeleteGroup, onTemplateApplied }: TabChecklistProps) {
   const [templates, setTemplates] = useState<TemplateSummary[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>()
   const [applying, setApplying] = useState(false)

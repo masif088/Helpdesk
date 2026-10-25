@@ -101,43 +101,11 @@ interface TabGeneralCustomerProps {
   /** Emails ever CC'd on this ticket - pre-fill CC on replies */
   ticketCcEmails?: string[]
   totalTimeSeconds: number
-  activeTimeTracker: any
+  activeTimeTracker: unknown
   formatTime: (seconds: number) => string
 }
 
-export default function TabGeneralCustomer({
-  ticketData,
-  ticketAttachments = [],
-  statusOptions,
-  onStatusChange,
-  statusChanging = false,
-  typeOptions,
-  onSaveChanges,
-  savingChanges = false,
-  comments,
-  currentUserId,
-  editingComment,
-  editingCommentValue,
-  onEditComment,
-  onEditingCommentValueChange,
-  onSaveEditComment,
-  onCancelEditComment,
-  onDeleteComment,
-  canDeleteComment,
-  onRemoveCommentAttachment,
-  removingCommentAttachmentKey = null,
-  onAddComment,
-  addCommentLoading = false,
-  commentsHasOlder = false,
-  commentsOlderRemaining = 0,
-  onLoadMoreComments,
-  loadMoreCommentsLoading = false,
-  companyCustomers = [],
-  ticketCcEmails = [],
-  totalTimeSeconds,
-  activeTimeTracker,
-  formatTime,
-}: TabGeneralCustomerProps) {
+export default function TabGeneralCustomer({ ticketData, ticketAttachments = [], statusOptions, onStatusChange, statusChanging = false, typeOptions, onSaveChanges, savingChanges = false, comments, currentUserId, editingComment, editingCommentValue, onEditComment, onEditingCommentValueChange, onSaveEditComment, onCancelEditComment, onDeleteComment, canDeleteComment, onRemoveCommentAttachment, removingCommentAttachmentKey = null, onAddComment, addCommentLoading = false, commentsHasOlder = false, commentsOlderRemaining = 0, onLoadMoreComments, loadMoreCommentsLoading = false, companyCustomers = [], ticketCcEmails = [] }: TabGeneralCustomerProps) {
   const [typeDraft, setTypeDraft] = useState<number | null>(() => ticketData?.type_id ?? null)
   const [priorityDraft, setPriorityDraft] = useState<number | null>(() => {
     const raw = ticketData?.priority

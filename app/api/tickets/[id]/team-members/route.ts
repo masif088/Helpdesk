@@ -8,7 +8,7 @@ import { findBy, getManyMap, teamMembers, users } from '@/lib/fsdb'
 /** GET /api/tickets/[id]/team-members?team_id=xxx - Get team members for a team */
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  _context: { params: Promise<{ id: string }> }
 ) {
   const session = await auth()
   if (!session?.user) {

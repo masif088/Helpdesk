@@ -70,10 +70,6 @@ export default function CompanyDetailContent({
   /** Admin / manager (not the customer portal): may see and set the default hourly rate */
   const canEditBilling = canEdit && variant !== 'customer'
   const [collapsed, setCollapsed] = useState(false)
-  const [form] = Form.useForm()
-  const [saving, setSaving] = useState(false)
-  const [dataTemplates, setDataTemplates] = useState<any[]>([])
-  const [loadingTemplates, setLoadingTemplates] = useState(false)
   const [websites, setWebsites] = useState<any[]>([])
   const [loadingWebsites, setLoadingWebsites] = useState(false)
   const [websiteModalVisible, setWebsiteModalVisible] = useState(false)
@@ -105,20 +101,8 @@ export default function CompanyDetailContent({
   }
 
   // Group company datas by template group
-  const groupedDatas = (companyData.company_datas || []).reduce((acc: any, item: any) => {
-    const group = item.company_data_templates?.group || 'Other'
-    if (!acc[group]) {
-      acc[group] = []
-    }
-    acc[group].push(item)
-    return acc
-  }, {})
 
   // Create map of existing company_datas for easy lookup
-  const existingDatasMap = (companyData.company_datas || []).reduce((acc: any, item: any) => {
-    acc[item.data_template_id] = item.value || ''
-    return acc
-  }, {})
 
   const openEditCompanyModal = async () => {
     const isCust = variant === 'customer'
@@ -231,7 +215,7 @@ export default function CompanyDetailContent({
       await apiFetch(`/api/crawl-sessions/${crawlSessionId}`, { method: 'DELETE' })
       message.success('Crawl session deleted successfully')
       fetchCrawlSessions()
-    } catch (error: any) {
+    } catch (error: unknown) {
       message.error('Failed to delete crawl session')
       console.error('Error deleting crawl session:', error)
     } finally {
@@ -257,9 +241,9 @@ export default function CompanyDetailContent({
   const fetchWebsites = async () => {
     setLoadingWebsites(true)
     try {
-      const res = await apiFetch<{ data: any[] }>(`/api/company-websites?company_id=${companyData.id}`)
+      const res = await apiFetch<{ data: unknown[] }>(`/api/company-websites?company_id=${companyData.id}`)
       setWebsites(res?.data || [])
-    } catch (error: any) {
+    } catch (error: unknown) {
       message.error('Failed to load websites')
       console.error('Error fetching websites:', error)
     } finally {
@@ -275,9 +259,9 @@ export default function CompanyDetailContent({
         setLoadingCrawlSessions(false)
         return
       }
-      const data = await apiFetch<any[]>(`/api/companies/${companyData.id}/crawl-sessions`)
+      const data = await apiFetch<unknown[]>(`/api/companies/${companyData.id}/crawl-sessions`)
       setCrawlSessions(data || [])
-    } catch (error: any) {
+    } catch (error: unknown) {
       message.error('Failed to load crawl sessions')
       console.error('Error fetching crawl sessions:', error)
     } finally {

@@ -12,9 +12,6 @@ import RowActions from '@/components/settings/RowActions'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import { Chip, StatusPill } from '@/components/ticket/list/TicketChips'
 import { APP_TABLE_PAGE_SIZE_OPTIONS, appTableShowTotal } from '@/lib/app-table'
-import type { AutomationActions } from '@/lib/automation-actions-types'
-import type { OurConditionGroup } from '@/lib/condition-builder-utils'
-
 const { Content } = Layout
 
 interface AutomationRulesContentProps {

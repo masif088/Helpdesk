@@ -13,28 +13,7 @@ import {
   UploadOutlined,
   UserOutlined,
 } from '@ant-design/icons'
-import {
-  Alert,
-  Avatar,
-  Button,
-  Card,
-  Col,
-  Form,
-  Input,
-  InputNumber,
-  Layout,
-  message,
-  Modal,
-  Popconfirm,
-  Row,
-  Select,
-  Space,
-  Switch,
-  Tag,
-  Tooltip,
-  Typography,
-  Upload,
-} from 'antd'
+import { Alert, Avatar, Button, Col, Form, Input, Layout, message, Modal, Popconfirm, Row, Select, Space, Tag, Tooltip, Typography, Upload } from 'antd'
 import { useRouter } from 'next/navigation'
 import { type Key,useEffect, useMemo, useState } from 'react'
 
@@ -191,8 +170,6 @@ export default function UsersContent({ user: currentUser, audience = 'staff' }: 
     })
   }, [users, searchText, audienceTab, filterStatus, filterRole, filterKind, filterCompany, isCustomer])
 
-  const customerCount = useMemo(() => users.filter((u) => u.role === 'customer').length, [users])
-  const nonCustomerCount = useMemo(() => users.filter((u) => u.role !== 'customer').length, [users])
 
   const fetchUsers = async () => {
     setLoading(true)

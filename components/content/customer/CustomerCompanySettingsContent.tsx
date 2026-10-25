@@ -108,7 +108,7 @@ function CompanyPanels({ userId, companyData, isCompanyPortalAdmin }: { userId: 
 
   const overview = (
           <div style={{ display: 'grid', gap: 16 }}>
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            { }
             <TabInfo companyData={companyData as any} />
 
             <CustomerPortalTeamSection companyId={companyId} canManagePortal={isCompanyPortalAdmin} currentUserId={userId} />

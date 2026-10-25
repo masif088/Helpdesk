@@ -48,8 +48,7 @@ export function stripHtmlForPrompt(html: string): string {
 export const SUMMARIZE_MAX_COMMENTS = 100
 
 // Types moved to lib/ticket-summarize-types.ts (re-exported above)
-import type { LocalizedSummarizeComment, LocalizedSummarizeContext,SummarizeAnchorRequest } from '@/lib/ticket-summarize-types'
-
+import type { LocalizedSummarizeContext, SummarizeAnchorRequest } from '@/lib/ticket-summarize-types'
 /** Slice ordered comments: focal + `before` above + `after` below. */
 export function pickCommentWindow<T extends { id: string }>(
   ordered: T[],

@@ -1,8 +1,7 @@
 'use client'
 
-import { ArrowLeftOutlined, GlobalOutlined } from '@ant-design/icons'
+import { GlobalOutlined } from '@ant-design/icons'
 import { Avatar, Button, Divider, Form, Input, Layout, message, Space, Typography } from 'antd'
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'

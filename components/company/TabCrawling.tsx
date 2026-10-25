@@ -30,25 +30,18 @@ function getCrawlStatusColor(status: string) {
 }
 
 interface TabCrawlingProps {
-  crawlSessions: any[]
+  crawlSessions: unknown[]
   loadingCrawlSessions: boolean
-  websites: any[]
+  websites: unknown[]
   websitesLength: number
   onStartCrawl: () => void
   onCrawlDelete: (id: string) => void
 }
 
-export default function TabCrawling({
-  crawlSessions,
-  loadingCrawlSessions,
-  websites,
-  websitesLength,
-  onStartCrawl,
-  onCrawlDelete,
-}: TabCrawlingProps) {
+export default function TabCrawling({ crawlSessions, loadingCrawlSessions, websitesLength, onStartCrawl, onCrawlDelete }: TabCrawlingProps) {
   const router = useRouter()
 
-  const columns: ColumnsType<any> = [
+  const columns: ColumnsType<unknown> = [
     {
       title: 'Website',
       key: 'website',

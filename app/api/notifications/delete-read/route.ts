@@ -36,7 +36,7 @@ export async function POST() {
     }
 
     return NextResponse.json({ ok: true, deleted })
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: 'Failed to delete', deleted }, { status: 500 })
   }
 }

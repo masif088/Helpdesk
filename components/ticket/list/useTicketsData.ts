@@ -569,8 +569,6 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
         if (fromUrl) {
           const current = initialRef.current?.state.filterStatus ?? []
           const intersection = current.filter((slug: string) => validSlugs.has(slug))
-          const allSlugs = list.map((s) => s.slug)
-          const nonClosedSlugs = list.filter((s) => !isClosedLikeTicketStatus(s.slug)).map((s) => s.slug)
           const resolvedStatus =
             intersection.length > 0 ? intersection : defaultSlugs
           setFilterStatus(resolvedStatus)
@@ -578,13 +576,11 @@ export function useTicketsData(currentUserId: string, isCustomer = false, canDel
           saveFiltersToStorage({ ...(stored || {}), filterStatus: resolvedStatus } as StoredFilter)
         } else {
           if (isCustomer) {
-            const allSlugs = list.map((s) => s.slug)
             const hasStoredStatusPreference =
               stored && 'filterStatus' in stored && Array.isArray(stored.filterStatus)
             const fromStore = hasStoredStatusPreference
               ? (stored.filterStatus as string[]).filter((slug: string) => validSlugs.has(slug))
               : null
-            const nonClosedSlugs = list.filter((s) => !isClosedLikeTicketStatus(s.slug)).map((s) => s.slug)
             setFilterStatus(
               fromStore !== null ? (fromStore.length > 0 ? fromStore : defaultSlugs) : defaultSlugs
             )

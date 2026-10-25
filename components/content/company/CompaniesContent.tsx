@@ -1,7 +1,7 @@
 'use client'
 
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
-import { Button, Card, Col, Form, Input, InputNumber, Layout, message, Modal, Popconfirm, Row, Select, Space, Switch, Tooltip, Typography } from 'antd'
+import { Button, Col, Form, Input, InputNumber, Layout, message, Modal, Popconfirm, Row, Select, Space, Switch, Tooltip, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo,useState } from 'react'
@@ -27,7 +27,6 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
 
 const { Content } = Layout
 const { Title, Text } = Typography
-const { Option } = Select
 
 interface CompaniesContentProps {
   user: { id: string; email?: string | null; name?: string | null }
@@ -117,8 +116,8 @@ export default function CompaniesContent({ user: currentUser }: CompaniesContent
   const [modalVisible, setModalVisible] = useState(false)
   const [editingCompany, setEditingCompany] = useState<CompanyRecord | null>(null)
   const [searchText, setSearchText] = useState('')
-  const [filterIsCustomer, setFilterIsCustomer] = useState<boolean | undefined>(undefined)
-  const [filterStatus, setFilterStatus] = useState<boolean | undefined>(undefined)
+  const [filterIsCustomer] = useState<boolean | undefined>(undefined)
+  const [filterStatus] = useState<boolean | undefined>(undefined)
   const [leaderOptions, setLeaderOptions] = useState<LeaderOption[]>([])
   const [teamOptions, setTeamOptions] = useState<TeamOption[]>([])
   const [managerOptions, setManagerOptions] = useState<ManagerOption[]>([])

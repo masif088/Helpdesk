@@ -5,7 +5,7 @@ import { App, Badge, Empty, Popover, Spin, Tooltip, Typography } from 'antd'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { useRouter } from 'next/navigation'
-import { type CSSProperties, useCallback, useMemo, useState } from 'react'
+import { type CSSProperties, useCallback, useState } from 'react'
 
 import { type TicketNotificationItem, useNotificationPoll } from '@/components/providers/NotificationPollProvider'
 import { useSession } from '@/lib/auth-client'

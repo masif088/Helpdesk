@@ -1,7 +1,7 @@
 'use client'
 
 import { ApiOutlined, PlusOutlined, PoweroffOutlined, ThunderboltOutlined } from '@ant-design/icons'
-import { Button, Card, Form, Input, Layout, message, Modal, Select, Table, Tag, Typography } from 'antd'
+import { Button, Card, Form, Input, Layout, message, Modal, Select, Table, Tag } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useState } from 'react'
 
@@ -43,7 +43,7 @@ export default function AiIntegrationContent({ user: currentUser, config }: Prop
   const [editingRow, setEditingRow] = useState<AiSettingRow | null>(null)
   const [saving, setSaving] = useState(false)
   const [activating, setActivating] = useState<string | null>(null)
-  const [deleting, setDeleting] = useState<string | null>(null)
+  const [, setDeleting] = useState<string | null>(null)
   const [activeConfig, setActiveConfig] = useState(config)
   const [form] = Form.useForm()
   const [messageApi, ctx] = message.useMessage()

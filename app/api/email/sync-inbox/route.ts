@@ -71,17 +71,8 @@ function parseNameFromHeader(from: string): string | null {
 }
 
 /** Extract domain from email, e.g. "john@acme.com" -> "acme.com" */
-function getDomainFromEmail(email: string): string {
-  const domain = email.split('@')[1] || ''
-  return domain.toLowerCase().trim()
-}
 
 /** Derive company name from email, e.g. "john@acme.com" -> "Acme" */
-function companyNameFromEmail(email: string): string {
-  const domain = email.split('@')[1] || email
-  const base = domain.split('.')[0] || domain
-  return base.charAt(0).toUpperCase() + base.slice(1).toLowerCase()
-}
 
 /** Truncate string to the old column length limits (keeps stored values bounded) */
 function truncateVarchar(s: string | null | undefined, maxLen: number): string {
@@ -242,7 +233,7 @@ async function sendUserTemporaryPasswordEmail(params: {
 
 /** User Activation + Password Reset templates for customers auto-created from inbox. */
 async function sendNewInboxUserOnboardingEmails(params: {
-  gmail: any
+  gmail: unknown
   fromEmail: string
   toEmail: string
   baseUrl: string
@@ -315,7 +306,7 @@ function flattenGmailParts(part: any): any[] {
 }
 
 /** Plain + HTML from any nesting (multipart/alternative, related, etc.) */
-function extractEmailTextBodies(payload: any): { html: string; plain: string } {
+function extractEmailTextBodies(payload: unknown): { html: string; plain: string } {
   const flat = flattenGmailParts(payload || {})
   let html = ''
   let plain = ''
@@ -423,9 +414,9 @@ function replaceContentIdsInHtml(html: string, cidToUrl: Map<string, string>): s
  * replace cid: in HTML with public URLs, and collect files for ticket_attachments / comment_attachments.
  */
 async function processIncomingEmailMedia(
-  gmail: any,
+  gmail: unknown,
   gmailMessageId: string,
-  payload: any,
+  payload: unknown,
   ticketId: number,
   companyFolder: string,
   html: string | null,
@@ -717,7 +708,7 @@ async function syncInbox(request: NextRequest) {
           direction: 'incoming',
           ...(rfcMessageId && { rfcMessageId: truncateVarchar(rfcMessageId, 512) }),
         })
-      } catch (claimErr: any) {
+      } catch {
         try {
           await insert(emailMessages, {
             gmailMessageId: truncateVarchar(gmailMessageId, 255),

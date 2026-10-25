@@ -1,7 +1,7 @@
 'use client'
 
-import { CheckCircleOutlined, CloseCircleOutlined, DeleteOutlined, EyeOutlined, GlobalOutlined,PlayCircleOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
-import { Button, Card, Form, Input, InputNumber, Layout, message, Modal, Popconfirm, Progress, Select, Space, Spin,Table, Tag, Typography } from 'antd'
+import { CheckCircleOutlined, CloseCircleOutlined, EyeOutlined, GlobalOutlined, PlayCircleOutlined } from '@ant-design/icons'
+import { Button, Card, Form, InputNumber, Layout, message, Modal, Progress, Select, Space, Spin, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useRouter } from 'next/navigation'
 import { useEffect,useState } from 'react'
@@ -13,9 +13,8 @@ import AdminSidebar from '@/components/layout/AdminSidebar'
 import { APP_TABLE_PAGE_SIZE_OPTIONS } from '@/lib/app-table'
 
 const { Content } = Layout
-const { Title, Text } = Typography
+const { Text } = Typography
 const { Option } = Select
-const { TextArea } = Input
 
 interface CrawlSessionsContentProps {
   user: { id: string; email?: string | null; name?: string | null; role?: string }
@@ -93,7 +92,7 @@ export default function CrawlSessionsContent({ user: currentUser }: CrawlSession
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Failed to fetch companies')
       setCompanies(json.data || [])
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching companies:', error)
     }
   }
@@ -115,7 +114,7 @@ export default function CrawlSessionsContent({ user: currentUser }: CrawlSession
         companies: companyData ? { id: companyData.id, name: companyData.name } : null,
       }))
       setCompanyWebsites(websites)
-    } catch (error: any) {
+    } catch (error: unknown) {
       message.error('Failed to fetch company websites')
       console.error('Error fetching company websites:', error)
     } finally {
@@ -163,16 +162,6 @@ export default function CrawlSessionsContent({ user: currentUser }: CrawlSession
     }
   }
 
-  const handleDelete = async (id: string) => {
-    try {
-      const res = await fetch(`/api/crawl-sessions/${id}`, { method: 'DELETE', credentials: 'include' })
-      if (!res.ok) throw new Error((await res.json().catch(() => ({})) as { error?: string })?.error ?? 'Failed to delete')
-      message.success('Crawl session deleted successfully')
-      fetchCrawlSessions()
-    } catch (error: any) {
-      message.error(error.message || 'Failed to delete crawl session')
-    }
-  }
 
   const getStatusColor = (status: string) => {
     switch (status) {

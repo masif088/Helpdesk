@@ -1,47 +1,7 @@
 'use client'
 
-import {
-  ArrowLeftOutlined,
-  ClockCircleOutlined,
-  CloseOutlined,
-  CommentOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  ForwardFilled,
-  MessageOutlined,
-  PaperClipOutlined,
-  PlusOutlined,
-  ProfileOutlined,
-  RobotOutlined,
-  SendOutlined,
-  SyncOutlined,
-  ThunderboltOutlined,
-  UserOutlined,
-} from '@ant-design/icons'
-import {
-  Alert,
-  Avatar,
-  Button,
-  Col,
-  DatePicker,
-  Descriptions,
-  Drawer,
-  Empty,
-  Flex,
-  Grid,
-  Input,
-  InputNumber,
-  Layout,
-  Popconfirm,
-  Row,
-  Segmented,
-  Select,
-  Space,
-  Tag,
-  Tooltip,
-  Typography,
-} from 'antd'
-
+import { ClockCircleOutlined, CloseOutlined, DeleteOutlined, EditOutlined, PaperClipOutlined, PlusOutlined, ProfileOutlined, RobotOutlined, SyncOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons'
+import { Alert, Avatar, Button, Col, DatePicker, Drawer, Empty, Flex, Grid, Input, InputNumber, Popconfirm, Row, Segmented, Select, Space, Tag, Tooltip, Typography } from 'antd'
 const { useBreakpoint } = Grid
 import dayjs from 'dayjs'
 import React, { useEffect, useMemo, useState } from 'react'
@@ -545,13 +505,6 @@ export default function TabGeneral({
   const isAutomationCreated = ticketData.created_via === 'recurring' || ticketData.created_via === 'automation'
   const automationLabel = ticketData.created_via === 'recurring' ? 'Recurring Ticket' : 'Automation'
   /** Thread header: company + person when both exist (portal context). */
-  const creatorLabel = isAutomationCreated
-    ? [ticketData.company?.name, automationLabel].filter(Boolean).join(' · ') || automationLabel
-    : [ticketData.company?.name, ticketData.creator?.full_name || ticketData.creator?.email].filter(Boolean).join(' · ') ||
-      ticketData.creator?.full_name ||
-      ticketData.creator?.email ||
-      ticketData.company?.name ||
-      'Unknown'
   /** Sidebar "Created By": person under company ticket only (company has its own row). */
   const createdByPersonLabel = isAutomationCreated
     ? automationLabel

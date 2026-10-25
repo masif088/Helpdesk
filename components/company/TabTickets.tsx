@@ -1,15 +1,6 @@
 'use client'
 
-import {
-  CalendarOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  FilterOutlined,
-  PlusOutlined,
-  SearchOutlined,
-  SyncOutlined,
-  UserOutlined,
-} from '@ant-design/icons'
+import { CalendarOutlined, DeleteOutlined, EditOutlined, FilterOutlined, SearchOutlined, SyncOutlined, UserOutlined } from '@ant-design/icons'
 import {
   Button,
   Card,
@@ -266,20 +257,7 @@ export default function TabTickets({ companyData, currentUser, viewerRole, baseP
     fetchTickets(1, pageSize, sortOrder, allSlugs, undefined, '', null)
   }
 
-  const handleFilterChange = useCallback(() => {
-    setCurrentPage(1)
-    setFiltersDirty(true)
-  }, [])
 
-  const handleCreate = () => {
-    setEditingTicket(null)
-    setSelectedTagIds([])
-    form.resetFields()
-    form.setFieldsValue({
-      company_id: companyData.id,
-    })
-    setModalVisible(true)
-  }
 
   const handleEdit = (ticket: TicketRecord) => {
     setEditingTicket(ticket)

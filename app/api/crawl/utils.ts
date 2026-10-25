@@ -489,7 +489,7 @@ export async function startCrawlProcess(
               errorMessage: detailedErrorMessage,
               crawledAt: new Date(),
             })
-          } catch (failedInsertError: any) {
+          } catch (failedInsertError: unknown) {
             const failCode = (failedInsertError as { code?: string }).code
             const failDetail = (failedInsertError as { detail?: string }).detail ?? ''
             console.error(`[Crawl] CRITICAL: Failed to save failed page for ${currentUrl}:`, failedInsertError)
@@ -504,7 +504,7 @@ export async function startCrawlProcess(
               // ignore
             }
           }
-        } catch (saveError: any) {
+        } catch (saveError: unknown) {
           console.error(`[Crawl] CRITICAL: Exception saving failed page for ${currentUrl}:`, saveError)
         }
 

@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  turbopack: {},
+  turbopack: { root: process.cwd() },
   experimental: {
     serverActions: {
       bodySizeLimit: '50mb',

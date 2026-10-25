@@ -77,7 +77,6 @@ export default function TicketSearchNavbar({
   const router = useRouter()
   const pathname = usePathname()
   const [q, setQ] = useState('')
-  const [searchBy] = useState<'all'>('all')
   const [prefOpen, setPrefOpen] = useState(false)
   const [searchPrefs, setSearchPrefs] = useState<{ title: boolean; description: boolean; comments: boolean }>(() => {
     try {
