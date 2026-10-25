@@ -7,6 +7,7 @@ import { useEffect,useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import MyApiKeys from '@/components/profile/MyApiKeys'
 import { useSession } from '@/lib/auth-client'
 import { USER_DEPARTMENTS, USER_POSITIONS } from '@/lib/user-work-dropdowns'
 import { uploadAvatar } from '@/utils/storage'
@@ -438,6 +439,8 @@ export default function ProfileContent({ user, userData }: ProfileContentProps) 
               </Form.Item>
             </Form>
           </Card>
+
+          <MyApiKeys />
 
           <Card style={{ marginTop: 24 }}>
             <Title level={3}>

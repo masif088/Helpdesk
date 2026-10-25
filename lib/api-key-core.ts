@@ -15,6 +15,10 @@ export const API_KEY_SCOPE_LABELS: Record<ApiKeyScope, string> = {
 export const DEFAULT_RATE_LIMIT_PER_HOUR = 100
 export const MAX_RATE_LIMIT_PER_HOUR = 10_000
 
+/** A key people make for themselves (Profile) always lasts this long and runs at the default limit; only an admin can give more. */
+export const SELF_KEY_DAYS = 14
+export const MAX_ACTIVE_SELF_KEYS = 5
+
 /** A usable limit: a whole number from 1 up to the maximum; anything else means "the default". */
 export function normalizeRateLimit(value: unknown): number {
   const n = typeof value === 'number' ? Math.floor(value) : NaN

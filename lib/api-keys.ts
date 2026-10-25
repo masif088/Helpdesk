@@ -9,7 +9,7 @@ import {
   normalizeRateLimit,
   normalizeScopes,
 } from '@/lib/api-key-core'
-import { apiKeys, type ApiKeysRow, find, findOneBy, get, insert, update } from '@/lib/fsdb'
+import { apiKeys, type ApiKeysRow, find, findBy, findOneBy, get, insert, sortRows, update } from '@/lib/fsdb'
 
 export function hashApiKey(key: string): string {
   return createHash('sha256').update(key).digest('hex')
@@ -72,9 +72,16 @@ export async function createApiKey(params: {
   return { key, info: toInfo(row) }
 }
 
-export async function listApiKeys(): Promise<ApiKeyInfo[]> {
-  const rows = await find(apiKeys, { orderBy: [['createdAt', 'desc']] })
-  return rows.map(toInfo)
+/** Every key, or only the ones that act as `userId`. */
+export async function listApiKeys(userId?: string): Promise<ApiKeyInfo[]> {
+  // Filter and order in memory: a where on userId plus an orderBy would need a composite index
+  const rows = userId ? await findBy(apiKeys, { userId }) : await find(apiKeys)
+  return sortRows(rows, [['createdAt', 'desc']]).map(toInfo)
+}
+
+/** How many keys of this user can still be used (a person may only hold a few at a time). */
+export async function countActiveApiKeys(userId: string): Promise<number> {
+  return (await listApiKeys(userId)).filter((k) => apiKeyUsable(k)).length
 }
 
 /** Change how many calls per hour a key may make. */
@@ -86,9 +93,10 @@ export async function setApiKeyRateLimit(id: string, limit: unknown): Promise<bo
   return true
 }
 
-export async function revokeApiKey(id: string): Promise<boolean> {
+/** Revoke a key. With `ownerId` only a key that acts as that user can be revoked (false otherwise, as if it did not exist). */
+export async function revokeApiKey(id: string, ownerId?: string): Promise<boolean> {
   const row = await get(apiKeys, id)
-  if (!row) return false
+  if (!row || (ownerId && row.userId !== ownerId)) return false
   if (!row.revokedAt) await update(apiKeys, id, { revokedAt: new Date(), updatedAt: new Date() })
   keyCache.clear()
   return true

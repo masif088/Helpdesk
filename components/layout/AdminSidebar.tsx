@@ -20,13 +20,11 @@ import {
   UserOutlined,
   WarningOutlined,
 } from '@ant-design/icons'
-import { Avatar, Dropdown, Tooltip } from 'antd'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { Tooltip } from 'antd'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
-import { signOutAction } from '@/app/actions/auth'
 import { SpaNavLink } from '@/components/common/SpaNavLink'
-import { adminNavbarAccountMenuItems } from '@/components/layout/adminNavbarAccountMenu'
 import { useSession } from '@/lib/auth-client'
 import {
   canAccessCompanies,
@@ -116,7 +114,6 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
   const sessionRole = (session?.user as { role?: string } | undefined)?.role
   const role = ((user.role ?? sessionRole) ?? '').toLowerCase()
   const isCustomer = role === 'customer'
-  const router = useRouter()
   const pathname = usePathname()
   const ticketsListSearch = useSearchParams().toString()
   const [appName, setAppName] = useState<string>(BRANDING.name)
@@ -223,14 +220,6 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
     [pathname, ticketsListSearch]
   )
 
-  const handleLogout = async () => {
-    await signOutAction()
-    router.push('/login')
-    router.refresh()
-  }
-
-  const displayName = session?.user?.name ?? user.name ?? user.user_metadata?.full_name ?? user.email ?? 'User'
-  const avatarSrc = session?.user?.image ?? user.image ?? user.user_metadata?.avatar_url ?? undefined
   const width = collapsed ? SIDEBAR_RAIL_WIDTH : SIDEBAR_WIDTH
 
   return (
@@ -305,24 +294,6 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
       </nav>
 
       <div className="app-sidebar__footer">
-        <Dropdown
-          menu={{ items: adminNavbarAccountMenuItems(handleLogout) }}
-          placement="topLeft"
-          trigger={['click']}
-          getPopupContainer={() => document.body}
-        >
-          <button type="button" className="app-sidebar__user" aria-label="Account menu">
-            <Avatar size={32} src={avatarSrc} style={{ background: '#0F9D8A', flexShrink: 0 }}>
-              {displayName.trim().charAt(0).toUpperCase()}
-            </Avatar>
-            {!collapsed ? (
-              <span className="app-sidebar__user-text">
-                <span className="app-sidebar__user-name">{displayName}</span>
-                <span className="app-sidebar__user-role">{role || 'user'}</span>
-              </span>
-            ) : null}
-          </button>
-        </Dropdown>
         <Tooltip title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} placement="right">
           <button
             type="button"
