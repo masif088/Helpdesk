@@ -45,7 +45,7 @@ const GROUPS: SettingGroup[] = [
     icon: <AppstoreOutlined />,
     tone: '#0F9D8A',
     items: [
-      { title: 'Statuses', description: 'Ticket statuses, default filters and where the ball is with the client (stops SLA)', href: '/settings/ticket-statuses', icon: <ApartmentOutlined />, keywords: 'workflow kanban column ball client waiting default filter sla', show: canAccessTicketAttributes },
+      { title: 'Statuses', description: 'Workflow states, default filters and when the ball is with the client', href: '/settings/ticket-statuses', icon: <ApartmentOutlined />, keywords: 'workflow kanban column ball client waiting default filter sla', show: canAccessTicketAttributes },
       { title: 'Types', description: 'Request categories: bug, feature, question…', href: '/settings/ticket-types', icon: <AppstoreOutlined />, keywords: 'category', show: canAccessTicketAttributes },
       { title: 'Tags', description: 'Labels for organizing and filtering tickets', href: '/settings/tags', icon: <TagsOutlined />, keywords: 'label', show: canAccessTicketAttributes },
       { title: 'Checklist templates', description: 'Reusable checklists, grouped, applied to tickets', href: '/settings/checklist-templates', icon: <CarryOutOutlined />, keywords: 'todo task', show: canAccessChecklistTemplates },
@@ -75,7 +75,7 @@ const GROUPS: SettingGroup[] = [
     items: [
       { title: 'Email (Gmail)', description: 'Mailbox that turns emails into tickets and sends replies', href: '/settings/email-integration', icon: <MailOutlined />, keywords: 'gmail inbox sync', show: canAccessEmailIntegration },
       { title: 'Slack', description: 'Ticket alerts to Slack channels', href: '/settings/slack-notifications', icon: <SlackOutlined />, keywords: 'notification channel', show: canAccessSlackNotifications },
-      { title: 'API keys', description: 'Let an outside tool, such as a customer\'s AI, read, create and comment on tickets', href: '/settings/api-keys', icon: <KeyOutlined />, keywords: 'token access integration ai agent mcp', show: isAdmin },
+      { title: 'API keys', description: 'Let outside tools read, create and comment on tickets', href: '/settings/api-keys', icon: <KeyOutlined />, keywords: 'token access integration ai agent mcp', show: isAdmin },
       { title: 'AI', description: 'Provider and model for summaries and reply drafts', href: '/settings/ai', icon: <RobotOutlined />, keywords: 'openai codex summary', show: canAccessAiSettings },
     ],
   },
@@ -112,7 +112,7 @@ const GROUPS: SettingGroup[] = [
     items: [
       { title: 'Branding', description: 'App name, logo, favicon and email sender name', href: '/settings/app-branding', icon: <BgColorsOutlined />, keywords: 'logo name favicon sender', show: isAdmin },
       { title: 'Scheduled jobs', description: 'Email sync, recurring tickets, time triggers: last run and setup', href: '/settings/scheduled-jobs', icon: <ScheduleOutlined />, keywords: 'cron apps script scheduler sync', show: isAdmin },
-      { title: 'Demo reset', description: 'Empty the whole app for a fresh demo: tickets, accounts, mailbox and automation', href: '/settings/demo-reset', icon: <DeleteOutlined />, keywords: 'reset wipe clear demo clean', show: isAdmin, only: mayDemoReset },
+      { title: 'Demo reset', description: 'Empty the app for a fresh demo (needs a manual unlock)', href: '/settings/demo-reset', icon: <DeleteOutlined />, keywords: 'reset wipe clear demo clean', show: isAdmin, only: mayDemoReset },
       { title: 'Connection status', description: 'Database, storage, Firebase, email and AI checks', href: '/settings/connection-status', icon: <ApiOutlined />, keywords: 'health check firebase storage', show: isAdmin },
     ],
   },
