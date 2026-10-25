@@ -146,6 +146,53 @@ export const appSettings = defineTable<AppSettingsRow, NewAppSettingsRow>({
   nowFields: ['updatedAt'],
 })
 
+/** Keys for outside tools (e.g. a customer's AI) to read, create and comment on tickets; only the hash of the key is stored */
+export type ApiKeysRow = {
+  id: string
+  /** Label shown on tickets / comments made with the key, e.g. "Claude (Acme)" */
+  name: string
+  /** First characters of the key, to recognise it in lists */
+  prefix: string
+  /** sha256 of the full key */
+  keyHash: string
+  /** The key acts as this user: their role and company decide what it can see */
+  userId: string
+  scopes: string[]
+  /** Calls allowed per hour; null = the default (100) */
+  rateLimitPerHour: number | null
+  createdBy: string | null
+  expiresAt: Date | null
+  revokedAt: Date | null
+  lastUsedAt: Date | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type NewApiKeysRow = {
+  id?: string
+  name: string
+  prefix: string
+  keyHash: string
+  userId: string
+  scopes: string[]
+  rateLimitPerHour?: number | null
+  createdBy?: string | null
+  expiresAt?: Date | null
+  revokedAt?: Date | null
+  lastUsedAt?: Date | null
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+export const apiKeys = defineTable<ApiKeysRow, NewApiKeysRow>({
+  name: 'api_keys',
+  columns: ['id', 'name', 'prefix', 'keyHash', 'userId', 'scopes', 'rateLimitPerHour', 'createdBy', 'expiresAt', 'revokedAt', 'lastUsedAt', 'createdAt', 'updatedAt'],
+  docKey: ['id'],
+  idField: 'id',
+  idGen: 'uuid',
+  nowFields: ['createdAt', 'updatedAt'],
+})
+
 /** One summary per day for the SLA & satisfaction report (see lib/sla-daily.ts); the document id is the date, YYYY-MM-DD */
 export type SlaDailyRow = {
   date: string
@@ -1660,6 +1707,8 @@ export type TicketCommentsRow = {
   fdConversationId: number | null
   editedByUserId: string | null
   editedAt: Date | null
+  /** Set when the comment came in through an API key, e.g. "API · Claude (Acme)" */
+  via: string | null
 }
 
 export type NewTicketCommentsRow = {
@@ -1677,11 +1726,12 @@ export type NewTicketCommentsRow = {
   fdConversationId?: number | null
   editedByUserId?: string | null
   editedAt?: Date | null
+  via?: string | null
 }
 
 export const ticketComments = defineTable<TicketCommentsRow, NewTicketCommentsRow>({
   name: 'ticket_comments',
-  columns: ['id', 'ticketId', 'userId', 'comment', 'visibility', 'authorType', 'taggedUserIds', 'ccEmails', 'bccEmails', 'createdAt', 'receivedAt', 'fdConversationId', 'editedByUserId', 'editedAt'],
+  columns: ['id', 'ticketId', 'userId', 'comment', 'visibility', 'authorType', 'taggedUserIds', 'ccEmails', 'bccEmails', 'createdAt', 'receivedAt', 'fdConversationId', 'editedByUserId', 'editedAt', 'via'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',
@@ -2007,4 +2057,4 @@ export const users = defineTable<UsersRow, NewUsersRow>({
   nowFields: ['createdAt', 'updatedAt'],
 })
 
-export const allTables = [invoices, cannedResponses, slaDaily, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const
+export const allTables = [invoices, apiKeys, cannedResponses, slaDaily, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const

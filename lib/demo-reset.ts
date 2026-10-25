@@ -13,6 +13,7 @@ import { AUTO_OPEN_RULE, companiesToKeep, COMPANY_CHILD_TABLES, COUNTERS_TO_RESE
 import { deleteAuthUser } from '@/lib/firebase/auth-server'
 import * as db from '@/lib/fsdb'
 import {
+  apiKeys,
   apiTokens,
   appSettings,
   cannedResponses,
@@ -192,6 +193,7 @@ export async function runDemoReset(actorEmail: string, opts: { withSample: boole
       await Promise.all([
         removeWhere(teamMembers, [['userId', '==', u.id]]),
         removeWhere(apiTokens, [['userId', '==', u.id]]),
+        removeWhere(apiKeys, [['userId', '==', u.id]]),
         removeWhere(cannedResponses, [['ownerId', '==', u.id]]),
         fdb().recursiveDelete(fdb().collection('users').doc(u.id).collection('ticketNotifications')),
       ])

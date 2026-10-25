@@ -1,6 +1,8 @@
 import { after, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { apiViaLabel } from '@/lib/api-key-core'
+import { unauthorizedResponse } from '@/lib/api-key-http'
 import { isAdmin, isAdminOrManager } from '@/lib/auth-utils'
 import { loadAutomationTicketContext, runAutomationRules } from '@/lib/automation-engine'
 import { parseTicketPriceBody } from '@/lib/billing-rate'
@@ -65,7 +67,7 @@ export async function GET(request: Request) {
   const session = await auth()
   const authUser = session?.user
   if (!authUser?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return unauthorizedResponse(session)
   }
 
   const userId = authUser.id
@@ -441,7 +443,7 @@ export async function POST(request: Request) {
   const session = await auth()
   const authUser = session?.user
   if (!authUser?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return unauthorizedResponse(session)
   }
 
   const body = await request.json()
@@ -465,8 +467,9 @@ export async function POST(request: Request) {
     required_skills,
   } = body
 
-  /** created_via: 'portal' (admin app) | 'website' (embed/widget) | 'app' (mobile/external) - for automation conditions */
-  const createdVia = bodyCreatedVia || 'portal'
+  /** created_via: 'portal' (admin app) | 'website' (embed/widget) | 'app' (mobile/external) | 'api' (API key) - for automation conditions */
+  const apiKey = session?.apiKey ?? null
+  const createdVia = apiKey ? 'api' : bodyCreatedVia || 'portal'
 
   const userId = authUser.id
   const role = (authUser as { role?: string }).role?.toLowerCase()
@@ -568,6 +571,8 @@ export async function POST(request: Request) {
     createdBy: authUser.id,
     contactUserId,
     createdVia,
+    // Made with an API key: shown as the ticket's Source ("API · Claude (Acme)")
+    ...(apiKey ? { source: apiViaLabel(apiKey.name) } : {}),
     ticketType: insertTicketType,
     projectId: insertProjectId,
     projectStatusId: insertProjectStatusId,
@@ -659,6 +664,7 @@ export async function POST(request: Request) {
     metadata: {
       title: title || 'Untitled',
       created_via: createdVia,
+      ...(apiKey ? { via: apiViaLabel(apiKey.name), api_key_id: apiKey.id } : {}),
       assignee_count: Array.isArray(assignees) ? assignees.length : 0,
       tag_count: Array.isArray(tag_ids) ? tag_ids.length : 0,
       attachment_count: Array.isArray(attachments) ? attachments.length : 0,

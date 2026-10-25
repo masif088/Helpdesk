@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 
+import { bearerApiKey, scopeForRequest } from '@/lib/api-key-core'
+
 /** Must match SESSION_COOKIE_NAME in lib/firebase/auth-server.ts (not imported: keeps firebase-admin out of Edge). */
 const SESSION_COOKIE_NAME = '__session'
 
@@ -21,7 +23,27 @@ function sessionCookieLooksValid(value: string | undefined): boolean {
   }
 }
 
+/**
+ * API keys (Authorization: Bearer tk_live_...) may only call a short list of ticket endpoints. The matched scope is handed to `auth()`
+ * in `x-api-scope`; the header is always dropped from incoming requests first so a client cannot set it.
+ */
+function apiRequest(req: NextRequest) {
+  const headers = new Headers(req.headers)
+  headers.delete('x-api-scope')
+  headers.delete('x-api-request')
+  const key = bearerApiKey(req.headers.get('authorization'))
+  if (key) {
+    const scope = scopeForRequest(req.method, req.nextUrl.pathname)
+    if (!scope) return NextResponse.json({ error: 'This endpoint is not available to API keys' }, { status: 403 })
+    headers.set('x-api-scope', scope)
+    headers.set('x-api-request', crypto.randomUUID()) // one rate-limit count per request, however often `auth()` runs
+  }
+  return NextResponse.next({ request: { headers } })
+}
+
 export async function middleware(req: NextRequest) {
+  if (req.nextUrl.pathname.startsWith('/api/')) return apiRequest(req)
+
   const isLoggedIn = sessionCookieLooksValid(req.cookies.get(SESSION_COOKIE_NAME)?.value)
   const { pathname } = req.nextUrl
 
@@ -40,6 +62,7 @@ export async function middleware(req: NextRequest) {
 /** Only pages that need auth redirects (the (auth) route group + /login). */
 export const config = {
   matcher: [
+    '/api/:path*',
     '/login',
     '/dashboard/:path*',
     '/tickets/:path*',

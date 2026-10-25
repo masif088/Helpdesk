@@ -1,6 +1,6 @@
 'use client'
 
-import { ApartmentOutlined, ApiOutlined, AppstoreOutlined, ArrowRightOutlined, BgColorsOutlined, BulbOutlined, CarryOutOutlined, DeleteOutlined, FieldTimeOutlined, IdcardOutlined, MailOutlined, MessageOutlined, PushpinOutlined, ReadOutlined, RobotOutlined, ScheduleOutlined, SearchOutlined, SlackOutlined, SoundOutlined, SyncOutlined, TagsOutlined, TeamOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import { ApartmentOutlined, ApiOutlined, AppstoreOutlined, ArrowRightOutlined, BgColorsOutlined, BulbOutlined, CarryOutOutlined, DeleteOutlined, FieldTimeOutlined, IdcardOutlined, KeyOutlined, MailOutlined, MessageOutlined, PushpinOutlined, ReadOutlined, RobotOutlined, ScheduleOutlined, SearchOutlined, SlackOutlined, SoundOutlined, SyncOutlined, TagsOutlined, TeamOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { Input, Layout, Typography } from 'antd'
 import type { CSSProperties, ReactNode } from 'react'
 import { useMemo, useState } from 'react'
@@ -74,6 +74,7 @@ const GROUPS: SettingGroup[] = [
     items: [
       { title: 'Email (Gmail)', description: 'Mailbox that turns emails into tickets and sends replies', href: '/settings/email-integration', icon: <MailOutlined />, keywords: 'gmail inbox sync', show: canAccessEmailIntegration },
       { title: 'Slack', description: 'Ticket alerts to Slack channels', href: '/settings/slack-notifications', icon: <SlackOutlined />, keywords: 'notification channel', show: canAccessSlackNotifications },
+      { title: 'API keys', description: 'Let an outside tool, such as a customer\'s AI, read, create and comment on tickets', href: '/settings/api-keys', icon: <KeyOutlined />, keywords: 'token access integration ai agent mcp', show: isAdmin },
       { title: 'AI', description: 'Provider and model for summaries and reply drafts', href: '/settings/ai', icon: <RobotOutlined />, keywords: 'openai codex summary', show: canAccessAiSettings },
     ],
   },

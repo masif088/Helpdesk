@@ -112,6 +112,7 @@ async function mapCommentRowsToClient(rows: CommentRowJoined[]) {
     }),
     cc_emails: r.comment.ccEmails ?? [],
     bcc_emails: r.comment.bccEmails ?? [],
+    via: r.comment.via ?? null,
     user: r.user
       ? { id: r.user.id, full_name: r.user.fullName, email: r.user.email, avatar_url: r.user.avatarUrl }
       : null,

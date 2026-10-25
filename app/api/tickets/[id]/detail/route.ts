@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { unauthorizedResponse } from '@/lib/api-key-http'
 import { isAdmin, isAdminOrManager } from '@/lib/auth-utils'
 import { getCustomerCompanyId } from '@/lib/customer-company'
 import { get, getByKey, teamMembers, teams, tickets } from '@/lib/fsdb'
@@ -16,7 +17,7 @@ const NO_CACHE_HEADERS = {
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: NO_CACHE_HEADERS })
+    return unauthorizedResponse(session, NO_CACHE_HEADERS)
   }
 
   const { id } = await params
