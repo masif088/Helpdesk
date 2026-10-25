@@ -12,17 +12,11 @@ import { seedDefaults } from '@/lib/seed-defaults'
 
 export const SETUP_MIN_PASSWORD = 8
 
-const g = globalThis as typeof globalThis & { __setupDone?: boolean }
-
 /** True while the database has no users. Errors (database not reachable) count as "no": the login page shows them. */
 export async function needsSetup(): Promise<boolean> {
-  if (g.__setupDone) return false
+  // Not cached: it is one cheap count, only asked on the login and setup pages, and it must notice users being deleted
   try {
-    if ((await count(users)) > 0) {
-      g.__setupDone = true
-      return false
-    }
-    return true
+    return (await count(users)) === 0
   } catch {
     return false
   }
@@ -67,6 +61,5 @@ export async function runSetup(input: SetupInput): Promise<{ email: string }> {
   await seedDefaults()
   await setAppSetting('app_name', appName)
   await createAppUser({ email, password, fullName: name, role: 'admin', status: 'active' })
-  g.__setupDone = true
   return { email }
 }
