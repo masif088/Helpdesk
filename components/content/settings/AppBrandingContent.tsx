@@ -150,7 +150,7 @@ export default function AppBrandingContent({ user }: Props) {
             <Form.Item
               name="email_sender_name"
               label="Email Sender Name"
-              tooltip='Display name shown in outgoing emails, e.g. "DeskTeam360 Support". If empty, only the email address is shown.'
+              tooltip='Display name shown in outgoing emails, e.g. "Acme Support". If empty, only the email address is shown.'
             >
               <Input placeholder={`${BRANDING.name} Support`} maxLength={64} />
             </Form.Item>

@@ -1,4 +1,4 @@
-# DeskTeam360
+# Helpdesk
 
 **A helpdesk and ticketing platform for small teams that support clients.** Clients open tickets in a portal (or just
 send an email), your team works them on a board or list, and the app keeps track of response times, billing and
