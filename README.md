@@ -68,7 +68,7 @@ cp .env.example .env.local      # then fill in the Firebase values (the file exp
 npm run dev
 ```
 
-In the Firebase console, enable **Authentication → Email/Password** and create a **Firestore** database (Native mode).
+Set up the Firebase project first, see [Firebase setup, step by step](#firebase-setup-step-by-step).
 Open <http://localhost:3000>: on a new database it sends you to `/setup`, where you name the app and create the first
 admin. That is all; the starting data (statuses, ticket types, job types, message templates) is created for you.
 
@@ -84,6 +84,56 @@ npx tsc --noEmit       # type check
 npm test               # unit tests (Node's built-in test runner)
 npm run build          # production build
 ```
+
+---
+
+## Firebase setup, step by step
+
+Firebase is the whole backend, so this is the one thing to set up before the app can run.
+
+**Which plan?** The free **Spark** plan is enough to run and develop the app on your own computer. To deploy it on
+**Firebase App Hosting** you need the pay-as-you-go **Blaze** plan: App Hosting, its Secret Manager, and (since 2026,
+according to Firebase's pricing) Cloud Storage are only available on Blaze. Blaze keeps the same free quotas as Spark, so
+a small installation can still cost nothing, but a billing account must be attached. **Set a budget alert** (Google Cloud
+Console → Billing → Budgets & alerts) so a surprise can never become a big bill. Plans and prices change; check
+[firebase.google.com/pricing](https://firebase.google.com/pricing).
+
+| Service | Used for | Plan |
+|---|---|---|
+| Authentication (Email/Password) | Sign-in and sessions | Spark is enough |
+| Firestore (Native mode) | All the data | Spark is enough within the daily quotas |
+| Cloud Storage | Ticket attachments and uploads | Blaze |
+| App Hosting + Secret Manager | Build and run the app from GitHub, keep its secrets | Blaze |
+| Cloud Messaging | Push notifications | Free |
+
+No Blaze plan? Run the app on your own computer or any Node server with `STORAGE_PROVIDER=local` (files are kept on disk).
+
+1. **Create a project** at <https://console.firebase.google.com>.
+2. **Upgrade to Blaze** (only needed to deploy on App Hosting or to use Cloud Storage) and set the budget alert above.
+3. **Authentication** → *Get started* → *Sign-in method* → enable **Email/Password**.
+4. **Firestore Database** → *Create database* → **Native mode**, pick a region close to your users (it cannot be changed later).
+5. **Storage** → *Get started* (skip this if you use `STORAGE_PROVIDER=local`).
+6. **Web app:** Project settings → *General* → *Your apps* → add a **Web app**. Copy its config into the
+   `NEXT_PUBLIC_FIREBASE_*` values of `.env.local`.
+7. **Service account:** Project settings → *Service accounts* → *Generate new private key*. Copy `project_id`,
+   `client_email` and `private_key` from the downloaded JSON into `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` and
+   `FIREBASE_PRIVATE_KEY`. Treat this file like a password and never commit it.
+8. **Deploy the rules and indexes:** `npm run firebase:deploy-rules` (log in first with `npx firebase-tools login`).
+9. **Push notifications (optional):** Project settings → *Cloud Messaging* → *Web Push certificates* → generate a key pair
+   and put the public key in `NEXT_PUBLIC_FIREBASE_VAPID_KEY`.
+10. **Run it:** `npm run dev` and open <http://localhost:3000>. A new database opens `/setup` to create the first admin.
+
+**Deploying on Firebase App Hosting**
+
+1. Firebase console → *App Hosting* → *Get started* → connect your GitHub repository and choose the live branch.
+2. Put the public values (the `NEXT_PUBLIC_*` ones and the project id) in [apphosting.yaml](apphosting.yaml), replacing the
+   ones that are there with your own.
+3. Store each secret once: `firebase apphosting:secrets:set FIREBASE_PRIVATE_KEY` (also `GOOGLE_CLIENT_SECRET` and
+   `SYNC_INBOX_CRON_SECRET` when you use them), and grant the backend access when the CLI asks.
+4. Push to the live branch. Firebase builds and deploys it; open the app URL and finish `/setup`. On a public server
+   set `SETUP_TOKEN` first so nobody else can claim the app.
+5. Set `NEXT_PUBLIC_SITE_URL` to the app's real address, and set up the scheduler for email sync and SLA alerts
+   (see [Scheduled jobs](#scheduled-jobs)).
 
 ---
 
