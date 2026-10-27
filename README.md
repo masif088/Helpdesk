@@ -1,11 +1,38 @@
 # Helpdesk
 
-**A helpdesk and ticketing platform for small teams that support clients.** Clients open tickets in a portal (or just
-send an email), your team works them on a board or list, and the app keeps track of response times, billing and
-satisfaction. Built with Next.js, Cloud Firestore and Firebase Authentication.
+**An open-source helpdesk for small businesses.** Your clients open tickets in a portal (or just send an email), your team
+works them on a board, and the app keeps an eye on response times, billing and client satisfaction. No monthly
+subscription, no per-seat fee: you run it on **your own Google account** and pay only for what you really use.
 
 > **Open for discussion and building together.** This project is developed in the open. Ideas, bug reports, questions
-> and pull requests are all welcome. See [Contributing](#contributing).
+> and pull requests are all welcome, and you do not need to be an expert. See [Contributing](#contributing).
+
+**Jump to:** [Why this exists](#why-this-exists) · [What it does](#what-it-does) · [Quick start](#quick-start) ·
+[Firebase setup](#firebase-setup-step-by-step) · [Deployment](#deployment) · [Contributing](#contributing)
+
+---
+
+## Why this exists
+
+Most business software is priced per user, per month, forever. For a small shop, agency or service team that adds up
+fast, and it is often the reason "let's finally get organised" never happens.
+
+I build tools so a small business can **go digital without paying for a pile of expensive subscriptions**. Everything I
+make runs on Google tools you may already use:
+
+| Google tool | What it does here |
+|---|---|
+| **Firebase** (Firestore + Authentication) | The database and the login |
+| **Google Apps Script** | Scheduled jobs and automation, for free |
+| **Gmail** | Incoming and outgoing email |
+| **Firebase App Hosting** | Runs the app (optional, any Node host works too) |
+
+**What does it cost?** Nothing to me, and no license fee. You pay your own Google usage under your own account, which for
+a small team is usually very little (see [which Firebase plan](#firebase-setup-step-by-step) you need). Your data stays
+in your own project, so you can leave at any time.
+
+**Who is it for?** Small teams that answer client requests: agencies, IT and service shops, freelancers with a few
+clients, internal support desks. If you can follow a step-by-step guide, you can run it.
 
 ---
 
