@@ -1,279 +1,203 @@
 # DeskTeam360
 
-Helpdesk & ticketing platform built with Next.js 16 App Router, Cloud Firestore and Firebase Authentication.
+**A helpdesk and ticketing platform for small teams that support clients.** Clients open tickets in a portal (or just
+send an email), your team works them on a board or list, and the app keeps track of response times, billing and
+satisfaction. Built with Next.js, Cloud Firestore and Firebase Authentication.
+
+> **Open for discussion and building together.** This project is developed in the open. Ideas, bug reports, questions
+> and pull requests are all welcome. See [Contributing](#contributing).
 
 ---
 
-## Stack
+## What it does
+
+**For the support team**
+- **Tickets** with statuses, types, tags, priorities, assignees, checklists, attachments, internal notes and a full
+  activity history. Board (Kanban) and list views.
+- **Email in, email out.** Connect a Gmail mailbox: incoming mail becomes tickets, replies go back by email, and the
+  app never auto-answers bulk, bounce or no-reply mail.
+- **Smart assignment.** Skills per agent and per ticket, a recommended assignee, auto-assign by skill match, and a
+  workload report.
+- **Automation.** Rules that fire on ticket events or after idle time, recurring tickets, canned responses with
+  placeholders, message templates, Slack alerts.
+- **AI help** (optional, bring your own key): ticket summaries and draft replies.
+- **Time tracking and billing.** Job types, billable hours, monthly retainer invoices, deposits, and online payment of
+  invoices through Midtrans or Xendit.
+
+**For clients**
+- **A portal** with their company's tickets, billing and a "rate your tickets" page.
+- **Rate a ticket in one tap** from the closing email, no login needed (signed links).
+- **API keys** so a client's own AI assistant can read, open and comment on tickets (see [docs/api.md](docs/api.md)).
+
+**Service levels and reports**
+- **SLA** per client and ticket type, with clocks that stop while the ball is with the client, optional business
+  hours and holidays, and alerts in the bell and in Slack.
+- **Reports:** support volume, SLA, satisfaction (CSAT), workload and billing.
+
+**Everything else**
+- Installable on a phone (PWA) with a mobile view, push notifications, light and dark theme.
+- A guided **first-run setup**: open a new installation and it asks you to name the app and create the first admin.
+- A **demo reset** with a manual safety lock, for people who demo the app.
+
+---
+
+## Tech stack
 
 | Layer | Tech |
 |---|---|
-| Framework | Next.js 16 (App Router) |
-| Database | Cloud Firestore via Firebase Admin SDK (`lib/fsdb`) |
-| Auth | Firebase Authentication — email/password, session cookie |
+| Framework | Next.js 16 (App Router), React 19, Ant Design |
+| Database | Cloud Firestore via the Firebase Admin SDK (`lib/fsdb`) |
+| Auth | Firebase Authentication: email and password, session cookie |
 | Email | Gmail OAuth2 (`googleapis`) |
-| Storage | Firebase Storage / local |
-| Realtime | Firebase (presence + notifications) |
-| AI | OpenAI Platform or Codex proxy (switchable) |
+| Storage | Firebase Storage, or local disk |
+| Realtime | Firebase (presence and notifications) |
+| AI | OpenAI Platform or a Codex proxy (switchable, optional) |
+| Hosting | Firebase App Hosting (any Node host works) |
 
 ---
 
-## Environment Variables
+## Quick start
 
-Copy `.env` and fill in the values.
-
-### Required
-
-```env
-NEXT_PUBLIC_SITE_URL="https://yourdomain.com"
-# + the Firebase variables below (Admin SDK + Web API key are required for login and data)
-```
-
-### Email (Gmail OAuth2)
-
-Configured via **Settings → Email Integration** in the app UI. OAuth tokens are stored in the `email_integrations` table. The env vars below are required for the OAuth flow:
-
-```env
-GOOGLE_CLIENT_ID="....apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET="..."
-# Shared secret for scheduled jobs (email sync, recurring tickets); Cloud Scheduler sends it as a Bearer token
-SYNC_INBOX_CRON_SECRET="..."
-# Optional: signs the "Rate this ticket" links in the closing email (falls back to SYNC_INBOX_CRON_SECRET)
-CSAT_LINK_SECRET="..."
-```
-
-Create the OAuth client in Google Cloud Console → APIs & Services → Credentials → *OAuth client ID*
-(type *Web application*), enable the **Gmail API**, and add this authorized redirect URI:
-`<NEXT_PUBLIC_SITE_URL>/api/email/google/callback` (e.g. `http://localhost:3000/api/email/google/callback` for local).
-Then connect the mailbox in Settings → Email Integration.
-
-### AI (Summarize & Reply)
-
-AI config is loaded from the database first (via **Settings → AI Integration**), falling back to env vars:
-
-```env
-# Provider: openai | codex
-AI_PROVIDER=openai
-
-# OpenAI Platform
-OPENAI_API_KEY="sk-proj-..."
-OPENAI_BASE_URL="https://api.openai.com/v1"   # optional, this is the default
-OPENAI_MODEL="gpt-4o-mini"                     # optional, this is the default
-
-# Codex (ChatGPT Pro proxy) — only if AI_PROVIDER=codex
-CODEX_API_KEY="dummy"
-CODEX_BASE_URL="http://your-proxy-server/v1"
-CODEX_MODEL="gpt-5.4"
-```
-
-> **Priority:** Active DB preset (Settings → AI Integration) overrides env vars.
-> If no DB preset is active, env vars are used.
-> Roles that can access AI settings: `admin`, `staff`.
-
-### Storage
-
-```env
-STORAGE_PROVIDER=firebase   # firebase (default) | local
-
-# Optional: bucket name, defaults to NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-# FIREBASE_STORAGE_BUCKET="my-project.firebasestorage.app"
-```
-
-Uploads go to **Firebase Storage** through the Admin SDK (same service account as Firestore). Files are served
-from the Firebase download URL; `storage.rules` allows public read and blocks client writes — deploy it with
-`npm run firebase:deploy-rules`. `local` stores files under `./storage-data` and serves them via `/api/storage/file`.
-
-### Firebase (Auth, Firestore, Realtime)
-
-```env
-NEXT_PUBLIC_FIREBASE_API_KEY="..."
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="..."
-NEXT_PUBLIC_FIREBASE_PROJECT_ID="..."
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="..."
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="..."
-NEXT_PUBLIC_FIREBASE_APP_ID="..."
-NEXT_PUBLIC_FIREBASE_VAPID_KEY="..."   # for Web Push (FCM)
-
-FIREBASE_PROJECT_ID="..."
-FIREBASE_CLIENT_EMAIL="..."
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-
-# Optional: send the session cookie without `Secure` (plain http, e.g. VPS by IP). Auto-detected by default.
-# AUTH_COOKIE_SECURE=false
-
-# Dev only: log every Firestore round trip with its duration ([fsdb] get tickets/12 85ms)
-# FSDB_TRACE=1
-```
-
-In the Firebase console enable **Authentication → Sign-in method → Email/Password** and create a **Firestore** database (Native mode).
-
-Local development can run against the emulators instead of a real project:
+You need **Node.js 22+** and a **Firebase project** (the free Spark plan is enough for local development; Firebase App Hosting needs the pay-as-you-go Blaze plan).
 
 ```bash
-npx firebase-tools emulators:start --only firestore,auth --project demo-deskteam
+git clone https://github.com/masif088/asif-labs.git
+cd asif-labs
+npm install
+cp .env.example .env.local      # then fill in the Firebase values (the file explains each one)
+npm run dev
 ```
 
-```env
-FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
-FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099
-FIREBASE_PROJECT_ID=demo-deskteam
-NEXT_PUBLIC_FIREBASE_API_KEY=fake-api-key
+In the Firebase console, enable **Authentication → Email/Password** and create a **Firestore** database (Native mode).
+Open <http://localhost:3000>: on a new database it sends you to `/setup`, where you name the app and create the first
+admin. That is all; the starting data (statuses, ticket types, job types, message templates) is created for you.
+
+Prefer the terminal? `npm run db:seed` does the same with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`.
+To try it without a real project, use the Firebase emulators (see the bottom of [.env.example](.env.example)).
+
+Useful commands:
+
+```bash
+npm run dev            # development server
+npm run lint           # ESLint
+npx tsc --noEmit       # type check
+npm test               # unit tests (Node's built-in test runner)
+npm run build          # production build
 ```
-
-### Cron Secrets
-
-```env
-SYNC_INBOX_CRON_SECRET="your-secret-here"
-```
-
-### App
-
-```env
-# Branding (lib/branding.ts). Settings → App Branding overrides name / logo / favicon when filled in.
-NEXT_PUBLIC_APP_NAME="Helpdesk"                 # sidebar, top navbar, emails, print/export
-NEXT_PUBLIC_APP_TITLE="Helpdesk — Client Support" # browser tab + share title (default: app name)
-NEXT_PUBLIC_APP_DESCRIPTION="Ticketing and client support"
-NEXT_PUBLIC_APP_LOGO="brand/logo.svg"           # relative → public/brand/logo.svg; or a full https:// URL
-NEXT_PUBLIC_APP_FAVICON="brand/favicon.png"     # relative → public/…; or a full URL (default: generated icon with the app initial)
-TICKETS_LOOKUP_CATALOG_REVALIDATE_SECONDS=3600
-```
-
-`NEXT_PUBLIC_*` values are baked in at build time — rebuild (`npm run build`) after changing them.
 
 ---
 
-## Database (Firestore)
+## Configuration
 
-Every former Postgres table is a top-level Firestore collection with the same name (`tickets`, `users`,
-`ticket_comments`, …). Field names are camelCase exactly as the row objects in code. Collections, types and
-default values are defined in `lib/fsdb/schema.ts`; queries go through the helpers in `lib/fsdb/ops.ts`
-(`get`, `find`, `insert`, `update`, `upsert`, `remove`, …). There are no schema migrations — new fields are
-added in `schema.ts` and default to `null` on old documents.
+Every variable is listed, with comments, in [.env.example](.env.example). Only the Firebase values and
+`NEXT_PUBLIC_SITE_URL` are required; everything else switches on a feature:
 
-- **Ids:** uuid tables keep uuid ids; integer tables (tickets, statuses, types, automation rules,
-  project statuses) take the next value from `_counters/{collection}`.
+| You want | Set |
+|---|---|
+| Incoming email becomes tickets | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, then connect the mailbox in **Settings → Email Integration** |
+| Scheduled jobs (email sync, recurring tickets, SLA alerts) | `SYNC_INBOX_CRON_SECRET` and a scheduler, see [Scheduled jobs](#scheduled-jobs) |
+| AI summaries and replies | **Settings → AI Integration**, or `OPENAI_API_KEY` as a fallback |
+| Your own name, logo and favicon | `NEXT_PUBLIC_APP_*`, or **Settings → Branding** |
+| Push notifications | `NEXT_PUBLIC_FIREBASE_VAPID_KEY` |
+| A public server that nobody else may set up first | `SETUP_TOKEN` |
+
+`NEXT_PUBLIC_*` values are baked into the build: rebuild after changing them. Never commit `.env.local`; it is
+git-ignored and only `.env.example` is tracked.
+
+Gmail OAuth: create an OAuth client (type *Web application*) in Google Cloud Console, enable the **Gmail API**, and add
+the redirect URI `<NEXT_PUBLIC_SITE_URL>/api/email/google/callback`.
+
+AI settings saved in the app (**Settings → AI Integration**) override the environment variables. Only one preset is
+active at a time. Supported providers: **OpenAI** (default model `gpt-4o-mini`) and **Codex** proxy
+(`AI_PROVIDER=codex`, with `CODEX_BASE_URL`).
+
+Storage: files go to Firebase Storage through the Admin SDK (`storage.rules` allows public read and blocks client
+writes). `STORAGE_PROVIDER=local` keeps them under `./storage-data` instead.
+
+---
+
+## First run and the database
+
+**On a new database, just open the app.** With no users yet, `/login` sends you to `/setup`. The page and
+`POST /api/setup` stop working as soon as one user exists. On a public server set `SETUP_TOKEN` first; the setup page
+then asks for it, so nobody else can claim the app.
+
+Every table is a top-level Firestore collection (`tickets`, `users`, `ticket_comments`, …) with camelCase fields.
+Collections, types and defaults are in `lib/fsdb/schema.ts`; queries go through the helpers in `lib/fsdb/ops.ts`.
+There are no migrations: a new field is added in `schema.ts` and reads as `null` on old documents.
+
+- **Ids:** uuid tables keep uuid ids; integer tables (tickets, statuses, types, …) take the next value from `_counters/{collection}`.
 - **Relations:** Firestore has no foreign keys. Deletes that used to cascade go through `lib/fsdb/cascade.ts`.
-- **Search:** tickets, comments, users and companies store keyword arrays (`kwTitle`, `kwDescription`,
-  `kwComment`, `searchKeywords`) — search matches whole words and word prefixes.
-- **Indexes & rules:** `firestore.indexes.json` and `firestore.rules`. Deploy with
-  `npm run firebase:deploy-rules`. A query whose composite index is missing still works (it falls back to
-  in-memory filtering) and logs a `[fsdb] … missing composite index` warning with the link to create it.
-
-### First setup
-
-**On a new database, just open the app.** With no users yet, `/login` sends you to `/setup`: name the app, create the
-first admin, and the starting data (statuses, ticket types, job types, message templates) is created for you. The page
-and `POST /api/setup` stop working as soon as one user exists. On a public server set `SETUP_TOKEN` first; the setup
-page then asks for it, so nobody else can claim the app.
-
-From a terminal instead:
-
-```bash
-npm run db:seed          # statuses, types, job types + first admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD)
-```
+- **Search:** tickets, comments, users and companies store keyword arrays, so search matches whole words and prefixes.
+- **Indexes and rules:** `firestore.indexes.json`, `firestore.rules` and `storage.rules`. Deploy them with
+  `npm run firebase:deploy-rules`. A query whose composite index is missing still works (it filters in memory) and logs
+  a warning with the link to create the index.
 
 ---
 
 ## Scheduled jobs
 
-Firebase App Hosting has no crontab: an external scheduler — **Google Apps Script** triggers (free) or
-**Google Cloud Scheduler** — calls the job endpoints over HTTP with `Authorization: Bearer <SYNC_INBOX_CRON_SECRET>`.
+Firebase App Hosting has no crontab: an external scheduler (**Google Apps Script**, free, or **Google Cloud Scheduler**)
+calls the job endpoints over HTTP with `Authorization: Bearer <SYNC_INBOX_CRON_SECRET>`.
 
 | Endpoint | Schedule | Purpose |
 |---|---|---|
-| `POST /api/email/sync-inbox` | every 5 min | Sync Gmail inbox → create tickets from incoming email |
+| `POST /api/email/sync-inbox` | every 5 min | Read the Gmail inbox, create tickets and replies |
 | `POST /api/cron/process-recurring-tickets` | every 5 min | Create tickets from due recurring rules |
-| `POST /api/automation/time-trigger` | daily 06:00 | Time Trigger automation rules (each fires once per idle period) |
+| `POST /api/cron/inbox-reminders` | hourly | Reminders, billing and SLA alerts, monthly retainer invoices |
+| `POST /api/automation/time-trigger` | daily 06:00 | Time-trigger automation rules |
 
-Setup (the Apps Script is under Settings → Scheduled jobs), logs and
-troubleshooting: [docs/cron-jobs.md](docs/cron-jobs.md).
-Deploy config (env values and Secret Manager secrets): [apphosting.yaml](apphosting.yaml).
-
----
-
-## AI — Summarize & Reply Template
-
-The AI feature powers:
-- **Ticket summarization** — summarize the ticket thread for agents
-- **Agent reply template** — pre-fill a draft reply based on ticket context (`template_agent_reply`)
-
-### Configuration priority
-
-```
-Settings → AI Integration (DB preset, isActive = true)
-    ↓ fallback if none active
-Environment variables (AI_PROVIDER, OPENAI_API_KEY, etc.)
-```
-
-### Providers
-
-**OpenAI Platform** (default)
-- Requires `OPENAI_API_KEY`
-- Default model: `gpt-4o-mini`
-- Default base URL: `https://api.openai.com/v1`
-
-**Codex** (ChatGPT Pro proxy)
-- Set `AI_PROVIDER=codex`
-- Requires `CODEX_BASE_URL` pointing to your proxy
-- `CODEX_API_KEY` can be `"dummy"` if proxy handles auth
-- Default model: `gpt-5.4`
-
-### Managing from UI
-
-Go to **Settings → AI Integration** to add/switch presets without redeploying.
-Only one preset can be active at a time — activating one deactivates all others.
+The ready-made Apps Script is under **Settings → Scheduled jobs**. Setup, logs and troubleshooting:
+[docs/cron-jobs.md](docs/cron-jobs.md).
 
 ---
 
 ## Deployment
 
-```bash
-git push origin main
-```
+The app is made for **Firebase App Hosting**: connect the GitHub repository in the Firebase console and every push to the
+live branch is built and deployed by Firebase. Public values live in [apphosting.yaml](apphosting.yaml); secrets live in
+Secret Manager (`firebase apphosting:secrets:set <NAME>`, then name them in `apphosting.yaml`). Replace the Firebase
+project values in that file with your own. Any host that runs `npm run build && npm start` works too.
 
-GitHub push triggers CI/CD automatically — build + restart on the server.
+When `firestore.indexes.json`, `firestore.rules` or `storage.rules` change, run `npm run firebase:deploy-rules`.
 
-When `firestore.indexes.json`, `firestore.rules` or `storage.rules` change, deploy them with `npm run firebase:deploy-rules`.
+GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs lint, type check and tests on every push and
+pull request. It does not deploy.
 
 ---
 
-## Key Developer Notes
+## Contributing
 
-### Auth & Roles
+This project is open for discussion and for building together, whatever your level.
 
-- **Firebase Authentication** verifies email + password (`POST /api/auth/session`), then the server sets a
-  Firebase **session cookie** (`__session`, 14 days). `auth()` in `auth.ts` verifies it and loads the `users`
-  document (uid = `users.id`). Client code uses `useSession` / `signIn` / `signOut` from `lib/auth-client.tsx`.
-- Users are created with `createAppUser()` (`lib/app-users.ts`), which writes the `users` document and the Auth
-  account together; passwords are set with `setUserPassword()` — no password hashes are stored in Firestore.
-- `proxy.ts` (formerly `middleware.ts`) only checks that a session cookie exists; real verification happens in `auth()`.
-- Roles: `admin`, `staff`, `customer`. Most API routes gate on `session.user.role`.
-- `mustChangePassword` on the user — the `(auth)` layout redirects to `/change-password` if set. Cleared automatically on successful password change.
+- **Have an idea or a question?** Open an issue (or a discussion, if enabled) and describe the problem you want solved.
+  Real-life support-desk stories help the most.
+- **Found a bug?** Open an issue with the steps to reproduce, what you expected, and what happened.
+- **Want to code?** Pick an issue, or something from [docs/future-features.md](docs/future-features.md), and say so
+  in the issue first so nobody works twice on the same thing. Then:
+  1. Fork, and create a branch from `main`.
+  2. Make the change. Keep it focused; follow the surrounding code style.
+  3. Run `npm run lint`, `npx tsc --noEmit` and `npm test`. Add a test when you touch logic.
+  4. Open a pull request that says what changed and why.
 
-### Email Templates
+Ground rules: **code, UI text, comments and commit messages are in English** (conversations can be in any language), and
+secrets never go into git.
 
-- Templates stored in `message_templates` table, edited via **Settings → Message Templates**.
-- Placeholders use `{{ key }}` syntax, replaced at send time by `mergeMessageTemplateHtml()` in `lib/message-template-merge.ts`.
-- Keys listed in `allMessageTemplatePlaceholderKeys()` go through `replaceOfficialKey`. Context-specific keys (`temporary_password`, `reply_content`, etc.) must be passed via the `extra` parameter.
-- Email sender display name is set in **Settings → App Branding → Email Sender Name**.
+### Developer notes
 
-### App Settings
-
-Stored in the `app_settings` table (key-value), accessed via `lib/app-settings.ts`.
-
-| Key | Description |
-|---|---|
-| `app_name` | App name shown in the navbar |
-| `app_logo_url` | Logo image URL |
-| `app_favicon_url` | Favicon URL |
-| `email_sender_name` | Display name for outgoing emails, e.g. `"DeskTeam360 Support"` |
-
-### Import Order
-
-ESLint enforces `simple-import-sort`. Imports within `@/lib/*` must be alphabetical. Run `npx eslint --fix` to auto-sort.
-
-### Firebase
-
-Firebase is the whole backend: **Firestore** (all data, via Admin SDK on the server), **Authentication** (login),
-realtime presence / ticket sync (client listeners) and **push notifications** (FCM). Browsers never read app data
-from Firestore directly — the rules only allow the realtime helper paths.
+- **Auth and roles.** Firebase Authentication checks email and password (`POST /api/auth/session`); the server then sets
+  a session cookie (`__session`, 14 days). `auth()` in `auth.ts` verifies it and loads the `users` document
+  (uid = `users.id`). Roles: `admin`, `manager`, `staff`, `customer`; most API routes gate on `session.user.role`.
+  `proxy.ts` only checks that a session cookie exists; real verification happens in `auth()`.
+- **Users** are created with `createAppUser()` (`lib/app-users.ts`), which writes the `users` document and the Auth
+  account together. No password hashes are stored in Firestore.
+- **Email templates** live in `message_templates` (edit in **Settings → Message Templates**). Placeholders use
+  `{{ key }}` and are merged by `mergeMessageTemplateHtml()` in `lib/message-template-merge.ts`.
+- **App settings** are key-value rows in `app_settings` (`lib/app-settings.ts`): `app_name`, `app_logo_url`,
+  `app_favicon_url`, `email_sender_name`, `sla_calendar`, and more.
+- **Import order** is enforced by ESLint (`simple-import-sort`). Run `npx eslint --fix` to sort.
+- **Firebase is the whole backend:** Firestore (all data, via the Admin SDK on the server), Authentication, realtime
+  presence and ticket sync (client listeners) and push notifications (FCM). Browsers never read app data from Firestore
+  directly; the rules only allow the realtime helper paths.
+- **Demo reset** (Settings → Demo reset) is locked until someone sets `_guards/demo_reset.enabled = true` by hand in
+  Firestore, and it locks itself again after one use.
