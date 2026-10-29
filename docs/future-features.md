@@ -6,7 +6,8 @@ code and `docs/`) when it ships.
 Already built from the earlier lists: SLA per client and ticket type, automatic retainer invoices, CSAT (rating after a
 ticket is closed), canned responses, online payment (Midtrans / Xendit), SLA clocks that stop while the ball is with the
 client, business hours and holidays for SLA (Settings -> SLA calendar), a public rating link in the closing email, and
-Slack alerts for SLA at risk / breached.
+Slack alerts for SLA at risk / breached, the calendar (meetings, leave, holidays, events, due dates), more ticket filters in the API
+and the API builder.
 
 ---
 
@@ -24,6 +25,16 @@ is the customer-facing side:
 
 **Open questions:** public (no login) articles or portal-only? Per-client articles (already modelled by
 `companyKnowledgeBases`) versus global ones?
+
+## Calendar ideas
+
+- Week and day views, and drag and drop to move an event.
+- Notify invited people (bell and email) and let them accept or decline.
+- Leave requests with approval by a manager, and a yearly leave balance.
+- An iCal feed per person (`/api/calendar/ics?token=…`) so the calendar shows in Google or Apple Calendar; later two-way Google Calendar sync.
+- Show SLA due times and recurring-ticket runs on the calendar.
+- Per-team business hours for SLA, fed by the same calendar.
+- API: a `calendar:read` filter by team, and webhooks when an event is added or changed.
 
 ## Other ideas worth keeping
 
