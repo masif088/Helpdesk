@@ -13,6 +13,7 @@
  * Only support tickets have a service level. A ticket that was cancelled / archived / is pending has no running clock.
  */
 import { getAppSettings } from '@/lib/app-settings'
+import { calendarHolidayDates } from '@/lib/calendar-holidays'
 import {
   companies,
   find,
@@ -70,14 +71,17 @@ export function cleanTarget(raw: unknown): SlaTarget | null {
 }
 
 export async function loadSlaContext(): Promise<SlaContext> {
-  const [typeRows, companyRows, statusRows, settings] = await Promise.all([
+  const [typeRows, companyRows, statusRows, settings, holidays] = await Promise.all([
     find(ticketTypes, { select: ['id', 'slaRespondMinutes', 'slaResolveMinutes'] }),
     find(companies, { select: ['id', 'slaByType'] }),
     find(ticketStatuses),
     getAppSettings(),
+    calendarHolidayDates().catch(() => [] as string[]),
   ])
+  const saved = cleanCalendar(settings.sla_calendar)
   return {
-    calendar: cleanCalendar(settings.sla_calendar),
+    // Holidays from the Calendar count next to the ones typed on the SLA calendar page
+    calendar: { ...saved, holidays: [...new Set([...saved.holidays, ...holidays])].sort() },
     waiting: new Set(ballWithClientSlugs(statusRows)),
     types: new Map(typeRows.map((t) => [t.id, { respond: t.slaRespondMinutes ?? null, resolve: t.slaResolveMinutes ?? null }])),
     companies: new Map(companyRows.filter((c) => c.slaByType).map((c) => [c.id, c.slaByType!])),

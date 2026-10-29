@@ -3,6 +3,7 @@
 import {
   BankOutlined,
   BarChartOutlined,
+  CalendarOutlined,
   CheckSquareOutlined,
   ContactsOutlined,
   DashboardOutlined,
@@ -90,6 +91,7 @@ function selectedKeysForPathname(pathname: string | null, ticketsSearch: string)
     if (tt === 'trash') return ['/tickets?ticket_type=trash']
     return ['/tickets']
   }
+  if (pathname === '/calendar' || pathname.startsWith('/calendar/')) return ['/calendar']
   if (pathname === '/reference' || pathname.startsWith('/reference/')) return ['/reference']
   if (pathname === '/companies' || pathname.startsWith('/companies/')) return ['/companies']
   if (pathname === '/my-company' || pathname.startsWith('/my-company/')) return ['/my-company']
@@ -155,7 +157,13 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
 
   const groups = useMemo<NavGroup[]>(() => {
     const out: NavGroup[] = [
-      { title: 'Overview', items: [{ key: '/dashboard', label: 'Dashboard', icon: <DashboardOutlined /> }] },
+      {
+        title: 'Overview',
+        items: [
+          { key: '/dashboard', label: 'Dashboard', icon: <DashboardOutlined /> },
+          { key: '/calendar', label: 'Calendar', icon: <CalendarOutlined /> },
+        ],
+      },
     ]
     if (canAccessTickets(role)) {
       out.push({

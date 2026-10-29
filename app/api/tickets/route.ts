@@ -42,6 +42,7 @@ import type { TicketSla } from '@/lib/sla-format'
 import { notifySlackTicketEvent } from '@/lib/slack-ticket-notify'
 import { getPublicUrl } from '@/lib/storage-provider'
 import { logTicketActivity } from '@/lib/ticket-activity-log'
+import { compactTicket, parseTicketApiFilters, skillsMatchTicket, ticketMatchesApiFilters } from '@/lib/ticket-api-filters'
 import { coerceTicketType, DEFAULT_TICKET_TYPE, isTicketFolder } from '@/lib/ticket-classification'
 import {
   assignCompanySupportTicketRank,
@@ -55,6 +56,8 @@ import {
 import { isInboxTicket, isMyTicket, isTicketScope, loadAssignedTicketIds, loadMyTicketScope, notifyNewUnassignedTicket } from '@/lib/ticket-inbox'
 import { loadTicketCandidates, searchTickets, sortTicketList } from '@/lib/ticket-list-query'
 import { sendNewTicketAgentNotificationEmail } from '@/lib/ticket-notification-emails'
+import { effectiveSkillsFor } from '@/lib/ticket-skill-lookup'
+import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 import { assertCustomerMayUseTicketType } from '@/lib/ticket-type-customer-access'
 import { normalizeSkills } from '@/lib/user-skills'
 import { knownSkills } from '@/lib/user-skills-server'
@@ -62,7 +65,16 @@ import { knownSkills } from '@/lib/user-skills-server'
 const DEFAULT_LIMIT = 50
 /** Max tickets per list request (UI: 50 / 100 / 200 / 500). */
 const MAX_LIMIT = 500
-/** GET /api/tickets - List tickets with related data (server-side filtering). Customer: only tickets of their company */
+/**
+ * GET /api/tickets - List tickets with related data (server-side filtering). Customer: only tickets of their company.
+ *
+ * Filters (all optional, combined with AND; lists are comma separated):
+ *   status, type_id(s), company_id(s), team_id(s), tag_ids, no_company, no_tags, no_team, scope=inbox|mine, search
+ *   date_from / date_to (created), due_date_from / due_date_to, updated_from / updated_to (YYYY-MM-DD)
+ *   staff only: assignee_ids (or `me`), unassigned=1, creator_ids, customer_ids, skills + skills_match=any|all,
+ *               overdue=1, has_due_date=0|1, open=0|1
+ * Paging and shape: limit (max 500), offset, sort_order=asc|desc, sort_by=id, paginated=1 ({data,total}), compact=1 (short rows)
+ */
 export async function GET(request: Request) {
   const session = await auth()
   const authUser = session?.user
@@ -133,6 +145,10 @@ export async function GET(request: Request) {
 
   const isCustomerList = role === 'customer'
   const isAdminList = isAdmin(role as string | undefined)
+  const compact = url.searchParams.get('compact') === '1'
+  const parsedApiFilters = isCustomerList ? null : parseTicketApiFilters(url.searchParams, userId)
+  if (parsedApiFilters && 'error' in parsedApiFilters) return NextResponse.json({ error: parsedApiFilters.error }, { status: 400 })
+  const apiFilters = parsedApiFilters && !('error' in parsedApiFilters) ? parsedApiFilters : null
 
   /**
    * Customers never see spam/trash lists (ignore `ticket_type` query).
@@ -227,6 +243,14 @@ export async function GET(request: Request) {
     scope === 'mine' ? loadMyTicketScope(userId) : null,
   ])
 
+  // Filters on people and skills need a lookup first (staff only)
+  const now = new Date()
+  const [assignedToThem, anyAssigned, skillsOf] = await Promise.all([
+    apiFilters?.assigneeIds.length ? loadTicketIdsAssignedTo(apiFilters.assigneeIds) : null,
+    apiFilters?.unassigned ? loadAssignedTicketIds() : null,
+    apiFilters?.skills.length ? effectiveSkillsFor(candidates) : null,
+  ])
+
   const filtered = candidates.filter((t) => {
     if (!allowed(t)) return false
     if (assignedIds && !isInboxTicket(t, assignedIds)) return false
@@ -247,6 +271,12 @@ export async function GET(request: Request) {
     if (noCompany && t.companyId) return false
     if (taggedTicketIds && taggedTicketIds.has(t.id)) return false
     if (noTeam && t.teamId) return false
+    if (apiFilters) {
+      if (!ticketMatchesApiFilters(t, apiFilters, { now, isOpen: (s) => !isClosedLikeTicketStatus(s) || s === 'pending' })) return false
+      if (assignedToThem && !assignedToThem.has(t.id)) return false
+      if (anyAssigned && anyAssigned.has(t.id)) return false
+      if (skillsOf && !skillsMatchTicket(skillsOf.get(t.id) ?? [], apiFilters.skills, apiFilters.skillsMatch)) return false
+    }
     return true
   })
 
@@ -431,11 +461,22 @@ export async function GET(request: Request) {
     }
   })
 
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin).replace(/\/$/, '')
+  const body = compact ? result.map((r) => compactTicket(r, baseUrl)) : result
   if (paginated) {
-    return NextResponse.json({ data: result, total: filtered.length })
+    return NextResponse.json({ data: body, total: filtered.length })
   }
 
-  return NextResponse.json(result)
+  return NextResponse.json(body)
+}
+
+/** Ids of the tickets assigned to any of these users */
+async function loadTicketIdsAssignedTo(userIds: string[]): Promise<Set<number>> {
+  const out = new Set<number>()
+  for (let i = 0; i < userIds.length; i += 30) {
+    for (const l of await find(ticketAssignees, { where: [['userId', 'in', userIds.slice(i, i + 30)]], select: ['ticketId'] })) out.add(l.ticketId)
+  }
+  return out
 }
 
 /** POST /api/tickets - Create ticket */

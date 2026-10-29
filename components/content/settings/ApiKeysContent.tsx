@@ -234,7 +234,7 @@ curl -X POST ${origin}/api/tickets/123/comments -H "Authorization: Bearer $KEY" 
 curl "${origin}/api/tickets?limit=20" -H "Authorization: Bearer $KEY"
 curl ${origin}/api/tickets/123/detail -H "Authorization: Bearer $KEY"`}</pre>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                A key that is wrong, revoked, expired or lacks the scope for a call answers 401; any other endpoint answers 403. Step by step guide and the AI skill: <a href="/settings/api-keys/tutorial">Tutorial</a>.
+                A key that is wrong, revoked, expired or lacks the scope for a call answers 401; any other endpoint answers 403. Step by step guide and the AI skill: <a href="/settings/api-keys/tutorial">Tutorial</a>. Build and try calls: <a href="/settings/api-keys/builder">API builder</a>.
               </Text>
             </section>
           </div>

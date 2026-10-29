@@ -1110,6 +1110,73 @@ export const cannedResponses = defineTable<CannedResponsesRow, NewCannedResponse
   nowFields: ['createdAt', 'updatedAt'],
 })
 
+export type CalendarEventsRow = {
+  id: string
+  /** meeting | leave | holiday | event | training | maintenance | reminder | other (see lib/calendar-core.ts) */
+  type: string
+  title: string
+  description: string | null
+  /** Timed: the moment (UTC). All-day: 00:00 UTC of the first day */
+  startAt: Date
+  /** Timed: the end moment. All-day: 23:59:59.999 UTC of the last day */
+  endAt: Date
+  allDay: boolean
+  location: string | null
+  meetingUrl: string | null
+  color: string | null
+  /** private | staff | company | everyone */
+  visibility: string
+  /** Whom it is about (leave) or whose reminder it is */
+  ownerId: string | null
+  attendeeIds: string[] | null
+  /** A client company it concerns (meeting with a client, company-visible events) */
+  companyId: string | null
+  ticketId: number | null
+  /** none | daily | weekly | monthly | yearly */
+  repeat: string
+  /** Last day a repeating event may start on */
+  repeatUntil: Date | null
+  /** True when repeat is not "none": lets one query find every repeating event whatever its start date */
+  recurring: boolean
+  createdBy: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type NewCalendarEventsRow = {
+  id?: string
+  type: string
+  title: string
+  description?: string | null
+  startAt: Date
+  endAt: Date
+  allDay?: boolean
+  location?: string | null
+  meetingUrl?: string | null
+  color?: string | null
+  visibility?: string
+  ownerId?: string | null
+  attendeeIds?: string[] | null
+  companyId?: string | null
+  ticketId?: number | null
+  repeat?: string
+  repeatUntil?: Date | null
+  recurring?: boolean
+  createdBy?: string | null
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+export const calendarEvents = defineTable<CalendarEventsRow, NewCalendarEventsRow>({
+  name: 'calendar_events',
+  columns: ['id', 'type', 'title', 'description', 'startAt', 'endAt', 'allDay', 'location', 'meetingUrl', 'color', 'visibility', 'ownerId', 'attendeeIds', 'companyId', 'ticketId', 'repeat', 'repeatUntil', 'recurring', 'createdBy', 'createdAt', 'updatedAt'],
+  docKey: ['id'],
+  idField: 'id',
+  idGen: 'uuid',
+  defaults: {'allDay': false, 'visibility': 'staff', 'repeat': 'none', 'recurring': false},
+  nowFields: ['createdAt', 'updatedAt'],
+})
+
 export type MessageTemplatesRow = {
   id: string
   type: string
@@ -2057,4 +2124,4 @@ export const users = defineTable<UsersRow, NewUsersRow>({
   nowFields: ['createdAt', 'updatedAt'],
 })
 
-export const allTables = [invoices, apiKeys, cannedResponses, slaDaily, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const
+export const allTables = [invoices, apiKeys, cannedResponses, calendarEvents, slaDaily, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const

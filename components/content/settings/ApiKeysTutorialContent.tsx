@@ -91,10 +91,13 @@ export default function ApiKeysTutorialContent({ user, baseUrl, skill, isAdmin =
                 rowKey="call"
                 dataSource={[
                   { call: 'GET /api/tickets/lookup', scope: 'tickets:read', what: 'Types, teams and statuses (the ids to use when creating)' },
-                  { call: 'GET /api/tickets?limit=20&search=…', scope: 'tickets:read', what: 'List and search tickets' },
+                  { call: 'GET /api/tickets?compact=1&assignee_ids=me&open=1', scope: 'tickets:read', what: 'List and search tickets. Filters: dates (created, updated, due), company, customer, person (assignee / requester), skill, type, status, tags, team, overdue, unassigned. See the API builder.' },
                   { call: 'GET /api/tickets/{id}/detail', scope: 'tickets:read', what: 'One ticket with its comments' },
                   { call: 'POST /api/tickets', scope: 'tickets:create', what: 'Create a ticket (title, description, type_id required for customers)' },
                   { call: 'POST /api/tickets/{id}/comments', scope: 'comments:create', what: 'Add a comment' },
+                  { call: 'GET /api/calendar/events?from=…&to=…', scope: 'calendar:read', what: 'Calendar: meetings, leave, holidays, events and due dates of a period' },
+                  { call: 'GET /api/calendar/lookup', scope: 'calendar:read', what: 'Event types and what the key\'s user may create' },
+                  { call: 'POST / PATCH / DELETE /api/calendar/events', scope: 'calendar:write', what: 'Add, change or delete an event (the team only)' },
                 ]}
                 columns={[
                   { title: 'Call', dataIndex: 'call', render: (v: string) => <Text code>{v}</Text> },
@@ -102,7 +105,10 @@ export default function ApiKeysTutorialContent({ user, baseUrl, skill, isAdmin =
                   { title: 'What', dataIndex: 'what' },
                 ]}
               />
-              <Text type="secondary">No uploads, edits or deletes. Everything else answers 403.</Text>
+              <Text type="secondary">
+                No uploads, and no edit, close or delete of tickets. Everything else answers 403. Build any call, with the filters filled in for you, in the{' '}
+                <Link href={isAdmin ? '/settings/api-keys/builder' : '/profile/api-builder'}>API builder</Link>.
+              </Text>
             </section>
 
             <section className="ticket-surface" style={{ padding: 16, display: 'grid', gap: 8 }}>
@@ -117,7 +123,13 @@ curl -X POST ${baseUrl}/api/tickets -H "Authorization: Bearer $KEY" -H "Content-
 curl -X POST ${baseUrl}/api/tickets/123/comments -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \\
   -d '{"comment":"<p>Still happening</p>"}'
 
-curl ${baseUrl}/api/tickets/123/detail -H "Authorization: Bearer $KEY"`}</Code>
+curl ${baseUrl}/api/tickets/123/detail -H "Authorization: Bearer $KEY"
+
+# my open tickets, short rows
+curl "${baseUrl}/api/tickets?compact=1&assignee_ids=me&open=1" -H "Authorization: Bearer $KEY"
+
+# what is on the calendar in November
+curl "${baseUrl}/api/calendar/events?from=2026-11-01&to=2026-11-30" -H "Authorization: Bearer $KEY"`}</Code>
             </section>
 
             <section className="ticket-surface" style={{ padding: 16, display: 'grid', gap: 8 }}>
@@ -130,7 +142,7 @@ curl ${baseUrl}/api/tickets/123/detail -H "Authorization: Bearer $KEY"`}</Code>
                   { code: '200', meaning: 'Done.' },
                   { code: '400', meaning: 'Something in the request is wrong; the error field says what (e.g. a type is required).' },
                   { code: '401', meaning: 'Key missing, wrong, revoked, expired, or without the scope for this call.' },
-                  { code: '403', meaning: 'This endpoint is not available to keys.' },
+                  { code: '403', meaning: 'This endpoint is not available to keys, or the user behind the key may not do that (for example a client adding a calendar event).' },
                   { code: '404', meaning: 'Ticket does not exist or belongs to another company.' },
                   { code: '429', meaning: 'Hourly limit reached. The Retry-After header says in how many seconds.' },
                 ]}
@@ -154,7 +166,8 @@ curl ${baseUrl}/api/tickets/123/detail -H "Authorization: Bearer $KEY"`}</Code>
               <Title level={4} style={{ margin: 0 }}>6. Skill for their AI</Title>
               <Paragraph style={{ margin: 0 }}>
                 A ready instruction file that teaches an AI assistant this API: what to call, to look up the type first, to avoid duplicates, to ask before posting and to stop on 429. It already
-                has this portal's address ({baseUrl}) and never contains the key: the AI reads the key from the environment variable <Text code>TICKETING_API_KEY</Text>.
+                has this portal's address ({baseUrl}) and never contains the key: the AI reads the key from the environment variable <Text code>TICKETING_API_KEY</Text>. The same text is always
+                current at <a href="/api/skill" target="_blank" rel="noreferrer">{baseUrl}/api/skill</a>, so you can also just tell the AI to read that address.
               </Paragraph>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <Button type="primary" icon={<DownloadOutlined />} onClick={download}>

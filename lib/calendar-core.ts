@@ -1,0 +1,295 @@
+/**
+ * Calendar: the kinds of events, how input is validated, how repeating events unfold, and who may see or change what.
+ * Pure helpers (no database imports), used by `lib/calendar.ts`, the calendar page, the API builder and the tests.
+ *
+ * Dates: a timed event is a real moment (stored as UTC). An all-day event is a plain date: it is stored from 00:00:00 UTC of
+ * its first day to 23:59:59.999 UTC of its last day and shown as `YYYY-MM-DD`, so it never slides to another day in
+ * another time zone.
+ */
+
+export const CALENDAR_TYPES = ['meeting', 'leave', 'holiday', 'event', 'training', 'maintenance', 'reminder', 'other'] as const
+export type CalendarType = (typeof CALENDAR_TYPES)[number]
+
+/** Shown in the calendar next to the stored events, computed from tickets and invoices. They cannot be edited here. */
+export const DERIVED_TYPES = ['ticket_due', 'invoice_due'] as const
+export type DerivedType = (typeof DERIVED_TYPES)[number]
+
+export const CALENDAR_VISIBILITIES = ['private', 'staff', 'company', 'everyone'] as const
+export type CalendarVisibility = (typeof CALENDAR_VISIBILITIES)[number]
+
+export const CALENDAR_REPEATS = ['none', 'daily', 'weekly', 'monthly', 'yearly'] as const
+export type CalendarRepeat = (typeof CALENDAR_REPEATS)[number]
+
+export const VISIBILITY_LABELS: Record<CalendarVisibility, string> = {
+  private: 'Only me',
+  staff: 'The team',
+  company: 'The team and the client company',
+  everyone: 'The team and all clients',
+}
+
+export const TYPE_INFO: Record<CalendarType | DerivedType, { label: string; color: string; hint: string; allDay: boolean; visibility: CalendarVisibility }> = {
+  meeting: { label: 'Meeting', color: '#3B82F6', hint: 'A call or meeting with a time, people and a link', allDay: false, visibility: 'staff' },
+  leave: { label: 'Leave', color: '#F59E0B', hint: 'Time off for one person (cuti)', allDay: true, visibility: 'staff' },
+  holiday: { label: 'Holiday', color: '#EF4444', hint: 'A public or company holiday, for everyone (managers only)', allDay: true, visibility: 'everyone' },
+  event: { label: 'Event', color: '#8B5CF6', hint: 'Anything else with a date', allDay: false, visibility: 'staff' },
+  training: { label: 'Training', color: '#14B8A6', hint: 'Training, workshop or onboarding session', allDay: false, visibility: 'staff' },
+  maintenance: { label: 'Maintenance', color: '#64748B', hint: 'Planned downtime or maintenance window', allDay: false, visibility: 'staff' },
+  reminder: { label: 'Reminder', color: '#EC4899', hint: 'A personal reminder, only you see it', allDay: false, visibility: 'private' },
+  other: { label: 'Other', color: '#6B7280', hint: 'Does not fit the rest', allDay: false, visibility: 'staff' },
+  ticket_due: { label: 'Ticket due', color: '#F97316', hint: 'A ticket reaches its due date (from the ticket)', allDay: true, visibility: 'staff' },
+  invoice_due: { label: 'Invoice due', color: '#0EA5E9', hint: 'An unpaid invoice reaches its due date (from billing)', allDay: true, visibility: 'staff' },
+}
+
+export const isCalendarType = (v: unknown): v is CalendarType => typeof v === 'string' && (CALENDAR_TYPES as readonly string[]).includes(v)
+export const isCalendarItemType = (v: unknown): v is CalendarType | DerivedType =>
+  isCalendarType(v) || (typeof v === 'string' && (DERIVED_TYPES as readonly string[]).includes(v))
+
+const DAY = 86_400_000
+const MAX_SPAN_DAYS = 366
+const MAX_ATTENDEES = 50
+
+/** What an event looks like once validated, ready to store. */
+export type EventFields = {
+  type: CalendarType
+  title: string
+  description: string | null
+  startAt: Date
+  endAt: Date
+  allDay: boolean
+  location: string | null
+  meetingUrl: string | null
+  color: string | null
+  visibility: CalendarVisibility
+  ownerId: string | null
+  attendeeIds: string[]
+  companyId: string | null
+  ticketId: number | null
+  repeat: CalendarRepeat
+  repeatUntil: Date | null
+}
+
+export type CleanResult = { ok: true; value: EventFields } | { ok: false; error: string }
+
+const text = (v: unknown, max: number): string | null => {
+  if (v === null || v === undefined) return null
+  const s = String(v).trim()
+  return s ? s.slice(0, max) : null
+}
+
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
+
+/** `YYYY-MM-DD` or a full ISO moment; null when it is neither. */
+function parseMoment(v: unknown): { date: Date; dateOnly: boolean } | null {
+  if (typeof v !== 'string') return null
+  const s = v.trim()
+  if (!s) return null
+  const d = new Date(DATE_ONLY.test(s) ? `${s}T00:00:00.000Z` : s)
+  return Number.isNaN(d.getTime()) ? null : { date: d, dateOnly: DATE_ONLY.test(s) }
+}
+
+const startOfDayUtc = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+const endOfDayUtc = (d: Date) => new Date(startOfDayUtc(d).getTime() + DAY - 1)
+
+/** Validate the body of "create event" (snake_case keys, as the API takes them). Update merges first, then calls this again. */
+export function cleanEventInput(body: Record<string, unknown>): CleanResult {
+  if (!isCalendarType(body.type)) return { ok: false, error: `type must be one of: ${CALENDAR_TYPES.join(', ')}` }
+  const type = body.type
+  const info = TYPE_INFO[type]
+
+  const title = text(body.title, 200)
+  if (!title) return { ok: false, error: 'title is required' }
+
+  const start = parseMoment(body.start)
+  if (!start) return { ok: false, error: 'start must be a date (YYYY-MM-DD) or an ISO date and time' }
+  const allDay = typeof body.all_day === 'boolean' ? body.all_day : start.dateOnly || info.allDay
+
+  const endRaw = body.end === undefined || body.end === null || body.end === '' ? null : parseMoment(body.end)
+  if (body.end !== undefined && body.end !== null && body.end !== '' && !endRaw) return { ok: false, error: 'end must be a date (YYYY-MM-DD) or an ISO date and time' }
+
+  let startAt: Date
+  let endAt: Date
+  if (allDay) {
+    startAt = startOfDayUtc(start.date)
+    endAt = endOfDayUtc(endRaw ? endRaw.date : start.date)
+  } else {
+    startAt = start.date
+    endAt = endRaw ? endRaw.date : new Date(startAt.getTime() + 3_600_000)
+  }
+  if (endAt.getTime() < startAt.getTime()) return { ok: false, error: 'end must not be before start' }
+  if (endAt.getTime() - startAt.getTime() > MAX_SPAN_DAYS * DAY) return { ok: false, error: `An event can last at most ${MAX_SPAN_DAYS} days` }
+
+  const visibility = body.visibility === undefined || body.visibility === null ? info.visibility : body.visibility
+  if (!(CALENDAR_VISIBILITIES as readonly unknown[]).includes(visibility)) return { ok: false, error: `visibility must be one of: ${CALENDAR_VISIBILITIES.join(', ')}` }
+
+  const repeat = body.repeat === undefined || body.repeat === null || body.repeat === '' ? 'none' : body.repeat
+  if (!(CALENDAR_REPEATS as readonly unknown[]).includes(repeat)) return { ok: false, error: `repeat must be one of: ${CALENDAR_REPEATS.join(', ')}` }
+  let repeatUntil: Date | null = null
+  if (repeat !== 'none' && body.repeat_until !== undefined && body.repeat_until !== null && body.repeat_until !== '') {
+    const u = parseMoment(body.repeat_until)
+    if (!u) return { ok: false, error: 'repeat_until must be a date (YYYY-MM-DD)' }
+    repeatUntil = endOfDayUtc(u.date)
+    if (repeatUntil.getTime() < startAt.getTime()) return { ok: false, error: 'repeat_until must not be before start' }
+  }
+
+  const color = text(body.color, 7)
+  if (color && !/^#[0-9a-fA-F]{6}$/.test(color)) return { ok: false, error: 'color must look like #3B82F6' }
+
+  const meetingUrl = text(body.meeting_url, 500)
+  if (meetingUrl && !/^https?:\/\//i.test(meetingUrl)) return { ok: false, error: 'meeting_url must start with http:// or https://' }
+
+  const attendees = body.attendee_ids === undefined || body.attendee_ids === null ? [] : body.attendee_ids
+  if (!Array.isArray(attendees) || attendees.some((a) => typeof a !== 'string' || !a.trim())) return { ok: false, error: 'attendee_ids must be a list of user ids' }
+  const attendeeIds = [...new Set(attendees.map((a) => String(a).trim()))]
+  if (attendeeIds.length > MAX_ATTENDEES) return { ok: false, error: `At most ${MAX_ATTENDEES} attendees` }
+
+  let ticketId: number | null = null
+  if (body.ticket_id !== undefined && body.ticket_id !== null && body.ticket_id !== '') {
+    ticketId = Number(body.ticket_id)
+    if (!Number.isInteger(ticketId) || ticketId < 1) return { ok: false, error: 'ticket_id must be a ticket number' }
+  }
+
+  return {
+    ok: true,
+    value: {
+      type,
+      title,
+      description: text(body.description, 5000),
+      startAt,
+      endAt,
+      allDay,
+      location: text(body.location, 200),
+      meetingUrl,
+      color: color ? color.toUpperCase() : null,
+      visibility: visibility as CalendarVisibility,
+      ownerId: text(body.owner_id, 100),
+      attendeeIds,
+      companyId: text(body.company_id, 100),
+      ticketId,
+      repeat: repeat as CalendarRepeat,
+      repeatUntil,
+    },
+  }
+}
+
+// ── Repeating events ─────────────────────────────────────────────────────────
+
+/** The k-th start of a repeating event (k = 0 is the first). Months and years keep the day of the month, clamped (31st -> 30th/28th). */
+function nthStart(first: Date, repeat: CalendarRepeat, k: number): Date {
+  if (repeat === 'daily') return new Date(first.getTime() + k * DAY)
+  if (repeat === 'weekly') return new Date(first.getTime() + k * 7 * DAY)
+  const months = repeat === 'monthly' ? k : k * 12
+  const y = first.getUTCFullYear() + Math.floor((first.getUTCMonth() + months) / 12)
+  const m = (first.getUTCMonth() + months) % 12
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(y, m, Math.min(first.getUTCDate(), lastDay), first.getUTCHours(), first.getUTCMinutes(), first.getUTCSeconds(), first.getUTCMilliseconds()))
+}
+
+export type Occurrence = { start: Date; end: Date; index: number }
+
+/** The occurrences of an event that touch [from, to]. A single event gives one occurrence (or none). */
+export function expandOccurrences(
+  ev: { startAt: Date; endAt: Date; repeat: CalendarRepeat; repeatUntil: Date | null },
+  from: Date,
+  to: Date,
+  cap = 400
+): Occurrence[] {
+  const duration = ev.endAt.getTime() - ev.startAt.getTime()
+  const touches = (s: Date) => s.getTime() <= to.getTime() && s.getTime() + duration >= from.getTime()
+  if (ev.repeat === 'none') return touches(ev.startAt) ? [{ start: ev.startAt, end: ev.endAt, index: 0 }] : []
+
+  const out: Occurrence[] = []
+  let k = 0
+  if (ev.repeat === 'daily' || ev.repeat === 'weekly') {
+    // Jump straight to the first occurrence that can still reach `from`
+    const step = ev.repeat === 'daily' ? DAY : 7 * DAY
+    k = Math.max(0, Math.floor((from.getTime() - duration - ev.startAt.getTime()) / step))
+  } else {
+    // Months and years: few steps, but do not walk from 1970
+    const months = (from.getUTCFullYear() - ev.startAt.getUTCFullYear()) * 12 + (from.getUTCMonth() - ev.startAt.getUTCMonth())
+    const per = ev.repeat === 'monthly' ? 1 : 12
+    k = Math.max(0, Math.floor(months / per) - 1 - Math.ceil(duration / (31 * DAY * per)))
+  }
+  for (let guard = 0; guard < 5000 && out.length < cap; guard++, k++) {
+    const s = nthStart(ev.startAt, ev.repeat, k)
+    if (s.getTime() > to.getTime()) break
+    if (ev.repeatUntil && s.getTime() > ev.repeatUntil.getTime()) break
+    if (touches(s)) out.push({ start: s, end: new Date(s.getTime() + duration), index: k })
+  }
+  return out
+}
+
+// ── Who may see and change events ────────────────────────────────────────────
+
+export type CalendarViewer = {
+  id: string
+  /** Admin, manager or staff (anyone who is not a client) */
+  isStaff: boolean
+  isManager: boolean
+  /** A client's own company, for company-visible events */
+  companyId: string | null
+}
+
+type EventAccess = Pick<EventFields, 'type' | 'visibility' | 'ownerId' | 'attendeeIds' | 'companyId'> & { createdBy: string | null }
+
+export function canSeeEvent(ev: EventAccess, viewer: CalendarViewer): boolean {
+  if (ev.visibility === 'private') return ev.ownerId === viewer.id || ev.createdBy === viewer.id
+  if (viewer.isStaff) return true
+  if (ev.attendeeIds.includes(viewer.id) || ev.ownerId === viewer.id) return true
+  if (ev.visibility === 'everyone') return true
+  return ev.visibility === 'company' && !!ev.companyId && ev.companyId === viewer.companyId
+}
+
+/** Who may add an event of this type (for `ownerId`: whom it is about, mainly for leave). */
+export function mayCreateEvent(type: CalendarType, ownerId: string | null, viewer: CalendarViewer): boolean {
+  if (!viewer.isStaff) return false
+  if (type === 'holiday') return viewer.isManager
+  if (type === 'leave') return !ownerId || ownerId === viewer.id || viewer.isManager
+  return true
+}
+
+export function mayChangeEvent(ev: Pick<EventAccess, 'type' | 'ownerId' | 'createdBy'>, viewer: CalendarViewer): boolean {
+  if (!viewer.isStaff) return false
+  if (viewer.isManager) return true
+  if (ev.type === 'holiday') return false
+  return ev.createdBy === viewer.id || (ev.type === 'leave' && ev.ownerId === viewer.id)
+}
+
+// ── What the API returns ─────────────────────────────────────────────────────
+
+export type CalendarItem = {
+  /** Event id; `ticket:12` / `invoice:abc` for items computed from tickets and invoices */
+  id: string
+  source: 'event' | 'ticket' | 'invoice'
+  type: CalendarType | DerivedType
+  title: string
+  description: string | null
+  /** `YYYY-MM-DD` for all-day items, otherwise an ISO date and time */
+  start: string
+  /** Last day (inclusive) for all-day items, otherwise the end moment */
+  end: string
+  all_day: boolean
+  color: string
+  location: string | null
+  meeting_url: string | null
+  visibility: CalendarVisibility | null
+  owner_id: string | null
+  attendee_ids: string[]
+  company_id: string | null
+  ticket_id: number | null
+  repeat: CalendarRepeat
+  /** For a repeating event: the start of the first occurrence, to tell occurrences of one event apart */
+  occurrence: string | null
+  /** The viewer may edit or delete it */
+  editable: boolean
+}
+
+const dateOnly = (d: Date) => d.toISOString().slice(0, 10)
+
+/** The `start` and `end` strings of an item: plain dates for all-day, ISO moments otherwise. */
+export function itemTimes(allDay: boolean, start: Date, end: Date): { start: string; end: string } {
+  return allDay ? { start: dateOnly(start), end: dateOnly(end) } : { start: start.toISOString(), end: end.toISOString() }
+}
+
+/** Sort order of a calendar: by day, all-day items first, then by time, then by title. */
+export const CALENDAR_ITEM_ORDER = (a: Pick<CalendarItem, 'start' | 'all_day' | 'title'>, b: Pick<CalendarItem, 'start' | 'all_day' | 'title'>) =>
+  a.start.slice(0, 10).localeCompare(b.start.slice(0, 10)) || Number(b.all_day) - Number(a.all_day) || a.start.localeCompare(b.start) || a.title.localeCompare(b.title)

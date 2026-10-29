@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 
-import { bearerApiKey, scopeForRequest } from '@/lib/api-key-core'
+import { bearerApiKey, isPublicApiRoute, scopeForRequest } from '@/lib/api-key-core'
 
 /** Must match SESSION_COOKIE_NAME in lib/firebase/auth-server.ts (not imported: keeps firebase-admin out of Edge). */
 const SESSION_COOKIE_NAME = '__session'
@@ -32,7 +32,7 @@ function apiRequest(req: NextRequest) {
   headers.delete('x-api-scope')
   headers.delete('x-api-request')
   const key = bearerApiKey(req.headers.get('authorization'))
-  if (key) {
+  if (key && !isPublicApiRoute(req.method, req.nextUrl.pathname)) {
     const scope = scopeForRequest(req.method, req.nextUrl.pathname)
     if (!scope) return NextResponse.json({ error: 'This endpoint is not available to API keys' }, { status: 403 })
     headers.set('x-api-scope', scope)
@@ -86,5 +86,6 @@ export const config = {
     '/invoices/:path*',
     '/screenshots/:path*',
     '/ticket-activity/:path*',
+    '/calendar/:path*',
   ],
 }

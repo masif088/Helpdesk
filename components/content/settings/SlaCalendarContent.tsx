@@ -70,7 +70,7 @@ export default function SlaCalendarContent({ user, initial }: Props) {
               </Title>
               <Text className="page-head__sub">
                 When SLA clocks run. Off: every minute counts. On: only the opening hours below count, and holidays are skipped. A clock
-                always stops while a ticket is in a status where the ball is with the client.
+                always stops while a ticket is in a status where the ball is with the client. Holidays added in the Calendar count too.
               </Text>
             </div>
           </div>

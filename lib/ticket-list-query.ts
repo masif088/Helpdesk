@@ -33,6 +33,7 @@ export const TICKET_LIST_FIELDS: (keyof TicketsRow & string)[] = [
   'createdBy',
   'contactUserId',
   'dueDate',
+  'requiredSkills',
   'createdAt',
   'updatedAt',
   'projectId',

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { apiKeyUsable, apiViaLabel, bearerApiKey, keyPreview, normalizeScopes, scopeForRequest } from '../lib/api-key-core.ts'
+import { apiKeyUsable, apiViaLabel, bearerApiKey, isPublicApiRoute, keyPreview, normalizeScopes, scopeForRequest } from '../lib/api-key-core.ts'
 
 test('scopeForRequest maps the three allowed uses', () => {
   assert.equal(scopeForRequest('GET', '/api/tickets'), 'tickets:read')
@@ -10,6 +10,24 @@ test('scopeForRequest maps the three allowed uses', () => {
   assert.equal(scopeForRequest('POST', '/api/tickets'), 'tickets:create')
   assert.equal(scopeForRequest('POST', '/api/tickets/42/comments'), 'comments:create')
   assert.equal(scopeForRequest('post', '/api/tickets/42/comments/'), 'comments:create')
+})
+
+test('scopeForRequest maps the calendar', () => {
+  assert.equal(scopeForRequest('GET', '/api/calendar/events'), 'calendar:read')
+  assert.equal(scopeForRequest('GET', '/api/calendar/lookup'), 'calendar:read')
+  assert.equal(scopeForRequest('GET', '/api/calendar/events/3f2b8a9c-1d4e-4f6a-9b0c-123456789abc'), 'calendar:read')
+  assert.equal(scopeForRequest('POST', '/api/calendar/events'), 'calendar:write')
+  assert.equal(scopeForRequest('PATCH', '/api/calendar/events/abc-123'), 'calendar:write')
+  assert.equal(scopeForRequest('DELETE', '/api/calendar/events/abc-123'), 'calendar:write')
+  assert.equal(scopeForRequest('DELETE', '/api/calendar/events'), null)
+  assert.equal(scopeForRequest('GET', '/api/calendar/events/a/b'), null)
+})
+
+test('the skill file is public even when a key is sent along', () => {
+  assert.equal(isPublicApiRoute('GET', '/api/skill'), true)
+  assert.equal(isPublicApiRoute('GET', '/api/skill/'), true)
+  assert.equal(isPublicApiRoute('POST', '/api/skill'), false)
+  assert.equal(isPublicApiRoute('GET', '/api/users'), false)
 })
 
 test('scopeForRequest refuses everything else', () => {

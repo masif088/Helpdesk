@@ -1,6 +1,10 @@
-# API keys: read, create and comment on tickets
+# API keys: tickets and calendar
 
-For an outside tool (for example a customer's AI assistant) that needs to open tickets, add comments and read them back.
+For an outside tool (for example a customer's AI assistant) that needs to find, open and comment on tickets, and to read or
+manage the team calendar.
+
+**In a hurry:** build a call in **Settings → API keys → API builder** (everyone else: **Profile → API builder**), and give an
+AI the skill file at `<your portal>/api/skill`.
 
 ## Getting a key
 
@@ -10,7 +14,7 @@ Admin: **Settings → API keys → New key**.
 | --- | --- |
 | Name | Shown on every ticket and comment made with the key, e.g. `Claude (Acme)`. Use `<tool> (<who>)`. |
 | Acts as | The user the key works as. Their role and company decide what the key sees. |
-| Allowed | `tickets:read`, `tickets:create`, `comments:create`. Give only what is needed. |
+| Allowed | `tickets:read`, `tickets:create`, `comments:create`, `calendar:read`, `calendar:write`. Give only what is needed. |
 | Calls per hour | Default 100, changeable per key (also later, in the list). More answers `429` with a `Retry-After` header. |
 | Expires | Days; empty means no expiry. |
 
@@ -29,13 +33,64 @@ Content-Type: application/json
 
 | Call | Scope | Notes |
 | --- | --- | --- |
-| `GET /api/tickets/lookup` | `tickets:read` | Ticket types, teams, statuses: the ids to use when creating. |
-| `GET /api/tickets?limit=20&offset=0&status=open&search=printer` | `tickets:read` | Same filters as the portal list. |
+| `GET /api/tickets/lookup` | `tickets:read` | Ticket types, teams, statuses, companies: the ids to use in filters and when creating. |
+| `GET /api/tickets` | `tickets:read` | List and search, with many filters (below). |
 | `GET /api/tickets/{id}/detail` | `tickets:read` | The ticket with its comments. |
 | `POST /api/tickets` | `tickets:create` | Body: `title`, `description` (HTML), `type_id` (**required for customers**), `priority`, `company_id`, `due_date`. |
 | `POST /api/tickets/{id}/comments` | `comments:create` | Body: `comment` (HTML), `visibility` (`reply` or `note`, staff only). |
+| `GET /api/calendar/events` | `calendar:read` | The calendar in a date range (below). |
+| `GET /api/calendar/events/{id}` | `calendar:read` | One stored event. |
+| `GET /api/calendar/lookup` | `calendar:read` | Event types and what the key's user may create. |
+| `POST /api/calendar/events` | `calendar:write` | Add an event (the team only). |
+| `PATCH /api/calendar/events/{id}` | `calendar:write` | Change an event: send only the fields to change. |
+| `DELETE /api/calendar/events/{id}` | `calendar:write` | Delete an event (all occurrences of a repeating one). |
+| `GET /api/skill` | none | The skill file for an AI, with this portal's address. Public, holds no key. |
 
 Anything else answers `403 This endpoint is not available to API keys`. An unknown, revoked, expired or out-of-scope key answers `401`.
+Every parameter of every call is listed in the API builder, and in the skill file.
+
+## Filtering tickets
+
+`GET /api/tickets` takes any combination of these (they are combined with AND; inside a comma separated list any value may match):
+
+| Filter | Meaning |
+| --- | --- |
+| `date_from`, `date_to` | Created in this period (`YYYY-MM-DD`) |
+| `updated_from`, `updated_to` | Last changed in this period (staff) |
+| `due_date_from`, `due_date_to` | Due in this period |
+| `company_ids` | Tickets of these client companies |
+| `customer_ids` | Opened by, or with as contact, these client users (staff) |
+| `creator_ids` | Opened by these users (staff) |
+| `assignee_ids` | Assigned to these users; `me` is the key's user (staff) |
+| `unassigned=1` | Nobody is assigned (staff) |
+| `skills`, `skills_match=any\|all` | Tickets that need these skills: the ticket's own, else its client's for the type, else the defaults of its type and tags (staff) |
+| `type_ids`, `status`, `team_ids`, `tag_ids` | By type, status slug, team, tag |
+| `overdue=1`, `open=0\|1`, `has_due_date=0\|1` | Late, finished or not, with or without a due date (staff) |
+| `search` | Words in title and description |
+| `scope=inbox\|mine` | Unassigned and open; assigned to me or my teams (staff) |
+
+Paging and shape: `limit` (max 500), `offset`, `sort_order`, `sort_by=id`, `paginated=1` (answers `{ data, total }`),
+`compact=1` (short rows: id, title, status, type, company, requester, assignees, tags, dates, `url`). Use `compact=1` for lists.
+
+```
+GET /api/tickets?compact=1&paginated=1&assignee_ids=me&open=1&limit=20
+GET /api/tickets?compact=1&company_ids=<id>&date_from=2026-10-01&date_to=2026-10-31
+GET /api/tickets?compact=1&skills=WordPress&unassigned=1&overdue=1
+```
+
+A key is never given the people list, so ids of people come from the person asking, or from earlier answers (a ticket row has
+`requester.id` and `assignees[].id`). Company ids come from `GET /api/tickets/lookup`.
+
+## The calendar
+
+See [calendar.md](calendar.md) for the event types, who sees and may change what, repeating events and how dates are stored.
+
+```
+GET /api/calendar/events?from=2026-11-01&to=2026-11-30&types=meeting,leave&user_ids=me&company_ids=…&include_derived=0
+```
+
+The answer is `{ from, to, count, events: [...] }`. It contains stored events (repeating ones unfolded into occurrences) and
+items computed from elsewhere: `ticket_due` (a ticket's due date) and `invoice_due` (managers only), which cannot be edited.
 
 ## How API activity is marked
 
@@ -47,9 +102,16 @@ Anything else answers `403 This endpoint is not available to API keys`. An unkno
 
 - Creating a ticket or comment through a key triggers the same emails, notifications, SLA clocks and automation as the portal.
 - The hourly count is kept in memory (one server process): it starts again from zero when the app restarts or is deployed.
-- Keys cannot upload attachments, edit or delete. The people list is never returned to a key, and a customer's key sees only its own company in the lookup.
+- Keys cannot upload attachments, edit, close or delete tickets. The people list is never returned to a key, and a customer's key sees only its own company in the lookup.
 - Demo reset removes the keys of the accounts it deletes.
 
-## Tutorial and AI skill
+## Tutorial, builder and AI skill
 
-Settings → API keys → **Tutorial** (users: Profile → *How to use it*) has the step by step guide and a ready `SKILL.md` for the other side's AI (download or copy). It contains this portal's address and never a key: the AI reads the key from the environment variable `TICKETING_API_KEY`. The text is generated by `lib/api-skill.ts`.
+- **API builder** (Settings → API keys → API builder; Profile → API builder for everyone else): pick a call, fill in the
+  filters (with lists of people, companies, types, statuses and skills to choose from), see the URL, curl command and body,
+  and try it with your own login.
+- **Tutorial** (Settings → API keys → Tutorial; Profile → *How to use it*): the step by step guide and a ready `SKILL.md`.
+- **Skill file:** `GET /api/skill` (add `?download=1` for a file). It holds this portal's address and never a key: the AI
+  reads the key from the environment variable `TICKETING_API_KEY`. The text is generated by `lib/api-skill.ts` from the
+  endpoint list in `lib/api-catalog.ts`, the same list the builder uses, so they cannot drift apart (a test checks that every
+  endpoint is in the key allowlist and in the skill file).

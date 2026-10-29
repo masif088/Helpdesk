@@ -2,13 +2,15 @@
 
 export const API_KEY_PREFIX = 'tk_live_'
 
-export const API_KEY_SCOPES = ['tickets:read', 'tickets:create', 'comments:create'] as const
+export const API_KEY_SCOPES = ['tickets:read', 'tickets:create', 'comments:create', 'calendar:read', 'calendar:write'] as const
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number]
 
 export const API_KEY_SCOPE_LABELS: Record<ApiKeyScope, string> = {
   'tickets:read': 'Read tickets (list, search, detail with comments)',
   'tickets:create': 'Create tickets',
   'comments:create': 'Add comments / notes to tickets',
+  'calendar:read': 'Read the calendar (meetings, leave, holidays, due dates)',
+  'calendar:write': 'Add, change and delete calendar events',
 }
 
 /** Calls per hour a key may make unless the admin sets another limit on it */
@@ -55,7 +57,21 @@ const ROUTES: Array<{ method: string; pattern: RegExp; scope: ApiKeyScope }> = [
   { method: 'GET', pattern: /^\/api\/tickets\/\d+\/detail$/, scope: 'tickets:read' },
   { method: 'POST', pattern: /^\/api\/tickets$/, scope: 'tickets:create' },
   { method: 'POST', pattern: /^\/api\/tickets\/\d+\/comments$/, scope: 'comments:create' },
+  { method: 'GET', pattern: /^\/api\/calendar\/events$/, scope: 'calendar:read' },
+  { method: 'GET', pattern: /^\/api\/calendar\/lookup$/, scope: 'calendar:read' },
+  { method: 'GET', pattern: /^\/api\/calendar\/events\/[\w-]+$/, scope: 'calendar:read' },
+  { method: 'POST', pattern: /^\/api\/calendar\/events$/, scope: 'calendar:write' },
+  { method: 'PATCH', pattern: /^\/api\/calendar\/events\/[\w-]+$/, scope: 'calendar:write' },
+  { method: 'DELETE', pattern: /^\/api\/calendar\/events\/[\w-]+$/, scope: 'calendar:write' },
 ]
+
+/** Calls that need no key at all (they hold nothing private), so a request that carries a key is not refused for them either. */
+const PUBLIC_ROUTES: Array<{ method: string; pattern: RegExp }> = [{ method: 'GET', pattern: /^\/api\/skill$/ }]
+
+export function isPublicApiRoute(method: string, pathname: string): boolean {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
+  return PUBLIC_ROUTES.some((r) => r.method === method.toUpperCase() && r.pattern.test(path))
+}
 
 /** The scope an API key needs for this request, or null when keys may not call it at all. */
 export function scopeForRequest(method: string, pathname: string): ApiKeyScope | null {

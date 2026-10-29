@@ -2118,3 +2118,29 @@ html::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.35); }
   max-width: 100%;
 }
 
+/* Calendar */
+.cal-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.cal-mine { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--kanban-card-muted); }
+.cal-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.cal-legend__item { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; font-size: 12px; border-radius: 999px; border: 1px solid var(--kanban-card-border); background: var(--kanban-card-bg); color: var(--kanban-card-title); cursor: pointer; }
+.cal-legend__item.is-off { opacity: 0.45; text-decoration: line-through; }
+.cal-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.cal-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .cal-layout { grid-template-columns: minmax(0, 1fr); } }
+.cal-grid-wrap { padding: 0; overflow: hidden; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.cal-grid--head { border-bottom: 1px solid var(--kanban-card-border); }
+.cal-weekday { padding: 8px 10px; font-size: 12px; font-weight: 600; color: var(--kanban-card-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.cal-cell { min-height: 104px; padding: 6px; border-right: 1px solid var(--kanban-card-border); border-bottom: 1px solid var(--kanban-card-border); cursor: pointer; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.cal-cell:nth-child(7n) { border-right: 0; }
+.cal-cell:hover { background: color-mix(in srgb, var(--kanban-card-border) 35%, transparent); }
+.cal-cell.is-other { opacity: 0.5; }
+.cal-cell.is-selected { outline: 2px solid #0F9D8A; outline-offset: -2px; }
+.cal-cell__num { font-size: 12px; font-weight: 600; color: var(--kanban-card-title); width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; }
+.cal-cell.is-today .cal-cell__num { background: #0F9D8A; color: #fff; }
+.cal-chip { display: block; width: 100%; text-align: left; padding: 1px 6px; font-size: 11px; line-height: 1.5; border-radius: 4px; border: 1px solid; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.cal-more { font-size: 11px; color: var(--kanban-card-muted); padding-left: 4px; }
+.cal-day { padding: 16px; display: grid; gap: 14px; }
+.cal-day__head { display: flex; justify-content: space-between; align-items: center; }
+.cal-entry { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--kanban-card-border); border-left-width: 4px; border-radius: 10px; }
+.cal-entry__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }

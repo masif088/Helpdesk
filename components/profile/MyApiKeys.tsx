@@ -83,7 +83,7 @@ export default function MyApiKeys() {
       </Title>
       <Text type="secondary">
         A key lets your AI assistant or a script read, create and comment on tickets <b>as you</b>: it sees what you see. Each key lasts {SELF_KEY_DAYS} days and allows {DEFAULT_RATE_LIMIT_PER_HOUR} calls per hour;
-        make a new one when it expires. Need more? Ask an admin. <Link href="/profile/api-tutorial">How to use it, and a skill file for your AI</Link>
+        make a new one when it expires. Need more? Ask an admin. <Link href="/profile/api-tutorial">How to use it, and a skill file for your AI</Link> · <Link href="/profile/api-builder">API builder</Link>
       </Text>
 
       <div style={{ margin: '16px 0' }}>
