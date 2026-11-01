@@ -1,12 +1,13 @@
 'use client'
 
-import { App, Button, DatePicker, Layout, Select, Switch, Tag, TimePicker, Typography } from 'antd'
+import { App, Button, DatePicker, Layout, Switch, Tag, TimePicker, Typography } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import SettingsBackLink from '@/components/settings/SettingsBackLink'
+import { offsetLabel, zoneOffsetMinutes } from '@/lib/app-time'
 import type { SlaCalendar } from '@/lib/sla-calendar'
 
 const { Content } = Layout
@@ -15,18 +16,16 @@ const { Title, Text } = Typography
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 /** Monday first on screen; values stay 0 = Sunday */
 const ORDER = [1, 2, 3, 4, 5, 6, 0]
-const OFFSETS = Array.from({ length: 27 }, (_, i) => (i - 12) * 60).map((m) => ({
-  value: m,
-  label: `UTC${m < 0 ? '-' : '+'}${String(Math.floor(Math.abs(m) / 60)).padStart(2, '0')}:00`,
-}))
 const TIME_FORMAT = 'HH:mm'
 
 interface Props {
   user: { id: string; email?: string | null; name?: string | null; role?: string | null }
   initial: SlaCalendar
+  /** The app's time zone (Settings → Time zone) the hours are in */
+  timeZone: string
 }
 
-export default function SlaCalendarContent({ user, initial }: Props) {
+export default function SlaCalendarContent({ user, initial, timeZone }: Props) {
   const { message } = App.useApp()
   const [collapsed, setCollapsed] = useState(false)
   const [cal, setCal] = useState<SlaCalendar>(initial)
@@ -82,16 +81,9 @@ export default function SlaCalendarContent({ user, initial }: Props) {
             </label>
 
             <div style={{ display: 'grid', gap: 8, opacity: cal.enabled ? 1 : 0.5 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ width: 110 }}>Time zone</span>
-                <Select
-                  style={{ width: 160 }}
-                  value={cal.utcOffsetMinutes}
-                  options={OFFSETS}
-                  onChange={(utcOffsetMinutes) => setCal((c) => ({ ...c, utcOffsetMinutes }))}
-                  disabled={!cal.enabled}
-                />
-              </div>
+              <Text type="secondary">
+                Hours are in the app time zone: <b>{timeZone.replace(/_/g, ' ')}</b> ({offsetLabel(zoneOffsetMinutes(timeZone, new Date()))}). Change it in <a href="/settings/time-zone">Settings → Time zone</a>.
+              </Text>
               {ORDER.map((i) => {
                 const d = cal.week[i]
                 return (

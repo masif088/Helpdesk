@@ -3,6 +3,8 @@ import { after, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { apiViaLabel } from '@/lib/api-key-core'
 import { unauthorizedResponse } from '@/lib/api-key-http'
+import { parseDateBound } from '@/lib/app-time'
+import { getAppTimeZone } from '@/lib/app-time-server'
 import { isAdmin, isAdminOrManager } from '@/lib/auth-utils'
 import { loadAutomationTicketContext, runAutomationRules } from '@/lib/automation-engine'
 import { parseTicketPriceBody } from '@/lib/billing-rate'
@@ -85,6 +87,7 @@ export async function GET(request: Request) {
   const userId = authUser.id
   const role = (authUser as { role?: string }).role?.toLowerCase()
   const isCustomerViewer = role === 'customer'
+  const appZone = await getAppTimeZone()
 
   // Customer: company tickets + personal tickets without company (owner)
   let customerCompanyId: string | null = null
@@ -146,7 +149,7 @@ export async function GET(request: Request) {
   const isCustomerList = role === 'customer'
   const isAdminList = isAdmin(role as string | undefined)
   const compact = url.searchParams.get('compact') === '1'
-  const parsedApiFilters = isCustomerList ? null : parseTicketApiFilters(url.searchParams, userId)
+  const parsedApiFilters = isCustomerList ? null : parseTicketApiFilters(url.searchParams, userId, appZone)
   if (parsedApiFilters && 'error' in parsedApiFilters) return NextResponse.json({ error: parsedApiFilters.error }, { status: 400 })
   const apiFilters = parsedApiFilters && !('error' in parsedApiFilters) ? parsedApiFilters : null
 
@@ -222,12 +225,11 @@ export async function GET(request: Request) {
   const statusSet = new Set(statusSlugs)
   const typeSet = new Set(typeIds)
   const teamSet = new Set(teamIds)
-  const createdFrom = dateFrom ? new Date(dateFrom) : null
-  const createdTo = dateTo ? new Date(dateTo) : null
-  if (createdTo && !isNaN(createdTo.getTime())) createdTo.setHours(23, 59, 59, 999)
-  const dueFrom = dueDateFrom ? new Date(dueDateFrom) : null
-  const dueTo = dueDateTo ? new Date(dueDateTo) : null
-  if (dueTo && !isNaN(dueTo.getTime())) dueTo.setHours(23, 59, 59, 999)
+  // A plain date (2026-11-03) means that whole day in the app's time zone; a full time (what the list page sends) is taken as it is
+  const createdFrom = parseDateBound(dateFrom, appZone)
+  const createdTo = parseDateBound(dateTo, appZone, true)
+  const dueFrom = parseDateBound(dueDateFrom, appZone)
+  const dueTo = parseDateBound(dueDateTo, appZone, true)
 
   let tagTicketIds: Set<number> | null = null
   if (tagIds.length > 0) {
@@ -260,12 +262,12 @@ export async function GET(request: Request) {
     if (statusSet.size > 0 && !statusSet.has(t.status)) return false
     if (typeSet.size > 0 && (t.typeId == null || !typeSet.has(t.typeId))) return false
     if (!isCustomerList && teamSet.size > 0 && (!t.teamId || !teamSet.has(t.teamId))) return false
-    if (createdFrom && !isNaN(createdFrom.getTime()) && t.createdAt < createdFrom) return false
-    if (createdTo && !isNaN(createdTo.getTime()) && t.createdAt > createdTo) return false
+    if (createdFrom && t.createdAt < createdFrom) return false
+    if (createdTo && t.createdAt > createdTo) return false
     if (dueDateFrom || dueDateTo) {
       if (!t.dueDate) return false
-      if (dueFrom && !isNaN(dueFrom.getTime()) && t.dueDate < dueFrom) return false
-      if (dueTo && !isNaN(dueTo.getTime()) && t.dueDate > dueTo) return false
+      if (dueFrom && t.dueDate < dueFrom) return false
+      if (dueTo && t.dueDate > dueTo) return false
     }
     if (tagTicketIds && !tagTicketIds.has(t.id)) return false
     if (noCompany && t.companyId) return false

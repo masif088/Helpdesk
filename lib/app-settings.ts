@@ -1,3 +1,4 @@
+import { cleanTimeZone, DEFAULT_TIME_ZONE } from '@/lib/app-time'
 import { BRANDING, resolveAssetUrl } from '@/lib/branding'
 import { appSettings, find, upsert } from '@/lib/fsdb'
 
@@ -16,6 +17,8 @@ export type AppSettingsMap = {
   invoice_footer: string | null
   /** SLA business hours and holidays (JSON, see lib/sla-calendar.ts); null = clocks run around the clock */
   sla_calendar: string | null
+  /** The app's time zone (IANA name, e.g. Asia/Jakarta): what "today", date filters and times in emails mean */
+  app_timezone: string
   /** Comma separated emails of colleagues whose mail counts as internal (inbox sync); empty = none */
   trusted_internal_senders: string | null
 }
@@ -33,6 +36,7 @@ const DEFAULTS: AppSettingsMap = {
   invoice_payment_info: null,
   invoice_footer: null,
   sla_calendar: null,
+  app_timezone: DEFAULT_TIME_ZONE,
   trusted_internal_senders: null,
 }
 
@@ -70,6 +74,7 @@ async function loadAppSettings(): Promise<AppSettingsMap> {
     invoice_payment_info: map['invoice_payment_info'] ?? null,
     invoice_footer: map['invoice_footer'] ?? null,
     sla_calendar: map['sla_calendar'] ?? null,
+    app_timezone: cleanTimeZone(map['app_timezone']),
     trusted_internal_senders: map['trusted_internal_senders'] ?? null,
   }
 }

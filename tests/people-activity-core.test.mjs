@@ -108,12 +108,12 @@ describe('time entries in a period', () => {
 describe('buckets', () => {
   it('names days and hours in UTC', () => {
     assert.equal(bucketOf(d('2026-11-02T09:41:00Z'), 'day'), '2026-11-02')
-    assert.equal(bucketOf(d('2026-11-02T09:41:00Z'), 'hour'), '2026-11-02T09:00Z')
+    assert.equal(bucketOf(d('2026-11-02T09:41:00Z'), 'hour'), '2026-11-02T09:00+00:00')
   })
 
   it('splits time across the hours it spans without losing a second', () => {
     const m = splitIntoBuckets(d('2026-11-02T09:30:00Z'), d('2026-11-02T11:15:00Z'), 6300, 'hour')
-    assert.deepEqual([...m.entries()], [['2026-11-02T09:00Z', 1800], ['2026-11-02T10:00Z', 3600], ['2026-11-02T11:00Z', 900]])
+    assert.deepEqual([...m.entries()], [['2026-11-02T09:00+00:00', 1800], ['2026-11-02T10:00+00:00', 3600], ['2026-11-02T11:00+00:00', 900]])
     assert.equal([...m.values()].reduce((a, b) => a + b, 0), 6300)
   })
 
@@ -124,6 +124,37 @@ describe('buckets', () => {
 
   it('does not split without a breakdown', () => {
     assert.equal(splitIntoBuckets(d('2026-11-02T09:00:00Z'), d('2026-11-02T10:00:00Z'), 3600, 'none').size, 0)
+  })
+})
+
+describe('in the app time zone', () => {
+  const WIB = 'Asia/Jakarta'
+
+  it('reads a plain date as a whole day there, and defaults to today there', () => {
+    const q = parseActivityQuery(new URLSearchParams('from=2026-11-03&to=2026-11-03'), 'me', d('2026-11-04T10:00:00Z'), WIB)
+    assert.equal(q.from.toISOString(), '2026-11-02T17:00:00.000Z')
+    assert.equal(q.to.toISOString(), '2026-11-03T16:59:59.999Z')
+    assert.equal(q.timeZone, WIB)
+    // 18:00 UTC on the 1st is already the 2nd in Jakarta
+    const today = parseActivityQuery(new URLSearchParams(''), 'me', d('2026-11-01T18:00:00Z'), WIB)
+    assert.equal(today.from.toISOString(), '2026-11-01T17:00:00.000Z')
+    assert.equal(today.to.toISOString(), '2026-11-02T16:59:59.999Z')
+  })
+
+  it('names days and hours on the local clock', () => {
+    assert.equal(bucketOf(d('2026-11-02T20:00:00Z'), 'day', WIB), '2026-11-03')
+    assert.equal(bucketOf(d('2026-11-03T09:41:00Z'), 'hour', WIB), '2026-11-03T16:00+07:00')
+  })
+
+  it('splits a night over two local days', () => {
+    // 23:00-01:00 local on 3-4 Nov is 16:00-18:00 UTC
+    const m = splitIntoBuckets(d('2026-11-03T16:00:00Z'), d('2026-11-03T18:00:00Z'), 7200, 'day', WIB)
+    assert.deepEqual([...m.entries()], [['2026-11-03', 3600], ['2026-11-04', 3600]])
+  })
+
+  it('splits hours on a half-hour zone', () => {
+    const m = splitIntoBuckets(d('2026-11-03T09:00:00Z'), d('2026-11-03T10:00:00Z'), 3600, 'hour', 'Asia/Kolkata')
+    assert.deepEqual([...m.entries()], [['2026-11-03T14:00+05:30', 1800], ['2026-11-03T15:00+05:30', 1800]])
   })
 })
 

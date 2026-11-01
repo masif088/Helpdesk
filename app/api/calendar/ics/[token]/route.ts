@@ -1,4 +1,5 @@
 import { getAppSettings } from '@/lib/app-settings'
+import { getAppTimeZone } from '@/lib/app-time-server'
 import { calendarViewer, listCalendarItems } from '@/lib/calendar'
 import { userForFeedToken } from '@/lib/calendar-feed'
 import { buildIcs } from '@/lib/calendar-ics'
@@ -18,7 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   const now = new Date()
   const base = (process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin).replace(/\/+$/, '')
   const [items, settings] = await Promise.all([
-    listCalendarItems(await calendarViewer({ id: user.id, role: user.role }), { from: new Date(now.getTime() - 30 * DAY), to: new Date(now.getTime() + 180 * DAY), includeDerived: true }),
+    listCalendarItems(await calendarViewer({ id: user.id, role: user.role }), { from: new Date(now.getTime() - 30 * DAY), to: new Date(now.getTime() + 180 * DAY), includeDerived: true, timeZone: await getAppTimeZone() }),
     getAppSettings().catch(() => null),
   ])
   const body = buildIcs(items, { name: `${settings?.app_name || 'Helpdesk'} calendar`, now, host: new URL(base).host, baseUrl: base })

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { unauthorizedResponse } from '@/lib/api-key-http'
+import { getAppTimeZone } from '@/lib/app-time-server'
 import { isAdminOrManager } from '@/lib/auth-utils'
 import { calendarViewer } from '@/lib/calendar'
 import { loadPeopleActivity } from '@/lib/people-activity'
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
   const user = session.user as { id: string; role?: string | null }
   if (!isAdminOrManager(user.role ?? undefined)) return NextResponse.json({ error: 'Only admins and managers can see the team activity' }, { status: 403 })
 
-  const query = parseActivityQuery(new URL(request.url).searchParams, user.id)
+  const query = parseActivityQuery(new URL(request.url).searchParams, user.id, new Date(), await getAppTimeZone())
   if ('error' in query) return NextResponse.json({ error: query.error }, { status: 400 })
   return NextResponse.json(await loadPeopleActivity(query, await calendarViewer(user)))
 }

@@ -111,6 +111,7 @@ const GROUPS: SettingGroup[] = [
     tone: '#64748B',
     items: [
       { title: 'Branding', description: 'App name, logo, favicon and email sender name', href: '/settings/app-branding', icon: <BgColorsOutlined />, keywords: 'logo name favicon sender', show: isAdmin },
+      { title: 'Time zone', description: 'One time zone for dates, the calendar and times in emails', href: '/settings/time-zone', icon: <ScheduleOutlined />, keywords: 'timezone utc wib date clock', show: isAdmin },
       { title: 'Scheduled jobs', description: 'Email sync, recurring tickets, time triggers: last run and setup', href: '/settings/scheduled-jobs', icon: <ScheduleOutlined />, keywords: 'cron apps script scheduler sync', show: isAdmin },
       { title: 'Demo reset', description: 'Empty the app for a fresh demo (needs a manual unlock)', href: '/settings/demo-reset', icon: <DeleteOutlined />, keywords: 'reset wipe clear demo clean', show: isAdmin, only: mayDemoReset },
       { title: 'Connection status', description: 'Database, storage, Firebase, email and AI checks', href: '/settings/connection-status', icon: <ApiOutlined />, keywords: 'health check firebase storage', show: isAdmin },

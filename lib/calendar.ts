@@ -2,6 +2,7 @@
  * Calendar on the server: reads and writes `calendar_events`, and adds the dates that come from elsewhere (ticket due dates,
  * invoice due dates). The rules (types, validation, repeating, who sees what) are in `lib/calendar-core.ts`.
  */
+import { localDateOf } from '@/lib/app-time'
 import { isAdminOrManager, isInternalUser } from '@/lib/auth-utils'
 import {
   CALENDAR_ITEM_ORDER,
@@ -17,6 +18,7 @@ import {
   isCalendarItemType,
   isCalendarResponse,
   isInvitable,
+  itemInDays,
   itemTimes,
   mayChangeEvent,
   mayCreateEvent,
@@ -144,23 +146,25 @@ export type CalendarQuery = {
   companyIds?: string[]
   /** Add ticket due dates and invoice due dates (default true) */
   includeDerived?: boolean
+  /** The app's time zone (default UTC): which day a ticket due date or a timed event is on */
+  timeZone?: string
+  /** Set when the range was asked for as plain dates: items are kept by the day they are on in the zone, not by the exact moment */
+  days?: { from: string; to: string } | null
 }
 
-const MAX_RANGE_DAYS = 400
+const dayBounds = (q: CalendarQuery) => ({ tz: q.timeZone ?? 'UTC', fromDay: q.days?.from ?? localDateOf(q.from, q.timeZone ?? 'UTC'), toDay: q.days?.to ?? localDateOf(q.to, q.timeZone ?? 'UTC') })
 
-export function parseCalendarRange(from: string | null, to: string | null, now = new Date()): { from: Date; to: Date } | { error: string } {
-  const f = from ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(from) ? `${from}T00:00:00.000Z` : from) : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-  const t = to
-    ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(to) ? `${to}T23:59:59.999Z` : to)
-    : new Date(Date.UTC(f.getUTCFullYear(), f.getUTCMonth() + 1, 0, 23, 59, 59, 999))
-  if (Number.isNaN(f.getTime()) || Number.isNaN(t.getTime())) return { error: 'from and to must be dates (YYYY-MM-DD) or ISO date and time' }
-  if (t.getTime() < f.getTime()) return { error: 'to must not be before from' }
-  if (t.getTime() - f.getTime() > MAX_RANGE_DAYS * 86_400_000) return { error: `Ask for at most ${MAX_RANGE_DAYS} days at a time` }
-  return { from: f, to: t }
-}
+export { parseCalendarRange } from '@/lib/calendar-core'
+
+const DAY = 86_400_000
 
 async function dueTicketItems(viewer: CalendarViewer, q: CalendarQuery): Promise<CalendarItem[]> {
-  const rows = await find(tickets, { where: [['dueDate', '>=', q.from], ['dueDate', '<=', q.to]], limit: 1000 })
+  const { tz, fromDay, toDay } = dayBounds(q)
+  // Asked a day wider on each side, then kept by the day it falls on in the app's zone
+  const rows = (await find(tickets, { where: [['dueDate', '>=', new Date(q.from.getTime() - DAY)], ['dueDate', '<=', new Date(q.to.getTime() + DAY)]], limit: 1500 })).filter((t) => {
+    const d = localDateOf(asDate(t.dueDate!), tz)
+    return d >= fromDay && d <= toDay
+  })
   const allowed = viewer.isStaff ? await staffTicketPredicate(viewer.id, viewer.isManager) : customerTicketsAccessPredicate(viewer.id, viewer.companyId)
   let open = rows.filter((t) => (t.ticketType ?? DEFAULT_TICKET_TYPE) === DEFAULT_TICKET_TYPE && (t.status === 'pending' || !isClosedLikeTicketStatus(t.status)) && allowed(t as TicketsRow))
   if (q.companyIds?.length) open = open.filter((t) => t.companyId && q.companyIds!.includes(t.companyId))
@@ -170,7 +174,7 @@ async function dueTicketItems(viewer: CalendarViewer, q: CalendarQuery): Promise
     open = open.filter((t) => mine.has(t.id))
   }
   return open.map((t) => {
-    const day = iso(t.dueDate).slice(0, 10)
+    const day = localDateOf(asDate(t.dueDate!), tz)
     return {
       id: `ticket:${t.id}`,
       source: 'ticket' as const,
@@ -199,8 +203,7 @@ async function dueTicketItems(viewer: CalendarViewer, q: CalendarQuery): Promise
 
 async function dueInvoiceItems(viewer: CalendarViewer, q: CalendarQuery): Promise<CalendarItem[]> {
   if (!viewer.isManager) return []
-  const from = iso(q.from).slice(0, 10)
-  const to = iso(q.to).slice(0, 10)
+  const { fromDay: from, toDay: to } = dayBounds(q)
   const rows = await find(invoices, { where: [['dueDate', '>=', from], ['dueDate', '<=', to]], limit: 500 })
   const unpaid = rows.filter((i) => i.status === 'issued' && i.dueDate && (!q.companyIds?.length || q.companyIds.includes(i.companyId)))
   const companyById = await getManyMap(companies, unpaid.map((i) => i.companyId))
@@ -234,8 +237,13 @@ export async function listCalendarItems(viewer: CalendarViewer, q: CalendarQuery
   const wanted = new Set((q.types ?? []).filter(isCalendarItemType))
   const wants = (type: string) => wanted.size === 0 || wanted.has(type as CalendarType)
 
+  const tz = q.timeZone ?? 'UTC'
+  // A range of plain dates is read a day wider on each side, then kept by the day items are on in the app's zone
+  const pad = q.days ? DAY : 0
+  const from = new Date(q.from.getTime() - pad)
+  const to = new Date(q.to.getTime() + pad)
   const [ongoing, repeating] = await Promise.all([
-    find(calendarEvents, { where: [['endAt', '>=', q.from]], orderBy: [['endAt', 'asc']], limit: 3000 }),
+    find(calendarEvents, { where: [['endAt', '>=', from]], orderBy: [['endAt', 'asc']], limit: 3000 }),
     find(calendarEvents, { where: [['recurring', '==', true]], limit: 1000 }),
   ])
   const rows = [...new Map([...ongoing, ...repeating].map((r) => [r.id, r])).values()]
@@ -245,8 +253,11 @@ export async function listCalendarItems(viewer: CalendarViewer, q: CalendarQuery
     if (!wants(r.type) || !canSeeEvent(accessOf(r), viewer)) continue
     if (q.companyIds?.length && (!r.companyId || !q.companyIds.includes(r.companyId))) continue
     if (q.userIds?.length && !(q.userIds.includes(r.ownerId ?? '') || q.userIds.includes(r.createdBy ?? '') || (r.attendeeIds ?? []).some((a) => q.userIds!.includes(a)))) continue
-    const occurrences = expandOccurrences({ startAt: asDate(r.startAt), endAt: asDate(r.endAt), repeat: r.repeat as EventFields['repeat'], repeatUntil: r.repeatUntil ? asDate(r.repeatUntil) : null }, q.from, q.to)
-    for (const o of occurrences) items.push(toItem(r, o.start, o.end, viewer))
+    const occurrences = expandOccurrences({ startAt: asDate(r.startAt), endAt: asDate(r.endAt), repeat: r.repeat as EventFields['repeat'], repeatUntil: r.repeatUntil ? asDate(r.repeatUntil) : null }, from, to)
+    for (const o of occurrences) {
+      const item = toItem(r, o.start, o.end, viewer)
+      if (!q.days || itemInDays(item, q.days, tz)) items.push(item)
+    }
   }
 
   if (q.includeDerived !== false) {
@@ -381,8 +392,10 @@ export async function respondToCalendarEvent(viewer: CalendarViewer, id: string,
 }
 
 /** What the viewer may do and the choices for the forms: used by the page, the API builder and AI assistants. */
-export function calendarLookup(viewer: CalendarViewer) {
+export function calendarLookup(viewer: CalendarViewer, timeZone = 'UTC') {
   return {
+    /** The app's time zone: the calendar shows days and times in it, wherever the viewer is */
+    time_zone: timeZone,
     can_create: viewer.isStaff,
     types: (Object.keys(TYPE_INFO) as (CalendarType | DerivedType)[]).map((type) => ({
       type,

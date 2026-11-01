@@ -13,5 +13,5 @@ export default async function SlaCalendarPage() {
   if (!session?.user) redirect('/login')
   if (!isAdmin((session.user as { role?: string }).role)) redirect('/settings')
   const settings = await getAppSettings()
-  return <SlaCalendarContent user={session.user} initial={cleanCalendar(settings.sla_calendar)} />
+  return <SlaCalendarContent user={session.user} initial={cleanCalendar(settings.sla_calendar)} timeZone={settings.app_timezone} />
 }

@@ -2,11 +2,11 @@
  * Telling people about calendar events: a bell notification and an email when they are invited, when an event they are in is moved
  * or cancelled, and a bell notification to the maker when someone answers. Best effort: a failure here never stops the change.
  */
-import { getAppSettings } from '@/lib/app-settings'
+import { zoneOffsetMinutes } from '@/lib/app-time'
+import { getAppTimeZone } from '@/lib/app-time-server'
 import { type CalendarItem, formatWhen, TYPE_INFO } from '@/lib/calendar-core'
 import { notifyUsers } from '@/lib/firebase/ticket-notifications-server'
 import { get, getMany, users } from '@/lib/fsdb'
-import { cleanCalendar } from '@/lib/sla-calendar'
 import { sendHtmlEmail } from '@/lib/ticket-notification-emails'
 
 export type CalendarNotice = 'invite' | 'update' | 'cancel'
@@ -16,17 +16,16 @@ const BELL = { invite: 'calendar_invite', update: 'calendar_update', cancel: 'ca
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
-/** The time zone people read times in: the one set on the SLA calendar (default UTC+7). */
-async function zoneOffset(): Promise<number> {
-  const s = await getAppSettings().catch(() => null)
-  return cleanCalendar(s?.sla_calendar).utcOffsetMinutes
+/** Minutes ahead of UTC in the app's time zone (Settings → Time zone) at the time of the event, so daylight saving is right. */
+async function zoneOffsetFor(item: { start: string; all_day: boolean }): Promise<number> {
+  return zoneOffsetMinutes(await getAppTimeZone(), item.all_day ? new Date() : new Date(item.start))
 }
 
 export async function notifyInvitees(opts: { item: CalendarItem; inviteeIds: string[]; actorId: string; kind: CalendarNotice }): Promise<void> {
   try {
     const recipients = [...new Set(opts.inviteeIds)].filter((id) => id && id !== opts.actorId)
     if (!recipients.length) return
-    const [actor, people, offset] = await Promise.all([get(users, opts.actorId), getMany(users, recipients), zoneOffset()])
+    const [actor, people, offset] = await Promise.all([get(users, opts.actorId), getMany(users, recipients), zoneOffsetFor(opts.item)])
     const actorName = actor?.fullName || actor?.email || 'Someone'
     const when = formatWhen(opts.item, offset)
     const kindLabel = TYPE_INFO[opts.item.type].label
@@ -63,7 +62,7 @@ export async function notifyInvitees(opts: { item: CalendarItem; inviteeIds: str
 export async function notifyAnswer(opts: { item: CalendarItem; makerId: string | null; answererId: string; response: string }): Promise<void> {
   try {
     if (!opts.makerId || opts.makerId === opts.answererId) return
-    const [answerer, offset] = await Promise.all([get(users, opts.answererId), zoneOffset()])
+    const [answerer, offset] = await Promise.all([get(users, opts.answererId), zoneOffsetFor(opts.item)])
     const name = answerer?.fullName || answerer?.email || 'Someone'
     await notifyUsers({
       recipientUserIds: [opts.makerId],

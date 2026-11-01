@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { unauthorizedResponse } from '@/lib/api-key-http'
+import { getAppTimeZone } from '@/lib/app-time-server'
 import { calendarLookup, calendarViewer } from '@/lib/calendar'
 
 export const dynamic = 'force-dynamic'
@@ -11,5 +12,5 @@ export async function GET() {
   const session = await auth()
   if (!session?.user?.id) return unauthorizedResponse(session)
   const viewer = await calendarViewer(session.user as { id: string; role?: string | null })
-  return NextResponse.json(calendarLookup(viewer))
+  return NextResponse.json(calendarLookup(viewer, await getAppTimeZone()))
 }

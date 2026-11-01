@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { type AppSettingsMap,getAppSettings, setAppSetting } from '@/lib/app-settings'
+import { isValidTimeZone } from '@/lib/app-time'
 import { isAdmin } from '@/lib/auth-utils'
 import { cleanCalendar } from '@/lib/sla-calendar'
 
@@ -34,6 +35,10 @@ export async function PUT(req: NextRequest) {
     if (key in body) {
       await setAppSetting(key, (body[key] as string | null) ?? null)
     }
+  }
+  if ('app_timezone' in body) {
+    if (!isValidTimeZone(body.app_timezone)) return NextResponse.json({ error: 'Choose a valid time zone, for example Asia/Jakarta' }, { status: 400 })
+    await setAppSetting('app_timezone', body.app_timezone)
   }
   if ('sla_calendar' in body) {
     // Stored cleaned, so a bad value can never reach the SLA clocks

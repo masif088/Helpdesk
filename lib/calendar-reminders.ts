@@ -3,22 +3,21 @@
  * coming hour sends a bell notification to the people involved, once per occurrence (a repeating event is reminded for each one).
  * All-day items and holidays are not reminded.
  */
-import { getAppSettings } from '@/lib/app-settings'
+import { zoneOffsetMinutes } from '@/lib/app-time'
+import { getAppTimeZone } from '@/lib/app-time-server'
 import { type CalendarType, expandOccurrences, formatWhen, itemTimes, REMINDER_TYPES,reminderRecipients } from '@/lib/calendar-core'
 import { notifyUsers } from '@/lib/firebase/ticket-notifications-server'
 import { calendarEvents, find, update } from '@/lib/fsdb'
-import { cleanCalendar } from '@/lib/sla-calendar'
 
 const WINDOW_MS = 60 * 60_000
 
 export async function runEventReminders(now = new Date(), opts: { dryRun?: boolean } = {}): Promise<{ reminded: string[] }> {
   const until = new Date(now.getTime() + WINDOW_MS)
-  const [single, repeating, settings] = await Promise.all([
+  const [single, repeating, zone] = await Promise.all([
     find(calendarEvents, { where: [['startAt', '>', now], ['startAt', '<=', until]], limit: 1000 }),
     find(calendarEvents, { where: [['recurring', '==', true]], limit: 1000 }),
-    getAppSettings().catch(() => null),
+    getAppTimeZone(),
   ])
-  const offset = cleanCalendar(settings?.sla_calendar).utcOffsetMinutes
   const reminded: string[] = []
 
   for (const r of [...new Map([...single, ...repeating].map((e) => [e.id, e])).values()]) {
@@ -37,7 +36,7 @@ export async function runEventReminders(now = new Date(), opts: { dryRun?: boole
       href: `/calendar?date=${key.slice(0, 10)}`,
       label: 'Calendar',
       title: `Starting soon: ${r.title}`,
-      body: `${formatWhen({ all_day: false, ...t }, offset)}${r.location ? ` · ${r.location}` : ''}`,
+      body: `${formatWhen({ all_day: false, ...t }, zoneOffsetMinutes(zone, next.start))}${r.location ? ` · ${r.location}` : ''}`,
       actorName: 'Calendar',
     })
     await update(calendarEvents, r.id, { reminderSentFor: key })

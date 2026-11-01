@@ -31,6 +31,12 @@ describe('reading the query string', () => {
     assert.equal(f.hasDueDate, true)
   })
 
+  it('reads a plain date as a whole day in the zone it is given', () => {
+    const f = parseTicketApiFilters(new URLSearchParams('updated_from=2026-11-03&updated_to=2026-11-03'), 'u', 'Asia/Jakarta')
+    assert.equal(f.updatedFrom.toISOString(), '2026-11-02T17:00:00.000Z')
+    assert.equal(f.updatedTo.toISOString(), '2026-11-03T16:59:59.999Z')
+  })
+
   it('refuses nonsense', () => {
     assert.ok(parse('updated_from=yesterday').error)
     assert.ok(parse('skills_match=most').error)

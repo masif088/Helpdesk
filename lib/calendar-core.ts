@@ -6,6 +6,8 @@
  * its first day to 23:59:59.999 UTC of its last day and shown as `YYYY-MM-DD`, so it never slides to another day in
  * another time zone.
  */
+// Relative, with the extension, on purpose: the tests load this file with plain Node, which knows no `@/` alias
+import { localDateOf, parseDateBound } from './app-time.ts'
 
 export const CALENDAR_TYPES = ['meeting', 'leave', 'holiday', 'event', 'training', 'maintenance', 'reminder', 'other'] as const
 export type CalendarType = (typeof CALENDAR_TYPES)[number]
@@ -355,3 +357,50 @@ export function reminderRecipients(ev: { type: CalendarType; ownerId: string | n
 
 /** People newly invited by a change: those in `after` who were not in `before`. */
 export const newlyInvited = (before: string[], after: string[]): string[] => after.filter((id) => !before.includes(id))
+
+// ── Reading a range of dates in the app's time zone ──────────────────────────
+
+const MAX_RANGE_DAYS = 400
+
+export type CalendarRange = {
+  from: Date
+  to: Date
+  /** Set when the range was given as plain dates (or left out): the first and last day in the zone. Then an item is in the range when its day is. */
+  days: { from: string; to: string } | null
+  timeZone: string
+}
+
+const isPlainDate = (v: string | null): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v) && parseDateBound(v, 'UTC') !== null
+
+/**
+ * `from` and `to` as the API takes them: plain dates mean whole days in `tz`; a full time with a Z or an offset is an exact moment. Left
+ * out they default to the current month in `tz`.
+ */
+export function parseCalendarRange(from: string | null, to: string | null, now = new Date(), tz = 'UTC'): CalendarRange | { error: string } {
+  const bad = { error: 'from and to must be dates (YYYY-MM-DD) or ISO date and time' }
+  if ((from && !isPlainDate(from) && !parseDateBound(from, tz)) || (to && !isPlainDate(to) && !parseDateBound(to, tz))) return bad
+  const today = localDateOf(now, tz)
+  const fromDay = from ? (isPlainDate(from) ? from : null) : `${today.slice(0, 7)}-01`
+  const f = parseDateBound(fromDay ?? from, tz)
+  if (!f) return bad
+  const fromLocal = localDateOf(f, tz)
+  const lastOfMonth = (day: string) => {
+    const [y, m] = day.split('-').map(Number)
+    return `${day.slice(0, 7)}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`
+  }
+  const toDay = to ? (isPlainDate(to) ? to : null) : lastOfMonth(fromLocal)
+  const t = parseDateBound(toDay ?? to, tz, true)
+  if (!t) return bad
+  if (t.getTime() < f.getTime()) return { error: 'to must not be before from' }
+  if (t.getTime() - f.getTime() > MAX_RANGE_DAYS * DAY) return { error: `Ask for at most ${MAX_RANGE_DAYS} days at a time` }
+  return { from: f, to: t, days: fromDay && toDay ? { from: fromDay, to: toDay } : null, timeZone: tz }
+}
+
+/** Is an item on one of the days (YYYY-MM-DD)? All-day items carry plain dates; timed ones are placed on the day they start and end in the zone. */
+export function itemInDays(item: { all_day: boolean; start: string; end: string }, days: { from: string; to: string }, tz: string): boolean {
+  if (item.all_day) return item.start <= days.to && item.end >= days.from
+  const start = new Date(item.start)
+  const end = new Date(item.end)
+  const last = end.getTime() > start.getTime() ? new Date(end.getTime() - 1) : end
+  return localDateOf(start, tz) <= days.to && localDateOf(last, tz) >= days.from
+}

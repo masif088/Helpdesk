@@ -101,7 +101,7 @@ export async function loadPeopleActivity(q: ActivityQuery, viewer: CalendarViewe
   }
 
   // ── calendar: leave, holidays and meetings in the period
-  const calendar = await listCalendarItems(viewer, { from: q.from, to: q.to, types: ['leave', 'holiday', 'meeting'], includeDerived: false }).catch(() => [])
+  const calendar = await listCalendarItems(viewer, { from: q.from, to: q.to, timeZone: q.timeZone, types: ['leave', 'holiday', 'meeting'], includeDerived: false }).catch(() => [])
   const involved = (i: { owner_id: string | null; attendee_ids: string[] }, uid: string) => i.owner_id === uid || i.attendee_ids.includes(uid)
 
   const agents = people.map((u) => {
@@ -113,7 +113,7 @@ export async function loadPeopleActivity(q: ActivityQuery, viewer: CalendarViewe
       b.seconds += e.part.seconds
       b.sessions++
       byTicket.set(e.row.ticketId, b)
-      for (const [k, v] of splitIntoBuckets(e.part.start, e.part.end, e.part.seconds, q.breakdown)) buckets.set(k, (buckets.get(k) ?? 0) + v)
+      for (const [k, v] of splitIntoBuckets(e.part.start, e.part.end, e.part.seconds, q.breakdown, q.timeZone)) buckets.set(k, (buckets.get(k) ?? 0) + v)
     }
     const trackedSeconds = mine.reduce((n, e) => n + e.part.seconds, 0)
     const timer = mine.find((e) => e.part.running && !e.row.stopTime)
@@ -172,6 +172,7 @@ export async function loadPeopleActivity(q: ActivityQuery, viewer: CalendarViewe
   return {
     from: q.from.toISOString(),
     to: q.to.toISOString(),
+    time_zone: q.timeZone,
     filters: {
       user_ids: q.userIds,
       agent_skills: q.agentSkills,

@@ -6,6 +6,8 @@
  * how much is on their plate, and are they away. Narrow it by person, client company or customer, the skills a ticket needs,
  * and ticket type.
  */
+// Relative, with the extension, on purpose: the tests load this file with plain Node, which knows no `@/` alias
+import { addDays, endOfDayInZone, isoInZone, localDateOf, parseDateBound, startOfDayInZone, todayInZone, zoneParts } from './app-time.ts'
 
 const DAY = 86_400_000
 const HOUR = 3_600_000
@@ -17,6 +19,8 @@ export type ActivityBreakdown = 'none' | 'day' | 'hour'
 export type ActivityQuery = {
   from: Date
   to: Date
+  /** The zone the dates, days and hours are read and written in (the app's time zone) */
+  timeZone: string
   /** Only these team members (the word `me` stands for the caller) */
   userIds: string[]
   /** Only team members who have these skills themselves */
@@ -40,19 +44,18 @@ export type ActivityQuery = {
 const list = (v: string | null): string[] => (v ? [...new Set(v.split(',').map((s) => s.trim()).filter(Boolean))] : [])
 const flag = (v: string | null): boolean => v === '1' || v === 'true'
 
-function moment(v: string | null, end: boolean): Date | null | 'bad' {
+function moment(v: string | null, end: boolean, tz: string): Date | null | 'bad' {
   if (!v) return null
-  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(v) ? `${v}T${end ? '23:59:59.999' : '00:00:00.000'}Z` : v)
-  return Number.isNaN(d.getTime()) ? 'bad' : d
+  return parseDateBound(v, tz, end) ?? 'bad'
 }
 
-/** Read and check the query string. The default period is today (UTC) up to the end of the day. */
-export function parseActivityQuery(params: URLSearchParams, meId: string, now = new Date()): ActivityQuery | { error: string } {
-  const f = moment(params.get('from'), false)
-  const t = moment(params.get('to'), true)
+/** Read and check the query string. A plain date means that whole day in `tz`; the default period is today in `tz`. */
+export function parseActivityQuery(params: URLSearchParams, meId: string, now = new Date(), tz = 'UTC'): ActivityQuery | { error: string } {
+  const f = moment(params.get('from'), false, tz)
+  const t = moment(params.get('to'), true, tz)
   if (f === 'bad' || t === 'bad') return { error: 'from and to must be dates (YYYY-MM-DD) or ISO date and time, e.g. 2026-11-03T09:00:00Z' }
-  const from = f ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-  const to = t ?? new Date(from.getTime() + DAY - 1)
+  const from = f ?? startOfDayInZone(todayInZone(tz, now), tz)
+  const to = t ?? endOfDayInZone(localDateOf(from, tz), tz)
   if (to.getTime() < from.getTime()) return { error: 'to must not be before from' }
   if (to.getTime() - from.getTime() > MAX_ACTIVITY_DAYS * DAY) return { error: `Ask for at most ${MAX_ACTIVITY_DAYS} days at a time` }
 
@@ -67,6 +70,7 @@ export function parseActivityQuery(params: URLSearchParams, meId: string, now = 
   return {
     from,
     to,
+    timeZone: tz,
     userIds: list(params.get('user_ids')).map((u) => (u === 'me' ? meId : u)),
     agentSkills: list(params.get('agent_skills')),
     teamIds: list(params.get('team_ids')),
@@ -127,33 +131,41 @@ export function sessionInRange(s: Session, from: Date, to: Date, now = new Date(
   return { start: a, end: b, seconds: inside && !running ? reported(s) : span, running }
 }
 
-/** The bucket (UTC day `YYYY-MM-DD`, or hour `YYYY-MM-DDTHH:00Z`) an instant belongs to. */
-export function bucketOf(d: Date, breakdown: ActivityBreakdown): string {
-  return breakdown === 'hour' ? `${d.toISOString().slice(0, 13)}:00Z` : d.toISOString().slice(0, 10)
+/** The start of the hour an instant is in, on the wall clock of the zone. */
+function startOfHour(ms: number, tz: string): number {
+  const p = zoneParts(new Date(ms), tz)
+  return ms - (p.minute * 60 + p.second) * 1000 - (((ms % 1000) + 1000) % 1000)
+}
+
+/** The bucket an instant belongs to in the zone: a day `YYYY-MM-DD`, or an hour `YYYY-MM-DDTHH:00+07:00`. */
+export function bucketOf(d: Date, breakdown: ActivityBreakdown, tz = 'UTC'): string {
+  return breakdown === 'hour' ? isoInZone(new Date(startOfHour(d.getTime(), tz)), tz) : localDateOf(d, tz)
 }
 
 /** Split seconds worked between two instants over the buckets they cross (so a night shift counts on both days). */
-export function splitIntoBuckets(start: Date, end: Date, seconds: number, breakdown: ActivityBreakdown): Map<string, number> {
+export function splitIntoBuckets(start: Date, end: Date, seconds: number, breakdown: ActivityBreakdown, tz = 'UTC'): Map<string, number> {
   const out = new Map<string, number>()
   if (breakdown === 'none') return out
-  const step = breakdown === 'hour' ? HOUR : DAY
   const span = end.getTime() - start.getTime()
   if (span <= 0) {
-    out.set(bucketOf(start, breakdown), seconds)
+    out.set(bucketOf(start, breakdown, tz), seconds)
     return out
   }
+  // The next edge between buckets on the wall clock of the zone (a day can be 23 or 25 hours long where daylight saving changes)
+  const nextEdge = (ms: number) => (breakdown === 'hour' ? startOfHour(ms, tz) + HOUR : startOfDayInZone(addDays(localDateOf(new Date(ms), tz), 1), tz).getTime())
   let at = start.getTime()
   let given = 0
   while (at < end.getTime()) {
-    const edge = Math.min(end.getTime(), Math.floor(at / step) * step + step)
+    const edge = Math.min(end.getTime(), nextEdge(at))
     const share = Math.round((seconds * (edge - at)) / span)
-    out.set(bucketOf(new Date(at), breakdown), (out.get(bucketOf(new Date(at), breakdown)) ?? 0) + share)
+    const key = bucketOf(new Date(at), breakdown, tz)
+    out.set(key, (out.get(key) ?? 0) + share)
     given += share
     at = edge
   }
   // Rounding must not lose or invent seconds: put the difference on the last bucket
   if (given !== seconds) {
-    const last = bucketOf(new Date(end.getTime() - 1), breakdown)
+    const last = bucketOf(new Date(end.getTime() - 1), breakdown, tz)
     out.set(last, (out.get(last) ?? 0) + (seconds - given))
   }
   return out

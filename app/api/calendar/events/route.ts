@@ -2,6 +2,7 @@ import { after, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { unauthorizedResponse } from '@/lib/api-key-http'
+import { getAppTimeZone } from '@/lib/app-time-server'
 import { CalendarError, calendarViewer, createCalendarEvent, listCalendarItems, parseCalendarRange } from '@/lib/calendar'
 
 export const dynamic = 'force-dynamic'
@@ -18,7 +19,8 @@ export async function GET(request: Request) {
   const session = await auth()
   if (!session?.user?.id) return unauthorizedResponse(session)
   const url = new URL(request.url)
-  const range = parseCalendarRange(url.searchParams.get('from'), url.searchParams.get('to'))
+  const timeZone = await getAppTimeZone()
+  const range = parseCalendarRange(url.searchParams.get('from'), url.searchParams.get('to'), new Date(), timeZone)
   if ('error' in range) return NextResponse.json({ error: range.error }, { status: 400 })
 
   const viewer = await calendarViewer(session.user as { id: string; role?: string | null })
@@ -31,7 +33,7 @@ export async function GET(request: Request) {
     companyIds: list(url.searchParams.get('company_ids')),
     includeDerived: url.searchParams.get('include_derived') !== '0',
   })
-  return NextResponse.json({ from: range.from.toISOString(), to: range.to.toISOString(), count: events.length, events })
+  return NextResponse.json({ from: range.from.toISOString(), to: range.to.toISOString(), time_zone: timeZone, count: events.length, events })
 }
 
 /** POST /api/calendar/events { type, title, start, end?, all_day?, … }: the team adds an event. See GET /api/calendar/lookup. */

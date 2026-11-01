@@ -3,6 +3,8 @@
  * were already there): by person, by skill, by last update, overdue, open. Pure helpers (no database imports) so the route,
  * the API builder and the tests share them. Staff only: a client's list is already limited to their own company.
  */
+// Relative, with the extension, on purpose: the tests load this file with plain Node, which knows no `@/` alias
+import { parseDateBound } from './app-time.ts'
 
 export type TicketApiFilters = {
   /** Assigned to any of these users (the word `me` stands for the caller) */
@@ -41,17 +43,16 @@ export const hasApiFilters = (f: TicketApiFilters): boolean =>
 const list = (v: string | null): string[] => (v ? [...new Set(v.split(',').map((s) => s.trim()).filter(Boolean))] : [])
 const flag = (v: string | null): boolean | null => (v === '1' || v === 'true' ? true : v === '0' || v === 'false' ? false : null)
 
-function day(v: string | null, end: boolean): Date | null | 'bad' {
+function day(v: string | null, end: boolean, tz: string): Date | null | 'bad' {
   if (!v) return null
-  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(v) ? `${v}T${end ? '23:59:59.999' : '00:00:00.000'}Z` : v)
-  return Number.isNaN(d.getTime()) ? 'bad' : d
+  return parseDateBound(v, tz, end) ?? 'bad'
 }
 
-/** Read the filters from the query string. `meId` replaces the word `me`. */
-export function parseTicketApiFilters(params: URLSearchParams, meId: string): TicketApiFilters | { error: string } {
+/** Read the filters from the query string. `meId` replaces the word `me`; a plain date means that day in `tz` (the app zone). */
+export function parseTicketApiFilters(params: URLSearchParams, meId: string, tz = 'UTC'): TicketApiFilters | { error: string } {
   const me = (ids: string[]) => ids.map((i) => (i === 'me' ? meId : i))
-  const from = day(params.get('updated_from'), false)
-  const to = day(params.get('updated_to'), true)
+  const from = day(params.get('updated_from'), false, tz)
+  const to = day(params.get('updated_to'), true, tz)
   if (from === 'bad' || to === 'bad') return { error: 'updated_from and updated_to must be dates (YYYY-MM-DD) or ISO date and time' }
   const match = params.get('skills_match')?.toLowerCase()
   if (match && match !== 'any' && match !== 'all') return { error: 'skills_match must be any or all' }
