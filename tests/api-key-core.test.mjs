@@ -33,6 +33,7 @@ test('scopeForRequest maps the team activity and nothing else under /api/users',
 test('the skill file is public even when a key is sent along', () => {
   assert.equal(isPublicApiRoute('GET', '/api/skill'), true)
   assert.equal(isPublicApiRoute('GET', '/api/skill/'), true)
+  assert.equal(isPublicApiRoute('GET', '/api/openapi.json'), true)
   assert.equal(isPublicApiRoute('POST', '/api/skill'), false)
   assert.equal(isPublicApiRoute('GET', '/api/users'), false)
 })

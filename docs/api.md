@@ -45,6 +45,7 @@ Content-Type: application/json
 | `PATCH /api/calendar/events/{id}` | `calendar:write` | Change an event: send only the fields to change. |
 | `DELETE /api/calendar/events/{id}` | `calendar:write` | Delete an event (all occurrences of a repeating one). |
 | `GET /api/users/activity` | `team:read` | Who worked in a period and how loaded the team is (admins and managers only, below). |
+| `GET /api/openapi.json` | none | The API as an OpenAPI 3.1 file, for Postman, ChatGPT Actions and the like. Public, holds no key. |
 | `GET /api/skill` | none | The skill file for an AI, with this portal's address. Public, holds no key. |
 
 Anything else answers `403 This endpoint is not available to API keys`. An unknown, revoked, expired or out-of-scope key answers `401`.
@@ -139,6 +140,11 @@ Per person you get:
 - The hourly count is kept in memory (one server process): it starts again from zero when the app restarts or is deployed.
 - Keys cannot upload attachments, edit, close or delete tickets. The people list is never returned to a key, and a customer's key sees only its own company in the lookup.
 - Demo reset removes the keys of the accounts it deletes.
+
+## OpenAPI and MCP
+
+`GET /api/openapi.json` describes the whole API for Postman, ChatGPT Actions and Swagger UI, and `mcp/server.mjs` is an MCP server that gives an
+AI assistant every call as a tool. See [mcp.md](mcp.md).
 
 ## Tutorial, builder and AI skill
 

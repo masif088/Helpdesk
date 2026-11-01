@@ -68,7 +68,10 @@ const ROUTES: Array<{ method: string; pattern: RegExp; scope: ApiKeyScope }> = [
 ]
 
 /** Calls that need no key at all (they hold nothing private), so a request that carries a key is not refused for them either. */
-const PUBLIC_ROUTES: Array<{ method: string; pattern: RegExp }> = [{ method: 'GET', pattern: /^\/api\/skill$/ }]
+const PUBLIC_ROUTES: Array<{ method: string; pattern: RegExp }> = [
+  { method: 'GET', pattern: /^\/api\/skill$/ },
+  { method: 'GET', pattern: /^\/api\/openapi\.json$/ },
+]
 
 export function isPublicApiRoute(method: string, pathname: string): boolean {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
