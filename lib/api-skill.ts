@@ -8,7 +8,7 @@ import { API_ENDPOINTS, paramTable } from './api-catalog.ts'
 
 export function buildApiSkill(baseUrl: string, callsPerHour = 100): string {
   const base = baseUrl.replace(/\/+$/, '')
-  const reference = (['Tickets', 'Calendar'] as const)
+  const reference = (['Tickets', 'Calendar', 'Team'] as const)
     .map((group) => {
       const endpoints = API_ENDPOINTS.filter((e) => e.group === group)
       return `### ${group}\n\n${endpoints
@@ -53,6 +53,7 @@ The key acts as one portal user, so you only see and do what that user may (a cl
 | See the calendar for a period | \`GET /api/calendar/events?from=…&to=…\` |
 | Valid calendar types, and what you may create | \`GET /api/calendar/lookup\` |
 | Add, change, delete an event | \`POST\` / \`PATCH\` / \`DELETE /api/calendar/events[/{id}]\` |
+| Who is working, how loaded is the team (admins and managers) | \`GET /api/users/activity?from=…&to=…\` |
 
 Not available to a key: editing, closing, assigning or deleting tickets, uploads, and anything else. If the user wants that, tell them to do it in the portal.
 
@@ -124,6 +125,24 @@ Workflows:
 - Move or rename: \`PATCH /api/calendar/events/{id}\` with only the changed fields. Cancel: \`DELETE\`.
 
 Who sees an event is the \`visibility\`: \`private\` (only you), \`staff\` (the team), \`company\` (the team and the client company in \`company_id\`), \`everyone\` (managers only). Only the team can add events; a client key can read what is meant for them but is refused when it writes.
+
+## Who is working and how loaded the team is
+
+\`GET /api/users/activity\` answers, for a period, which team members worked, for how long, on what, and what is on their plate. Only a key of an admin or manager may call it (it shows what colleagues did); anyone else gets \`403\`.
+
+- \`from\` / \`to\`: whole days (\`2026-11-03\`) or UTC moments to look at hours (\`from=2026-11-03T09:00:00Z&to=2026-11-03T12:00:00Z\`). Default is today. At most 62 days.
+- Narrow it with \`user_ids\` (\`me\` for the key's user), \`agent_skills\` (people who have the skill), \`team_ids\`, and the ticket filters \`company_ids\`, \`customer_ids\`, \`skills\` (what the ticket needs), \`type_ids\`: then only work on matching tickets counts. \`only_working=1\` leaves out people who did nothing in the period; \`breakdown=day|hour\` adds time per day or hour; \`include_tickets=1\` lists the tickets each person worked on.
+- Each person has \`working\` (worked in the period or has a timer running), \`tracked_seconds\` (only the part inside the period), \`active_timer\` (the ticket they are on right now), \`load\` (open tickets assigned: \`open\`, \`active\`, \`waiting_on_client\`, \`overdue\`, \`due_in_period\`, \`matching_filters\`) and \`calendar\` (\`on_leave\`, meetings). \`totals.unassigned_matching\` counts open tickets matching your filters that nobody has.
+
+Examples:
+
+\`\`\`
+GET /api/users/activity?from=2026-11-03T09:00:00Z&to=2026-11-03T12:00:00Z&only_working=1   who worked that morning
+GET /api/users/activity?skills=WordPress&company_ids=<id>&from=2026-11-01&to=2026-11-30&include_tickets=1
+GET /api/users/activity?agent_skills=Billing                                              who could take billing work, and how busy are they
+\`\`\`
+
+Report times to the user as hours and minutes, in their time zone, and say what the period was. A person on leave (\`calendar.on_leave\`) is not available even when they show no work.
 
 ## Rules
 

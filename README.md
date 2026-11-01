@@ -48,6 +48,7 @@ clients, internal support desks. If you can follow a step-by-step guide, you can
 - **Automation.** Rules that fire on ticket events or after idle time, recurring tickets, canned responses with
   placeholders, message templates, Slack alerts.
 - **AI help** (optional, bring your own key): ticket summaries and draft replies.
+- **Team activity.** See who worked in any period (days or hours): time tracked, tickets worked on, open load, leave and meetings, filterable by person, client company, skill and ticket type (see [docs/api.md](docs/api.md)).
 - **Calendar.** Meetings, leave, holidays, events, training and maintenance windows, plus ticket and invoice due dates, in one calendar with repeating events (see [docs/calendar.md](docs/calendar.md)).
 - **Time tracking and billing.** Job types, billable hours, monthly retainer invoices, deposits, and online payment of
   invoices through Midtrans or Xendit.

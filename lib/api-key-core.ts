@@ -2,7 +2,7 @@
 
 export const API_KEY_PREFIX = 'tk_live_'
 
-export const API_KEY_SCOPES = ['tickets:read', 'tickets:create', 'comments:create', 'calendar:read', 'calendar:write'] as const
+export const API_KEY_SCOPES = ['tickets:read', 'tickets:create', 'comments:create', 'calendar:read', 'calendar:write', 'team:read'] as const
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number]
 
 export const API_KEY_SCOPE_LABELS: Record<ApiKeyScope, string> = {
@@ -11,6 +11,7 @@ export const API_KEY_SCOPE_LABELS: Record<ApiKeyScope, string> = {
   'comments:create': 'Add comments / notes to tickets',
   'calendar:read': 'Read the calendar (meetings, leave, holidays, due dates)',
   'calendar:write': 'Add, change and delete calendar events',
+  'team:read': 'Read team activity (who is working, time tracked, load): admins and managers',
 }
 
 /** Calls per hour a key may make unless the admin sets another limit on it */
@@ -63,6 +64,7 @@ const ROUTES: Array<{ method: string; pattern: RegExp; scope: ApiKeyScope }> = [
   { method: 'POST', pattern: /^\/api\/calendar\/events$/, scope: 'calendar:write' },
   { method: 'PATCH', pattern: /^\/api\/calendar\/events\/[\w-]+$/, scope: 'calendar:write' },
   { method: 'DELETE', pattern: /^\/api\/calendar\/events\/[\w-]+$/, scope: 'calendar:write' },
+  { method: 'GET', pattern: /^\/api\/users\/activity$/, scope: 'team:read' },
 ]
 
 /** Calls that need no key at all (they hold nothing private), so a request that carries a key is not refused for them either. */

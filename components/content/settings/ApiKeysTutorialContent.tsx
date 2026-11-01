@@ -98,6 +98,7 @@ export default function ApiKeysTutorialContent({ user, baseUrl, skill, isAdmin =
                   { call: 'GET /api/calendar/events?from=…&to=…', scope: 'calendar:read', what: 'Calendar: meetings, leave, holidays, events and due dates of a period' },
                   { call: 'GET /api/calendar/lookup', scope: 'calendar:read', what: 'Event types and what the key\'s user may create' },
                   { call: 'POST / PATCH / DELETE /api/calendar/events', scope: 'calendar:write', what: 'Add, change or delete an event (the team only)' },
+                  { call: 'GET /api/users/activity?from=…&to=…', scope: 'team:read', what: 'Who worked in a period, time tracked, load and leave. Admins and managers only. Filters: person, skill, company, customer, ticket type' },
                 ]}
                 columns={[
                   { title: 'Call', dataIndex: 'call', render: (v: string) => <Text code>{v}</Text> },

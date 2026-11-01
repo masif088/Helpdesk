@@ -1,0 +1,181 @@
+/**
+ * "Who is working, and how loaded are they": the parts that need no database. Used by `lib/people-activity.ts`
+ * (GET /api/users/activity), the API builder and the tests.
+ *
+ * The question it answers: in a period (days, or hours of a day), which team members worked on tickets, for how long, on what,
+ * how much is on their plate, and are they away. Narrow it by person, client company or customer, the skills a ticket needs,
+ * and ticket type.
+ */
+
+const DAY = 86_400_000
+const HOUR = 3_600_000
+export const MAX_ACTIVITY_DAYS = 62
+export const MAX_HOURLY_DAYS = 3
+
+export type ActivityBreakdown = 'none' | 'day' | 'hour'
+
+export type ActivityQuery = {
+  from: Date
+  to: Date
+  /** Only these team members (the word `me` stands for the caller) */
+  userIds: string[]
+  /** Only team members who have these skills themselves */
+  agentSkills: string[]
+  teamIds: string[]
+  /** Only work on tickets of these client companies */
+  companyIds: string[]
+  /** Only work on tickets opened by, or with as contact, these client users */
+  customerIds: string[]
+  /** Only work on tickets that need these skills */
+  skills: string[]
+  skillsMatch: 'any' | 'all'
+  typeIds: number[]
+  /** Leave out people who did not work in the period */
+  onlyWorking: boolean
+  breakdown: ActivityBreakdown
+  /** List the tickets each person worked on */
+  includeTickets: boolean
+}
+
+const list = (v: string | null): string[] => (v ? [...new Set(v.split(',').map((s) => s.trim()).filter(Boolean))] : [])
+const flag = (v: string | null): boolean => v === '1' || v === 'true'
+
+function moment(v: string | null, end: boolean): Date | null | 'bad' {
+  if (!v) return null
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(v) ? `${v}T${end ? '23:59:59.999' : '00:00:00.000'}Z` : v)
+  return Number.isNaN(d.getTime()) ? 'bad' : d
+}
+
+/** Read and check the query string. The default period is today (UTC) up to the end of the day. */
+export function parseActivityQuery(params: URLSearchParams, meId: string, now = new Date()): ActivityQuery | { error: string } {
+  const f = moment(params.get('from'), false)
+  const t = moment(params.get('to'), true)
+  if (f === 'bad' || t === 'bad') return { error: 'from and to must be dates (YYYY-MM-DD) or ISO date and time, e.g. 2026-11-03T09:00:00Z' }
+  const from = f ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  const to = t ?? new Date(from.getTime() + DAY - 1)
+  if (to.getTime() < from.getTime()) return { error: 'to must not be before from' }
+  if (to.getTime() - from.getTime() > MAX_ACTIVITY_DAYS * DAY) return { error: `Ask for at most ${MAX_ACTIVITY_DAYS} days at a time` }
+
+  const match = params.get('skills_match')?.toLowerCase()
+  if (match && match !== 'any' && match !== 'all') return { error: 'skills_match must be any or all' }
+  const breakdown = (params.get('breakdown') ?? 'none').toLowerCase()
+  if (breakdown !== 'none' && breakdown !== 'day' && breakdown !== 'hour') return { error: 'breakdown must be none, day or hour' }
+  if (breakdown === 'hour' && to.getTime() - from.getTime() > MAX_HOURLY_DAYS * DAY) return { error: `breakdown=hour needs a period of at most ${MAX_HOURLY_DAYS} days` }
+  const typeIds = list(params.get('type_ids')).map(Number)
+  if (typeIds.some((n) => !Number.isInteger(n))) return { error: 'type_ids must be ticket type numbers' }
+
+  return {
+    from,
+    to,
+    userIds: list(params.get('user_ids')).map((u) => (u === 'me' ? meId : u)),
+    agentSkills: list(params.get('agent_skills')),
+    teamIds: list(params.get('team_ids')),
+    companyIds: list(params.get('company_ids')),
+    customerIds: list(params.get('customer_ids')),
+    skills: list(params.get('skills')),
+    skillsMatch: match === 'all' ? 'all' : 'any',
+    typeIds,
+    onlyWorking: flag(params.get('only_working')),
+    breakdown,
+    includeTickets: flag(params.get('include_tickets')),
+  }
+}
+
+/** Does the query narrow down tickets (so work on other tickets does not count)? */
+export const hasTicketFilters = (q: ActivityQuery): boolean => q.companyIds.length > 0 || q.customerIds.length > 0 || q.skills.length > 0 || q.typeIds.length > 0
+
+const key = (s: string) => s.trim().toLowerCase()
+
+export type FilterableTicket = { companyId: string | null; typeId: number | null; createdBy: string | null; contactUserId: string | null }
+
+/** Does a ticket pass the ticket filters? `skills` are the skills the ticket needs (see `effectiveSkillsFor`). */
+export function ticketPassesActivityFilters(t: FilterableTicket, q: ActivityQuery, skills: string[]): boolean {
+  if (q.companyIds.length && !(t.companyId && q.companyIds.includes(t.companyId))) return false
+  if (q.typeIds.length && !(t.typeId != null && q.typeIds.includes(t.typeId))) return false
+  if (q.customerIds.length && !((t.createdBy && q.customerIds.includes(t.createdBy)) || (t.contactUserId && q.customerIds.includes(t.contactUserId)))) return false
+  if (q.skills.length) {
+    const have = new Set(skills.map(key))
+    const ok = q.skillsMatch === 'all' ? q.skills.every((s) => have.has(key(s))) : q.skills.some((s) => have.has(key(s)))
+    if (!ok) return false
+  }
+  return true
+}
+
+export type Session = { startTime: Date | string; stopTime: Date | string | null; durationSeconds?: number | null; durationAdjustment?: number | null }
+
+/** Same rule as billing: an explicit adjustment wins over the tracked duration. */
+const reported = (s: Pick<Session, 'durationSeconds' | 'durationAdjustment'>): number => {
+  const adj = s.durationAdjustment
+  if (adj != null && Number.isFinite(adj)) return Math.max(0, Math.floor(adj))
+  return Math.max(0, Math.floor(s.durationSeconds ?? 0))
+}
+
+/**
+ * The part of a time entry that falls in [from, to]. A running timer counts up to `now` (or `to`). An entry that lies fully inside
+ * the period counts its reported time (so adjustments count); one that crosses the edge counts only the overlapping span.
+ * Null when it does not touch the period.
+ */
+export function sessionInRange(s: Session, from: Date, to: Date, now = new Date()): { start: Date; end: Date; seconds: number; running: boolean } | null {
+  const start = new Date(s.startTime)
+  const running = !s.stopTime
+  const stop = running ? new Date(Math.min(now.getTime(), to.getTime())) : new Date(s.stopTime as Date | string)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(stop.getTime()) || stop.getTime() < from.getTime() || start.getTime() > to.getTime()) return null
+  const inside = start.getTime() >= from.getTime() && stop.getTime() <= to.getTime()
+  const a = new Date(Math.max(start.getTime(), from.getTime()))
+  const b = new Date(Math.min(stop.getTime(), to.getTime()))
+  const span = Math.max(0, Math.floor((b.getTime() - a.getTime()) / 1000))
+  return { start: a, end: b, seconds: inside && !running ? reported(s) : span, running }
+}
+
+/** The bucket (UTC day `YYYY-MM-DD`, or hour `YYYY-MM-DDTHH:00Z`) an instant belongs to. */
+export function bucketOf(d: Date, breakdown: ActivityBreakdown): string {
+  return breakdown === 'hour' ? `${d.toISOString().slice(0, 13)}:00Z` : d.toISOString().slice(0, 10)
+}
+
+/** Split seconds worked between two instants over the buckets they cross (so a night shift counts on both days). */
+export function splitIntoBuckets(start: Date, end: Date, seconds: number, breakdown: ActivityBreakdown): Map<string, number> {
+  const out = new Map<string, number>()
+  if (breakdown === 'none') return out
+  const step = breakdown === 'hour' ? HOUR : DAY
+  const span = end.getTime() - start.getTime()
+  if (span <= 0) {
+    out.set(bucketOf(start, breakdown), seconds)
+    return out
+  }
+  let at = start.getTime()
+  let given = 0
+  while (at < end.getTime()) {
+    const edge = Math.min(end.getTime(), Math.floor(at / step) * step + step)
+    const share = Math.round((seconds * (edge - at)) / span)
+    out.set(bucketOf(new Date(at), breakdown), (out.get(bucketOf(new Date(at), breakdown)) ?? 0) + share)
+    given += share
+    at = edge
+  }
+  // Rounding must not lose or invent seconds: put the difference on the last bucket
+  if (given !== seconds) {
+    const last = bucketOf(new Date(end.getTime() - 1), breakdown)
+    out.set(last, (out.get(last) ?? 0) + (seconds - given))
+  }
+  return out
+}
+
+export type Interval = { start: Date; end: Date }
+
+/** Total length of the union of intervals, in seconds (overlapping entries are not counted twice). */
+export function unionSeconds(intervals: Interval[]): number {
+  const sorted = [...intervals].sort((a, b) => a.start.getTime() - b.start.getTime())
+  let total = 0
+  let curStart = -1
+  let curEnd = -1
+  for (const i of sorted) {
+    const s = i.start.getTime()
+    const e = i.end.getTime()
+    if (curEnd < 0 || s > curEnd) {
+      if (curEnd >= 0) total += curEnd - curStart
+      curStart = s
+      curEnd = e
+    } else if (e > curEnd) curEnd = e
+  }
+  if (curEnd >= 0) total += curEnd - curStart
+  return Math.floor(total / 1000)
+}

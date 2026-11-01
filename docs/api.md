@@ -14,7 +14,7 @@ Admin: **Settings → API keys → New key**.
 | --- | --- |
 | Name | Shown on every ticket and comment made with the key, e.g. `Claude (Acme)`. Use `<tool> (<who>)`. |
 | Acts as | The user the key works as. Their role and company decide what the key sees. |
-| Allowed | `tickets:read`, `tickets:create`, `comments:create`, `calendar:read`, `calendar:write`. Give only what is needed. |
+| Allowed | `tickets:read`, `tickets:create`, `comments:create`, `calendar:read`, `calendar:write`, `team:read`. Give only what is needed. |
 | Calls per hour | Default 100, changeable per key (also later, in the list). More answers `429` with a `Retry-After` header. |
 | Expires | Days; empty means no expiry. |
 
@@ -44,6 +44,7 @@ Content-Type: application/json
 | `POST /api/calendar/events` | `calendar:write` | Add an event (the team only). |
 | `PATCH /api/calendar/events/{id}` | `calendar:write` | Change an event: send only the fields to change. |
 | `DELETE /api/calendar/events/{id}` | `calendar:write` | Delete an event (all occurrences of a repeating one). |
+| `GET /api/users/activity` | `team:read` | Who worked in a period and how loaded the team is (admins and managers only, below). |
 | `GET /api/skill` | none | The skill file for an AI, with this portal's address. Public, holds no key. |
 
 Anything else answers `403 This endpoint is not available to API keys`. An unknown, revoked, expired or out-of-scope key answers `401`.
@@ -91,6 +92,40 @@ GET /api/calendar/events?from=2026-11-01&to=2026-11-30&types=meeting,leave&user_
 
 The answer is `{ from, to, count, events: [...] }`. It contains stored events (repeating ones unfolded into occurrences) and
 items computed from elsewhere: `ticket_due` (a ticket's due date) and `invoice_due` (managers only), which cannot be edited.
+
+## Who is working: team activity
+
+`GET /api/users/activity` shows, for a period, what each team member did and what is on their plate. It is for admins and managers
+(a key must act as one): it shows what colleagues did.
+
+```
+GET /api/users/activity?from=2026-11-03T09:00:00Z&to=2026-11-03T12:00:00Z&only_working=1
+GET /api/users/activity?skills=WordPress&company_ids=<id>&from=2026-11-01&to=2026-11-30&include_tickets=1
+GET /api/users/activity?agent_skills=Billing        who could take billing work, and how busy are they
+```
+
+| Parameter | Meaning |
+| --- | --- |
+| `from`, `to` | The period: whole days (`2026-11-03`) or UTC moments to look at hours. Default: today. At most 62 days |
+| `user_ids`, `team_ids` | Only these team members, or members of these teams (`me` = the key's user) |
+| `agent_skills` | Only people who have one of these skills themselves |
+| `company_ids`, `customer_ids`, `type_ids` | Only work on tickets of these companies, opened by (or with as contact) these client users, of these types |
+| `skills`, `skills_match=any\|all` | Only work on tickets that need these skills (the ticket's own, else its client's for the type, else the defaults of type and tags) |
+| `only_working=1` | Leave out people who did not work in the period |
+| `breakdown=day\|hour` | Add the time per day or per hour (hour: at most 3 days) |
+| `include_tickets=1` | List the tickets each person worked on, with the time on each |
+
+Per person you get:
+
+- `working`, `tracked_seconds`, `sessions`, `first_start`, `last_end`: the time they tracked **inside the period**. An entry that crosses the edge counts
+  only its overlap; an entry fully inside counts its reported time (adjustments included, like billing). A running timer counts up to now.
+- `active_timer`: the ticket they are working on right now.
+- `load`: open support tickets assigned to them: `open`, `active` (not waiting on the client), `waiting_on_client`, `overdue`,
+  `due_in_period`, and `matching_filters` (those that pass the ticket filters).
+- `calendar`: `on_leave` (with the leave entries) and the meetings they are in, in the period.
+
+`totals.unassigned_matching` counts open tickets that match the ticket filters and that nobody is assigned to: work waiting for someone.
+`holidays` lists the calendar holidays in the period.
 
 ## How API activity is marked
 

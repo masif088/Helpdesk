@@ -33,6 +33,7 @@ const PICKERS: Record<string, Picker> = {
   team_ids: { kind: 'teams', multi: true },
   tag_ids: { kind: 'tags', multi: true },
   skills: { kind: 'skills', multi: true },
+  agent_skills: { kind: 'skills', multi: true },
 }
 
 const METHOD_COLOR: Record<string, string> = { GET: 'blue', POST: 'green', PATCH: 'orange', DELETE: 'red' }
@@ -150,7 +151,7 @@ export default function ApiBuilderContent({ user, baseUrl, isAdmin }: Props) {
     return <Input value={value} placeholder={p.example ? `e.g. ${p.example}` : p.type === 'list' ? 'comma separated' : undefined} onChange={(e) => set(p.name, e.target.value)} allowClear />
   }
 
-  const grouped = (['Tickets', 'Calendar'] as const).map((g) => ({ label: g, options: API_ENDPOINTS.filter((e) => e.group === g).map((e) => ({ value: e.id, label: `${e.method}  ${e.path}` })) }))
+  const grouped = (['Tickets', 'Calendar', 'Team'] as const).map((g) => ({ label: g, options: API_ENDPOINTS.filter((e) => e.group === g).map((e) => ({ value: e.id, label: `${e.method}  ${e.path}` })) }))
   const sections: { title: string; where: ApiParam['where'] }[] = [
     { title: 'Path', where: 'path' },
     { title: 'Filters and options', where: 'query' },

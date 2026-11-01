@@ -22,7 +22,7 @@ export type ApiParam = {
 
 export type ApiEndpoint = {
   id: string
-  group: 'Tickets' | 'Calendar'
+  group: 'Tickets' | 'Calendar' | 'Team'
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   /** With `{id}` placeholders */
   path: string
@@ -200,6 +200,29 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     scope: 'calendar:write',
     summary: 'Delete an event (all occurrences of a repeating one).',
     params: [id('Event id', '3f2b8a9c-1d4e-4f6a-9b0c-123456789abc')],
+  },
+  {
+    id: 'team.activity',
+    group: 'Team',
+    method: 'GET',
+    path: '/api/users/activity',
+    scope: 'team:read',
+    summary: 'Who worked in a period, and how loaded the team is. Per team member: time tracked (clipped to the period), tickets worked on, a running timer, open tickets assigned, and leave and meetings from the calendar. Admins and managers only.',
+    params: [
+      { name: 'from', where: 'query', type: 'text', description: 'Start of the period: a date `YYYY-MM-DD` (whole days) or an ISO moment in UTC to look at hours, e.g. `2026-11-03T09:00:00Z`. Default: today', example: '2026-11-03T09:00:00Z' },
+      { name: 'to', where: 'query', type: 'text', description: 'End of the period, same format (a date means the end of that day). At most 62 days apart', example: '2026-11-03T17:00:00Z' },
+      { name: 'user_ids', where: 'query', type: 'list', description: "Only these team members; `me` = the key's user", example: 'me' },
+      { name: 'agent_skills', where: 'query', type: 'list', description: 'Only team members who have one of these skills themselves', example: 'WordPress' },
+      { name: 'team_ids', where: 'query', type: 'list', description: 'Only members of these teams' },
+      { name: 'company_ids', where: 'query', type: 'list', description: 'Only work on tickets of these client companies' },
+      { name: 'customer_ids', where: 'query', type: 'list', description: 'Only work on tickets opened by, or with as contact, these client users' },
+      { name: 'skills', where: 'query', type: 'list', description: "Only work on tickets that need these skills (the ticket's own, else its client's for the type, else the defaults of type and tags)", example: 'WordPress' },
+      { name: 'skills_match', where: 'query', type: 'enum', options: ['any', 'all'], description: 'any (default): one skill is enough; all: every skill' },
+      { name: 'type_ids', where: 'query', type: 'list', description: 'Only work on tickets of these types (see the ticket lookup)', example: '3' },
+      { name: 'only_working', where: 'query', type: 'boolean', description: '1 = leave out people who did not work in the period', example: '1' },
+      { name: 'breakdown', where: 'query', type: 'enum', options: ['none', 'day', 'hour'], description: 'Add the time per day or per hour (hour: at most 3 days)', example: 'hour' },
+      { name: 'include_tickets', where: 'query', type: 'boolean', description: '1 = list the tickets each person worked on, with the time on each (max 25)', example: '1' },
+    ],
   },
 ]
 

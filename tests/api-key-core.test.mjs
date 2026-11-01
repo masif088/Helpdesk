@@ -23,6 +23,13 @@ test('scopeForRequest maps the calendar', () => {
   assert.equal(scopeForRequest('GET', '/api/calendar/events/a/b'), null)
 })
 
+test('scopeForRequest maps the team activity and nothing else under /api/users', () => {
+  assert.equal(scopeForRequest('GET', '/api/users/activity'), 'team:read')
+  assert.equal(scopeForRequest('POST', '/api/users/activity'), null)
+  assert.equal(scopeForRequest('GET', '/api/users/skills'), null)
+  assert.equal(scopeForRequest('GET', '/api/users/time-tracker'), null)
+})
+
 test('the skill file is public even when a key is sent along', () => {
   assert.equal(isPublicApiRoute('GET', '/api/skill'), true)
   assert.equal(isPublicApiRoute('GET', '/api/skill/'), true)
