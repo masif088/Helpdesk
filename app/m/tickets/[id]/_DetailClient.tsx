@@ -7,7 +7,7 @@ import { BottomNav } from '../../_components'
 import { PRIORITY_COLOR } from '../../_constants'
 
 interface Comment {
-  id: number
+  id: string
   author: string
   role: 'customer' | 'agent'
   body: string

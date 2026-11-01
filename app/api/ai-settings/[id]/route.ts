@@ -63,7 +63,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       codexBaseUrl: resolve(body.codexBaseUrl, existing.codexBaseUrl),
       codexModel: resolve(body.codexModel, existing.codexModel),
       updatedAt: new Date(),
-      updatedBy: session.user.id,
+      updatedBy: session.user?.id ?? null,
     })
   if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 

@@ -220,7 +220,7 @@ export async function sendRequesterTicketCreatedEmail(
           metadataHeaders: ['Message-ID'],
         })
         const msgIdHeader = (msgRes.data.payload?.headers || []).find(
-          (h: { name: string; value: string }) => h.name.toLowerCase() === 'message-id'
+          (h) => h.name?.toLowerCase() === 'message-id'
         )
         sentRfcMessageId = msgIdHeader?.value?.trim() ?? null
       } catch {

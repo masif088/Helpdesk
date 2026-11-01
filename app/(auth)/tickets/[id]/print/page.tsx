@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import type { ComponentProps } from 'react'
 
 import { auth } from '@/auth'
 import TicketPrintView from '@/components/ticket/TicketPrintView'
@@ -38,5 +39,5 @@ export default async function TicketPrintPage({ params }: { params: Promise<{ id
   const data = await getTicketDetail(ticketId, options)
   if (!data) redirect('/tickets?ticket_error=no_access')
 
-  return <TicketPrintView ticketData={data.ticketData} comments={data.comments} isAgent={!isCustomer} />
+  return <TicketPrintView ticketData={data.ticketData} comments={data.comments as ComponentProps<typeof TicketPrintView>['comments']} isAgent={!isCustomer} />
 }

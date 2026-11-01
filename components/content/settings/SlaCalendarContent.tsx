@@ -1,7 +1,7 @@
 'use client'
 
 import { App, Button, DatePicker, Layout, Select, Switch, Tag, TimePicker, Typography } from 'antd'
-import dayjs from 'dayjs'
+import dayjs, { type Dayjs } from 'dayjs'
 import { useState } from 'react'
 
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
@@ -122,7 +122,7 @@ export default function SlaCalendarContent({ user, initial }: Props) {
                 placeholder="Add a holiday"
                 disabled={!cal.enabled}
                 value={null}
-                onChange={(v) => v && setCal((c) => ({ ...c, holidays: [...new Set([...c.holidays, v.format('YYYY-MM-DD')])].sort() }))}
+                onChange={(v: Dayjs | null) => v && setCal((c) => ({ ...c, holidays: [...new Set([...c.holidays, v.format('YYYY-MM-DD')])].sort() }))}
               />
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {cal.holidays.length ? (

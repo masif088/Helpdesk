@@ -222,7 +222,7 @@ export default function AiIntegrationContent({ user: currentUser, config }: Prop
   return (
     <Layout style={{ minHeight: '100vh' }}>
       {ctx}
-      <AdminSidebar user={currentUser} collapsed={collapsed} onCollapse={setCollapsed} />
+      <AdminSidebar user={{ ...currentUser, role: currentUser.role ?? undefined }} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={currentUser}>
         <Content className="settings-page" style={{ padding: 24, width: '100%' }}>
           <SettingsPageHeader

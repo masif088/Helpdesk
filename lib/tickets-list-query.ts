@@ -15,7 +15,8 @@ export function normalizeTicketsPageLimit(n: unknown): TicketsPageLimit {
 
 export type TicketsListQueryKeyPayload = {
   isCustomer: boolean
-  ticketsPageLimit: TicketsPageLimit
+  /** One of the page sizes, or 9999 for "everything" (list and card views page by themselves) */
+  ticketsPageLimit: TicketsPageLimit | 9999
   filterCompanyIds: string
   filterStatus: string
   filterTypeIds: string
@@ -27,6 +28,8 @@ export type TicketsListQueryKeyPayload = {
   filterTicketType: string
   filterScope: string
   lookupReady: boolean
+  /** Which fields the search looks in (a different choice must fetch again) */
+  searchFields: string
 }
 
 function rangeKey(r: [Dayjs | null, Dayjs | null] | null): string {
@@ -74,6 +77,7 @@ export function buildTicketsListQueryKey(
     filterTicketType: ctx.filterTicketType ?? '',
     filterScope: ctx.filterScope ?? '',
     lookupReady: ctx.lookupReady,
+    searchFields: ctx.searchFields,
   }
   return ['tickets', 'list', payload] as const
 }

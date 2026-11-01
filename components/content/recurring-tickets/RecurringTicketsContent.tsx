@@ -259,7 +259,7 @@ export default function RecurringTicketsContent({ user }: Props) {
   return (
     <Layout style={{ minHeight: '100vh' }}>
       {contextHolder}
-      <AdminSidebar user={user} collapsed={collapsed} onCollapse={setCollapsed} />
+      <AdminSidebar user={{ ...user, role: user.role ?? undefined }} collapsed={collapsed} onCollapse={setCollapsed} />
       <AdminMainColumn collapsed={collapsed} user={user}>
         <div className="settings-page" style={{ padding: 24, width: '100%' }}>
           <SettingsPageHeader

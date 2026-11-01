@@ -16,6 +16,8 @@ export type AppSettingsMap = {
   invoice_footer: string | null
   /** SLA business hours and holidays (JSON, see lib/sla-calendar.ts); null = clocks run around the clock */
   sla_calendar: string | null
+  /** Comma separated emails of colleagues whose mail counts as internal (inbox sync); empty = none */
+  trusted_internal_senders: string | null
 }
 
 export const DEFAULT_INBOX_REMINDER_HOURS = 4
@@ -31,6 +33,7 @@ const DEFAULTS: AppSettingsMap = {
   invoice_payment_info: null,
   invoice_footer: null,
   sla_calendar: null,
+  trusted_internal_senders: null,
 }
 
 /** In-process cache: app settings are read on every page render (root layout metadata) but rarely change. */
@@ -67,6 +70,7 @@ async function loadAppSettings(): Promise<AppSettingsMap> {
     invoice_payment_info: map['invoice_payment_info'] ?? null,
     invoice_footer: map['invoice_footer'] ?? null,
     sla_calendar: map['sla_calendar'] ?? null,
+    trusted_internal_senders: map['trusted_internal_senders'] ?? null,
   }
 }
 

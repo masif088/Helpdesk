@@ -35,7 +35,8 @@ jobs:
         run: npm run lint
 
       - name: Types
-        run: npx tsc --noEmit
+        # The project is big: Node's default heap (about 2 GB) runs out, so the script gives tsc 6 GB (a runner has 7)
+        run: npm run typecheck
 
       - name: Tests
         run: npm test

@@ -51,7 +51,7 @@ let draftCounter = 0
 function newId() { return `__new__${++draftCounter}` }
 
 interface Props {
-  user: { id?: string; email?: string | null; name?: string | null; role?: string | null }
+  user: { id: string; email?: string | null; name?: string | null; role?: string | null }
 }
 
 export default function ChecklistTemplatesContent({ user: currentUser }: Props) {

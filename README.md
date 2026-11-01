@@ -110,7 +110,7 @@ Useful commands:
 ```bash
 npm run dev            # development server
 npm run lint           # ESLint
-npx tsc --noEmit       # type check
+npm run typecheck      # type check (gives tsc 6 GB: the default heap is too small)
 npm test               # unit tests (Node's built-in test runner)
 npm run build          # production build
 ```
@@ -257,7 +257,7 @@ This project is open for discussion and for building together, whatever your lev
   in the issue first so nobody works twice on the same thing. Then:
   1. Fork, and create a branch from `main`.
   2. Make the change. Keep it focused; follow the surrounding code style.
-  3. Run `npm run lint`, `npx tsc --noEmit` and `npm test`. Add a test when you touch logic.
+  3. Run `npm run lint`, `npm run typecheck` and `npm test`. Add a test when you touch logic.
   4. Open a pull request that says what changed and why.
 
 Ground rules: **code, UI text, comments and commit messages are in English** (conversations can be in any language), and
