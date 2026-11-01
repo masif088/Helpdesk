@@ -19,6 +19,8 @@ test('scopeForRequest maps the calendar', () => {
   assert.equal(scopeForRequest('POST', '/api/calendar/events'), 'calendar:write')
   assert.equal(scopeForRequest('PATCH', '/api/calendar/events/abc-123'), 'calendar:write')
   assert.equal(scopeForRequest('DELETE', '/api/calendar/events/abc-123'), 'calendar:write')
+  assert.equal(scopeForRequest('POST', '/api/calendar/events/abc-123/respond'), 'calendar:write')
+  assert.equal(scopeForRequest('GET', '/api/calendar/events/abc-123/respond'), null)
   assert.equal(scopeForRequest('DELETE', '/api/calendar/events'), null)
   assert.equal(scopeForRequest('GET', '/api/calendar/events/a/b'), null)
 })

@@ -20,7 +20,16 @@ export type TicketNotificationType =
   | 'csat_low'
 
 /** Bell notifications that are not about a ticket: they open `href` instead */
-export type GeneralNotificationType = 'invoice_overdue' | 'deposit_low' | 'retainer_invoiced'
+export type GeneralNotificationType =
+  | 'invoice_overdue'
+  | 'deposit_low'
+  | 'retainer_invoiced'
+  /** Calendar: invited, changed, cancelled, starting soon, someone answered */
+  | 'calendar_invite'
+  | 'calendar_update'
+  | 'calendar_cancel'
+  | 'calendar_reminder'
+  | 'calendar_response'
 
 export function diffNewAssignees(beforeIds: string[], afterIds: string[]): string[] {
   const before = new Set(beforeIds)

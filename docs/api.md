@@ -43,6 +43,7 @@ Content-Type: application/json
 | `GET /api/calendar/events/{id}` | `calendar:read` | One stored event. |
 | `GET /api/calendar/lookup` | `calendar:read` | Event types and what the key's user may create. |
 | `POST /api/calendar/events` | `calendar:write` | Add an event (the team only). |
+| `POST /api/calendar/events/{id}/respond` | `calendar:write` | Answer an invitation as the key's user: `accepted`, `declined` or `tentative`. Only invited people can; the maker is told. |
 | `PATCH /api/calendar/events/{id}` | `calendar:write` | Change an event: send only the fields to change. |
 | `DELETE /api/calendar/events/{id}` | `calendar:write` | Delete an event (all occurrences of a repeating one). |
 | `GET /api/users/activity` | `team:read` | Who worked in a period and how loaded the team is (admins and managers only, below). |

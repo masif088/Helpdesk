@@ -5,8 +5,9 @@ import CalendarContent from '@/components/content/calendar/CalendarContent'
 
 export const metadata = { title: 'Calendar' }
 
-export default async function CalendarPage() {
+export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   const session = await auth()
   if (!session?.user) redirect('/login')
-  return <CalendarContent user={session.user} />
+  const { date } = await searchParams
+  return <CalendarContent user={session.user} initialDate={date} />
 }

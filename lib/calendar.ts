@@ -15,12 +15,15 @@ import {
   type EventFields,
   expandOccurrences,
   isCalendarItemType,
+  isCalendarResponse,
   itemTimes,
   mayChangeEvent,
   mayCreateEvent,
+  newlyInvited,
   TYPE_INFO,
 } from '@/lib/calendar-core'
 import { forgetCalendarHolidays } from '@/lib/calendar-holidays'
+import { notifyAnswer, notifyInvitees } from '@/lib/calendar-notify'
 import { getCustomerCompanyId } from '@/lib/customer-company'
 import { customerTicketsAccessPredicate } from '@/lib/customer-ticket-access'
 import {
@@ -89,6 +92,10 @@ function rowToInput(r: CalendarEventsRow): Record<string, unknown> {
   }
 }
 
+/** The answers of people who are still invited */
+const onlyInvited = (r: Pick<CalendarEventsRow, 'attendeeIds' | 'responses'>): Record<string, string> =>
+  Object.fromEntries(Object.entries(r.responses ?? {}).filter(([id]) => (r.attendeeIds ?? []).includes(id)))
+
 const accessOf = (r: CalendarEventsRow) => ({
   type: r.type as CalendarType,
   visibility: r.visibility as EventFields['visibility'],
@@ -121,6 +128,8 @@ function toItem(r: CalendarEventsRow, start: Date, end: Date, viewer: CalendarVi
     repeat: r.repeat as CalendarItem['repeat'],
     occurrence: r.recurring ? iso(r.startAt) : null,
     editable: mayChangeEvent(accessOf(r), viewer),
+    responses: onlyInvited(r),
+    my_response: r.responses?.[viewer.id] ?? null,
   }
 }
 
@@ -181,6 +190,8 @@ async function dueTicketItems(viewer: CalendarViewer, q: CalendarQuery): Promise
       repeat: 'none' as const,
       occurrence: null,
       editable: false,
+      responses: {},
+      my_response: null,
     }
   })
 }
@@ -212,6 +223,8 @@ async function dueInvoiceItems(viewer: CalendarViewer, q: CalendarQuery): Promis
     repeat: 'none' as const,
     occurrence: null,
     editable: false,
+    responses: {},
+    my_response: null,
   }))
 }
 
@@ -283,7 +296,11 @@ const toRow = (f: EventFields) => ({
   recurring: f.repeat !== 'none',
 })
 
-export async function createCalendarEvent(viewer: CalendarViewer, body: Record<string, unknown>): Promise<CalendarItem> {
+/** Work that may run after the answer has gone out (emails, bell notifications). Routes pass Next's `after`. */
+export type Defer = (work: () => Promise<void>) => void
+const runNow: Defer = (work) => void work().catch(() => undefined)
+
+export async function createCalendarEvent(viewer: CalendarViewer, body: Record<string, unknown>, opts: { defer?: Defer } = {}): Promise<CalendarItem> {
   if (!viewer.isStaff) throw new CalendarError('Only the team can add calendar events', 403)
   const cleaned = cleanEventInput(body)
   if (!cleaned.ok) throw new CalendarError(cleaned.error, 400)
@@ -297,10 +314,12 @@ export async function createCalendarEvent(viewer: CalendarViewer, body: Record<s
   await checkReferences(f, viewer)
   const row = await insert(calendarEvents, { ...toRow(f), createdBy: viewer.id })
   if (f.type === 'holiday') forgetCalendarHolidays()
-  return toItem(row, asDate(row.startAt), asDate(row.endAt), viewer)
+  const item = toItem(row, asDate(row.startAt), asDate(row.endAt), viewer)
+  if (f.attendeeIds.length) (opts.defer ?? runNow)(() => notifyInvitees({ item, inviteeIds: f.attendeeIds, actorId: viewer.id, kind: 'invite' }))
+  return item
 }
 
-export async function updateCalendarEvent(viewer: CalendarViewer, id: string, patch: Record<string, unknown>): Promise<CalendarItem> {
+export async function updateCalendarEvent(viewer: CalendarViewer, id: string, patch: Record<string, unknown>, opts: { defer?: Defer } = {}): Promise<CalendarItem> {
   const existing = await get(calendarEvents, id)
   if (!existing || !canSeeEvent(accessOf(existing), viewer)) throw new CalendarError('Event not found', 404)
   if (!mayChangeEvent(accessOf(existing), viewer)) throw new CalendarError('You cannot change this event', 403)
@@ -310,18 +329,50 @@ export async function updateCalendarEvent(viewer: CalendarViewer, id: string, pa
   if (f.type !== existing.type && !mayCreateEvent(f.type, f.ownerId, viewer)) throw new CalendarError('You cannot change it into that type', 403)
   if (f.type === 'leave' && f.ownerId && f.ownerId !== viewer.id && !viewer.isManager) throw new CalendarError('You can only add leave for yourself', 403)
   await checkReferences(f, viewer)
-  const row = await update(calendarEvents, id, { ...toRow(f), updatedAt: new Date() })
+  const moved = new Date(existing.startAt).getTime() !== f.startAt.getTime() || new Date(existing.endAt).getTime() !== f.endAt.getTime() || existing.title !== f.title || (existing.location ?? null) !== f.location || existing.repeat !== f.repeat
+  const row = await update(calendarEvents, id, {
+    ...toRow(f),
+    // Answers of people who are no longer invited go; a new time is reminded afresh
+    responses: Object.fromEntries(Object.entries(existing.responses ?? {}).filter(([uid]) => f.attendeeIds.includes(uid))),
+    ...(moved ? { reminderSentFor: null } : {}),
+    updatedAt: new Date(),
+  })
   if (f.type === 'holiday' || existing.type === 'holiday') forgetCalendarHolidays()
   if (!row) throw new CalendarError('Event not found', 404)
-  return toItem(row, asDate(row.startAt), asDate(row.endAt), viewer)
+  const item = toItem(row, asDate(row.startAt), asDate(row.endAt), viewer)
+  const before = existing.attendeeIds ?? []
+  const added = newlyInvited(before, f.attendeeIds)
+  const stayed = f.attendeeIds.filter((u) => before.includes(u))
+  const defer = opts.defer ?? runNow
+  if (added.length) defer(() => notifyInvitees({ item, inviteeIds: added, actorId: viewer.id, kind: 'invite' }))
+  if (moved && stayed.length) defer(() => notifyInvitees({ item, inviteeIds: stayed, actorId: viewer.id, kind: 'update' }))
+  return item
 }
 
-export async function deleteCalendarEvent(viewer: CalendarViewer, id: string): Promise<void> {
+export async function deleteCalendarEvent(viewer: CalendarViewer, id: string, opts: { defer?: Defer } = {}): Promise<void> {
   const existing = await get(calendarEvents, id)
   if (!existing || !canSeeEvent(accessOf(existing), viewer)) throw new CalendarError('Event not found', 404)
   if (!mayChangeEvent(accessOf(existing), viewer)) throw new CalendarError('You cannot delete this event', 403)
   await remove(calendarEvents, id)
   if (existing.type === 'holiday') forgetCalendarHolidays()
+  const invited = existing.attendeeIds ?? []
+  if (invited.length) {
+    const item = toItem(existing, asDate(existing.startAt), asDate(existing.endAt), viewer)
+    ;(opts.defer ?? runNow)(() => notifyInvitees({ item, inviteeIds: invited, actorId: viewer.id, kind: 'cancel' }))
+  }
+}
+
+/** An invited person answers: accepted, declined or tentative. Only people who are invited can; the maker is told. */
+export async function respondToCalendarEvent(viewer: CalendarViewer, id: string, response: unknown, opts: { defer?: Defer } = {}): Promise<CalendarItem> {
+  const existing = await get(calendarEvents, id)
+  if (!existing || !canSeeEvent(accessOf(existing), viewer)) throw new CalendarError('Event not found', 404)
+  if (!isCalendarResponse(response)) throw new CalendarError('response must be accepted, declined or tentative', 400)
+  if (!(existing.attendeeIds ?? []).includes(viewer.id)) throw new CalendarError('You are not invited to this event', 403)
+  const row = await update(calendarEvents, id, { responses: { ...(existing.responses ?? {}), [viewer.id]: response } })
+  if (!row) throw new CalendarError('Event not found', 404)
+  const item = toItem(row, asDate(row.startAt), asDate(row.endAt), viewer)
+  if (existing.responses?.[viewer.id] !== response) (opts.defer ?? runNow)(() => notifyAnswer({ item, makerId: existing.createdBy, answererId: viewer.id, response }))
+  return item
 }
 
 /** What the viewer may do and the choices for the forms: used by the page, the API builder and AI assistants. */

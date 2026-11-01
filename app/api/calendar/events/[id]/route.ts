@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { unauthorizedResponse } from '@/lib/api-key-http'
@@ -26,11 +26,11 @@ async function run(request: Request, ctx: Ctx, fn: (viewer: Awaited<ReturnType<t
 export const GET = (request: Request, ctx: Ctx) => run(request, ctx, async (viewer, id) => NextResponse.json({ event: await getCalendarEvent(viewer, id) }))
 
 /** PATCH /api/calendar/events/{id}: send only the fields to change (same names as when creating). */
-export const PATCH = (request: Request, ctx: Ctx) => run(request, ctx, async (viewer, id, body) => NextResponse.json({ event: await updateCalendarEvent(viewer, id, body) }))
+export const PATCH = (request: Request, ctx: Ctx) => run(request, ctx, async (viewer, id, body) => NextResponse.json({ event: await updateCalendarEvent(viewer, id, body, { defer: (work) => after(work) }) }))
 
 /** DELETE /api/calendar/events/{id}: removes the event (and all occurrences of a repeating one). */
 export const DELETE = (request: Request, ctx: Ctx) =>
   run(request, ctx, async (viewer, id) => {
-    await deleteCalendarEvent(viewer, id)
+    await deleteCalendarEvent(viewer, id, { defer: (work) => after(work) })
     return NextResponse.json({ ok: true })
   })

@@ -281,6 +281,10 @@ export type CalendarItem = {
   occurrence: string | null
   /** The viewer may edit or delete it */
   editable: boolean
+  /** How the invited people answered: user id to accepted / declined / tentative */
+  responses: Record<string, string>
+  /** The viewer's own answer when they are invited */
+  my_response: string | null
 }
 
 const dateOnly = (d: Date) => d.toISOString().slice(0, 10)
@@ -293,3 +297,56 @@ export function itemTimes(allDay: boolean, start: Date, end: Date): { start: str
 /** Sort order of a calendar: by day, all-day items first, then by time, then by title. */
 export const CALENDAR_ITEM_ORDER = (a: Pick<CalendarItem, 'start' | 'all_day' | 'title'>, b: Pick<CalendarItem, 'start' | 'all_day' | 'title'>) =>
   a.start.slice(0, 10).localeCompare(b.start.slice(0, 10)) || Number(b.all_day) - Number(a.all_day) || a.start.localeCompare(b.start) || a.title.localeCompare(b.title)
+
+// ── Invitations: answers, a readable time, and reminders ─────────────────────
+
+export const CALENDAR_RESPONSES = ['accepted', 'declined', 'tentative'] as const
+export type CalendarResponse = (typeof CALENDAR_RESPONSES)[number]
+export const isCalendarResponse = (v: unknown): v is CalendarResponse => typeof v === 'string' && (CALENDAR_RESPONSES as readonly string[]).includes(v)
+
+export type ResponseSummary = { accepted: number; declined: number; tentative: number; awaiting: number }
+
+/** How the invited people answered: only answers of people who are still invited count. */
+export function summarizeResponses(attendeeIds: string[], responses: Record<string, string> | null | undefined): ResponseSummary {
+  const out: ResponseSummary = { accepted: 0, declined: 0, tentative: 0, awaiting: 0 }
+  for (const id of attendeeIds) {
+    const r = responses?.[id]
+    if (isCalendarResponse(r)) out[r]++
+    else out.awaiting++
+  }
+  return out
+}
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const two = (n: number) => String(n).padStart(2, '0')
+
+/** "Tue 3 Nov 2026, 16:00 to 17:00 (UTC+7)" or "Mon 28 Dec to Thu 31 Dec 2026" for a time zone fixed at `offsetMinutes` east of UTC. */
+export function formatWhen(item: { all_day: boolean; start: string; end: string }, offsetMinutes = 0): string {
+  const shift = (d: Date) => new Date(d.getTime() + offsetMinutes * 60_000)
+  const day = (d: Date) => `${DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`
+  const zone = `UTC${offsetMinutes < 0 ? '-' : '+'}${Math.floor(Math.abs(offsetMinutes) / 60)}${Math.abs(offsetMinutes) % 60 ? `:${two(Math.abs(offsetMinutes) % 60)}` : ''}`
+  if (item.all_day) {
+    const s = new Date(`${item.start}T00:00:00Z`)
+    const e = new Date(`${item.end}T00:00:00Z`)
+    return item.start === item.end ? `${day(s)} ${s.getUTCFullYear()}` : `${day(s)} to ${day(e)} ${e.getUTCFullYear()}`
+  }
+  const s = shift(new Date(item.start))
+  const e = shift(new Date(item.end))
+  const time = (d: Date) => `${two(d.getUTCHours())}:${two(d.getUTCMinutes())}`
+  const sameDay = s.getUTCFullYear() === e.getUTCFullYear() && s.getUTCMonth() === e.getUTCMonth() && s.getUTCDate() === e.getUTCDate()
+  return sameDay ? `${day(s)} ${s.getUTCFullYear()}, ${time(s)} to ${time(e)} (${zone})` : `${day(s)} ${time(s)} to ${day(e)} ${time(e)} ${e.getUTCFullYear()} (${zone})`
+}
+
+/** Types that get a reminder shortly before they start (all-day items and holidays do not) */
+export const REMINDER_TYPES: CalendarType[] = ['meeting', 'event', 'training', 'maintenance', 'reminder']
+
+/** Who is reminded of an event: a personal reminder goes to its owner; the others to the people invited and the one who made it, minus those who declined. */
+export function reminderRecipients(ev: { type: CalendarType; ownerId: string | null; attendeeIds: string[]; createdBy: string | null; responses?: Record<string, string> | null }): string[] {
+  if (ev.type === 'reminder') return ev.ownerId ? [ev.ownerId] : ev.createdBy ? [ev.createdBy] : []
+  const people = new Set([...ev.attendeeIds, ...(ev.createdBy ? [ev.createdBy] : [])])
+  return [...people].filter((id) => ev.responses?.[id] !== 'declined')
+}
+
+/** People newly invited by a change: those in `after` who were not in `before`. */
+export const newlyInvited = (before: string[], after: string[]): string[] => after.filter((id) => !before.includes(id))

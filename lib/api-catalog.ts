@@ -209,6 +209,18 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     params: [id('Event id', '3f2b8a9c-1d4e-4f6a-9b0c-123456789abc'), ...eventBody(false)],
   },
   {
+    id: 'calendar.respond',
+    group: 'Calendar',
+    method: 'POST',
+    path: '/api/calendar/events/{id}/respond',
+    scope: 'calendar:write',
+    summary: 'Answer an invitation as the key\'s user: accepted, declined or tentative. Only people who are invited can. The one who made the event is told.',
+    params: [
+      id('Event id', '3f2b8a9c-1d4e-4f6a-9b0c-123456789abc'),
+      { name: 'response', where: 'body', type: 'enum', options: ['accepted', 'declined', 'tentative'], required: true, description: 'Your answer', example: 'accepted' },
+    ],
+  },
+  {
     id: 'calendar.delete',
     group: 'Calendar',
     method: 'DELETE',

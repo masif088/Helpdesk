@@ -1138,6 +1138,10 @@ export type CalendarEventsRow = {
   repeatUntil: Date | null
   /** True when repeat is not "none": lets one query find every repeating event whatever its start date */
   recurring: boolean
+  /** How the invited people answered: user id to accepted / declined / tentative */
+  responses: Record<string, string> | null
+  /** Start (ISO) of the last occurrence a reminder was sent for */
+  reminderSentFor: string | null
   createdBy: string | null
   createdAt: Date
   updatedAt: Date
@@ -1162,6 +1166,8 @@ export type NewCalendarEventsRow = {
   repeat?: string
   repeatUntil?: Date | null
   recurring?: boolean
+  responses?: Record<string, string> | null
+  reminderSentFor?: string | null
   createdBy?: string | null
   createdAt?: Date
   updatedAt?: Date
@@ -1169,7 +1175,7 @@ export type NewCalendarEventsRow = {
 
 export const calendarEvents = defineTable<CalendarEventsRow, NewCalendarEventsRow>({
   name: 'calendar_events',
-  columns: ['id', 'type', 'title', 'description', 'startAt', 'endAt', 'allDay', 'location', 'meetingUrl', 'color', 'visibility', 'ownerId', 'attendeeIds', 'companyId', 'ticketId', 'repeat', 'repeatUntil', 'recurring', 'createdBy', 'createdAt', 'updatedAt'],
+  columns: ['id', 'type', 'title', 'description', 'startAt', 'endAt', 'allDay', 'location', 'meetingUrl', 'color', 'visibility', 'ownerId', 'attendeeIds', 'companyId', 'ticketId', 'repeat', 'repeatUntil', 'recurring', 'responses', 'reminderSentFor', 'createdBy', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',

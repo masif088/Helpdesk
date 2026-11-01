@@ -66,6 +66,7 @@ const ROUTES: Array<{ method: string; pattern: RegExp; scope: ApiKeyScope }> = [
   { method: 'POST', pattern: /^\/api\/calendar\/events$/, scope: 'calendar:write' },
   { method: 'PATCH', pattern: /^\/api\/calendar\/events\/[\w-]+$/, scope: 'calendar:write' },
   { method: 'DELETE', pattern: /^\/api\/calendar\/events\/[\w-]+$/, scope: 'calendar:write' },
+  { method: 'POST', pattern: /^\/api\/calendar\/events\/[\w-]+\/respond$/, scope: 'calendar:write' },
   { method: 'GET', pattern: /^\/api\/users\/activity$/, scope: 'team:read' },
 ]
 

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { unauthorizedResponse } from '@/lib/api-key-http'
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Send a JSON body' }, { status: 400 })
   try {
     const viewer = await calendarViewer(session.user as { id: string; role?: string | null })
-    return NextResponse.json({ event: await createCalendarEvent(viewer, body) }, { status: 201 })
+    return NextResponse.json({ event: await createCalendarEvent(viewer, body, { defer: (work) => after(work) }) }, { status: 201 })
   } catch (e) {
     if (e instanceof CalendarError) return NextResponse.json({ error: e.message }, { status: e.status })
     throw e

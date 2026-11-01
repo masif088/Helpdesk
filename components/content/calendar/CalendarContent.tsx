@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import { type CalendarItem, TYPE_INFO, VISIBILITY_LABELS } from '@/lib/calendar-core'
+import { type CalendarItem, summarizeResponses, TYPE_INFO, VISIBILITY_LABELS } from '@/lib/calendar-core'
 
 const { Content } = Layout
 const { Title, Text } = Typography
@@ -54,13 +54,16 @@ function timeLabel(item: CalendarItem): string {
 
 interface Props {
   user: { id: string; email?: string | null; name?: string | null; role?: string | null }
+  /** `YYYY-MM-DD`: open on this day (links in notifications) */
+  initialDate?: string
 }
 
-export default function CalendarContent({ user }: Props) {
+export default function CalendarContent({ user, initialDate }: Props) {
   const { message } = App.useApp()
   const [collapsed, setCollapsed] = useState(false)
-  const [month, setMonth] = useState(() => dayjs().startOf('month'))
-  const [selected, setSelected] = useState(() => dayjs())
+  const start = initialDate && /^\d{4}-\d{2}-\d{2}$/.test(initialDate) && dayjs(initialDate).isValid() ? dayjs(initialDate) : dayjs()
+  const [month, setMonth] = useState(() => start.startOf('month'))
+  const [selected, setSelected] = useState(() => start)
   const [items, setItems] = useState<CalendarItem[]>([])
   const [loading, setLoading] = useState(true)
   const [lookup, setLookup] = useState<Lookup | null>(null)
@@ -112,6 +115,14 @@ export default function CalendarContent({ user }: Props) {
     const body = await res.json().catch(() => ({}))
     if (!res.ok) return message.error(body.error || 'Could not delete it')
     message.success('Deleted')
+    void load()
+  }
+
+  const respond = async (item: CalendarItem, response: 'accepted' | 'declined' | 'tentative') => {
+    const res = await fetch(`/api/calendar/events/${item.id}/respond`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ response }) })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) return message.error(body.error || 'Could not save your answer')
+    message.success('Answer saved')
     void load()
   }
 
@@ -265,6 +276,24 @@ export default function CalendarContent({ user }: Props) {
                         {it.source === 'invoice' ? <SpaNavLink href="/invoices">Invoices</SpaNavLink> : null}
                         {it.visibility ? <Text type="secondary">{VISIBILITY_LABELS[it.visibility]}</Text> : null}
                       </Space>
+                      {it.source === 'event' && it.attendee_ids.length > 0 ? (
+                        <div style={{ display: 'grid', gap: 6 }}>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {(() => {
+                              const s = summarizeResponses(it.attendee_ids, it.responses)
+                              return `${it.attendee_ids.length} invited · ${s.accepted} accepted · ${s.tentative} maybe · ${s.declined} declined · ${s.awaiting} waiting`
+                            })()}
+                          </Text>
+                          {it.attendee_ids.includes(user.id) ? (
+                            <Segmented
+                              size="small"
+                              value={it.my_response ?? undefined}
+                              onChange={(v) => void respond(it, v as 'accepted' | 'declined' | 'tentative')}
+                              options={[{ value: 'accepted', label: 'Accept' }, { value: 'tentative', label: 'Maybe' }, { value: 'declined', label: 'Decline' }]}
+                            />
+                          ) : null}
+                        </div>
+                      ) : null}
                       {it.editable ? (
                         <Space size={4}>
                           <Button size="small" type="text" icon={<EditOutlined />} onClick={() => setEditing({ item: it, day: selected })}>
