@@ -47,27 +47,28 @@ env:
   # ── Firebase Admin SDK (server only) ──────────────────────────────────
   - variable: FIREBASE_PROJECT_ID
     value: masif-ticketing
-    availability: [RUNTIME]
+    availability: [ RUNTIME ]
   - variable: FIREBASE_CLIENT_EMAIL
     value: firebase-adminsdk-fbsvc@masif-ticketing.iam.gserviceaccount.com
-    availability: [RUNTIME]
+    availability: [ RUNTIME ]
   - variable: FIREBASE_PRIVATE_KEY
     secret: FIREBASE_PRIVATE_KEY
-    availability: [RUNTIME]
+    availability: [ RUNTIME ]
 
   # ── Email (Gmail OAuth, Google Cloud Console → Credentials → OAuth client "Web application") ──
   - variable: GOOGLE_CLIENT_ID
     value: 286801839947-c9pumg80tsg45u6u6e6ch4b2nut9uvdj.apps.googleusercontent.com
-    availability: [RUNTIME]
+    availability: [ RUNTIME ]
   - variable: GOOGLE_CLIENT_SECRET
     secret: GOOGLE_CLIENT_SECRET
-    availability: [RUNTIME]
+    availability: [ RUNTIME ]
 
   # ── Scheduled jobs (Apps Script / Cloud Scheduler send it as "Authorization: Bearer <secret>", docs/cron-jobs.md) ──
   - variable: SYNC_INBOX_CRON_SECRET
     secret: SYNC_INBOX_CRON_SECRET
-    availability: [RUNTIME]
-
+    availability: [ RUNTIME ]
+  - variable: CSAT_LINK_SECRET
+    secret: CSAT_LINK_SECRET
   # ── Optional: AI fallback when Settings → AI Integration is empty ─────
   # - variable: OPENAI_API_KEY
   #   secret: OPENAI_API_KEY
