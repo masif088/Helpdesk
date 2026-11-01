@@ -38,7 +38,7 @@ const id = (what: string, example: string): ApiParam => ({ name: 'id', where: 'p
 const eventBody = (create: boolean): ApiParam[] => [
   { name: 'type', where: 'body', type: 'enum', options: CALENDAR_TYPES, required: create, description: 'What kind of event. Holidays need a manager; leave is for yourself unless you are a manager.', example: 'meeting' },
   { name: 'title', where: 'body', type: 'text', required: create, description: 'Short title (max 200 characters)', example: 'Weekly sync with Acme' },
-  { name: 'start', where: 'body', type: 'text', required: create, description: 'A date `YYYY-MM-DD` (all-day) or an ISO date and time in UTC, e.g. `2026-11-03T09:00:00Z`', example: '2026-11-03T09:00:00Z' },
+  { name: 'start', where: 'body', type: 'text', required: create, description: 'A date `YYYY-MM-DD` (all-day) or an ISO date and time with a Z or an offset, e.g. `2026-11-03T09:00:00Z` or `2026-11-03T16:00:00+07:00`', example: '2026-11-03T09:00:00Z' },
   { name: 'end', where: 'body', type: 'text', description: 'Same format. For all-day events this is the LAST day (inclusive). Defaults to one hour, or the start day.', example: '2026-11-03T10:00:00Z' },
   { name: 'all_day', where: 'body', type: 'boolean', description: 'Default: true for holiday and leave or when `start` is a plain date', example: 'false' },
   { name: 'description', where: 'body', type: 'text', description: 'Plain text notes (max 5000 characters)' },
@@ -75,7 +75,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
       { name: 'customer_ids', where: 'query', type: 'list', description: 'Opened by, or with as contact, any of these client users', staffOnly: true },
       { name: 'skills', where: 'query', type: 'list', description: 'Tickets that need these skills (the ticket\'s own, else its client\'s for the type, else the defaults of type and tags)', example: 'WordPress', staffOnly: true },
       { name: 'skills_match', where: 'query', type: 'enum', options: ['any', 'all'], description: 'any (default): one of the skills is enough; all: every skill', staffOnly: true },
-      { name: 'date_from', where: 'query', type: 'date', description: 'Created on or after this day', example: '2026-11-01' },
+      { name: 'date_from', where: 'query', type: 'date', description: 'Created on or after this day (in the app time zone)', example: '2026-11-01' },
       { name: 'date_to', where: 'query', type: 'date', description: 'Created on or before this day', example: '2026-11-30' },
       { name: 'due_date_from', where: 'query', type: 'date', description: 'Due on or after this day (tickets without a due date are left out)' },
       { name: 'due_date_to', where: 'query', type: 'date', description: 'Due on or before this day' },
@@ -164,7 +164,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     scope: 'calendar:read',
     summary: 'Everything on the calendar in a range: meetings, leave, holidays, events, plus ticket and invoice due dates. Repeating events are unfolded into their occurrences.',
     params: [
-      { name: 'from', where: 'query', type: 'date', description: 'First day, or an ISO moment. Default: the first of this month', example: '2026-11-01' },
+      { name: 'from', where: 'query', type: 'date', description: 'First day (in the app time zone), or an ISO moment with a Z or an offset. Default: the first of this month', example: '2026-11-01' },
       { name: 'to', where: 'query', type: 'date', description: 'Last day (inclusive). Default: the end of that month. At most 400 days apart', example: '2026-11-30' },
       { name: 'types', where: 'query', type: 'list', options: [...CALENDAR_TYPES, 'ticket_due', 'invoice_due'], description: 'Only these kinds', example: 'meeting,leave' },
       { name: 'user_ids', where: 'query', type: 'list', description: 'Events owned, made or attended by these users; tickets assigned to them. `me` = the key\'s user', example: 'me' },
@@ -237,7 +237,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     scope: 'team:read',
     summary: 'Who worked in a period, and how loaded the team is. Per team member: time tracked (clipped to the period), tickets worked on, a running timer, open tickets assigned, and leave and meetings from the calendar. Admins and managers only.',
     params: [
-      { name: 'from', where: 'query', type: 'text', description: 'Start of the period: a date `YYYY-MM-DD` (whole days) or an ISO moment in UTC to look at hours, e.g. `2026-11-03T09:00:00Z`. Default: today', example: '2026-11-03T09:00:00Z' },
+      { name: 'from', where: 'query', type: 'text', description: 'Start of the period: a date `YYYY-MM-DD` (whole days in the app time zone) or an ISO moment with a Z or an offset to look at hours, e.g. `2026-11-03T09:00:00Z`. Default: today', example: '2026-11-03T09:00:00Z' },
       { name: 'to', where: 'query', type: 'text', description: 'End of the period, same format (a date means the end of that day). At most 62 days apart', example: '2026-11-03T17:00:00Z' },
       { name: 'user_ids', where: 'query', type: 'list', description: "Only these team members; `me` = the key's user", example: 'me' },
       { name: 'agent_skills', where: 'query', type: 'list', description: 'Only team members who have one of these skills themselves', example: 'WordPress' },

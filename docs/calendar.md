@@ -45,7 +45,7 @@ in shorter months). Editing or deleting acts on the whole series. A yearly holid
 
 - **Invite** people by adding them as `attendee_ids` (people on the team, or clients when it is meant for them). Only a **meeting, event or training** has a guest list: a holiday, leave, reminder or
   maintenance window refuses attendees and shows no accept / decline, and changing an event into one of those kinds drops the people who were invited. New attendees get a **bell notification** and an
-  **email** (sent from the connected Gmail, with the time in the time zone of the SLA calendar, default UTC+7). When an event they are in is
+  **email** (sent from the connected Gmail, with the time in the app time zone, Settings → Time zone, default Asia/Jakarta). When an event they are in is
   **moved, renamed or cancelled**, they are told again. The person who makes the change is never notified about it.
 - **Answer:** an invited person can accept, say maybe, or decline in the calendar, or with `POST /api/calendar/events/{id}/respond`. The maker gets a bell
   notification. A declined person gets no reminders. Answers of people who are removed from an event are dropped.
@@ -67,7 +67,9 @@ by themselves. It shows exactly what that person sees in the portal (stored even
 
 ## Dates
 
-- A **timed** event is a real moment, stored in UTC and shown in the viewer's time zone.
+- A **timed** event is a real moment, stored in UTC and shown in the **app time zone** (Settings → Time zone) for everyone, wherever they are. Which day a timed event, a ticket
+  due date or an API date range falls on is also decided in that zone. A repeating event repeats at the same UTC time, so in a zone with daylight saving its local hour shifts
+  by an hour when the clocks change (not an issue for Jakarta).
 - An **all-day** event is a plain date. It is stored from 00:00 to 23:59:59.999 UTC of its days and shown as `YYYY-MM-DD`; in the API
   `end` is the **last** day, inclusive. It never slides to another day in another time zone.
 

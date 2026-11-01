@@ -53,6 +53,12 @@ Content-Type: application/json
 Anything else answers `403 This endpoint is not available to API keys`. An unknown, revoked, expired or out-of-scope key answers `401`.
 Every parameter of every call is listed in the API builder, and in the skill file.
 
+## Dates and the time zone
+
+The portal has **one time zone** (Settings → Time zone, default `Asia/Jakarta`); calendar, activity and lookup answers say it as `time_zone`. A plain date in a request
+(`date_from=2026-11-03`, `from=2026-11-03`) means that whole day **in that zone**, so a ticket created at 02:00 on the 3rd is on the 3rd, not the 2nd. A full time with a `Z` or an
+offset (`2026-11-03T09:00:00Z`, `2026-11-03T16:00:00+07:00`) is an exact moment and is taken as it is. Times in answers are exact moments (UTC); all-day calendar items are plain dates.
+
 ## Filtering tickets
 
 `GET /api/tickets` takes any combination of these (they are combined with AND; inside a comma separated list any value may match):
@@ -121,7 +127,7 @@ GET /api/users/activity?agent_skills=Billing        who could take billing work,
 
 | Parameter | Meaning |
 | --- | --- |
-| `from`, `to` | The period: whole days (`2026-11-03`) or UTC moments to look at hours. Default: today. At most 62 days |
+| `from`, `to` | The period: whole days in the app time zone (`2026-11-03`) or exact moments with a Z or an offset to look at hours. Default: today. At most 62 days |
 | `user_ids`, `team_ids` | Only these team members, or members of these teams (`me` = the key's user) |
 | `agent_skills` | Only people who have one of these skills themselves |
 | `company_ids`, `customer_ids`, `type_ids` | Only work on tickets of these companies, opened by (or with as contact) these client users, of these types |
@@ -157,7 +163,7 @@ for your own keys. "Last used" is exact to the ten minutes.
 - Counted: calls the key was allowed to make, and calls refused because the hourly limit was reached (shown separately). A call refused before it reaches the key check
   (an endpoint keys may not use, or an unknown key) is not counted.
 - Per permission, not per endpoint: you see `tickets:read 120, calendar:read 14`, not each URL.
-- Days are UTC. Records are kept; only the last 30 days are shown.
+- Days are UTC (the usage records are not read in the app time zone). Records are kept; only the last 30 days are shown.
 
 ## Notes
 

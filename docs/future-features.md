@@ -7,7 +7,7 @@ Already built from the earlier lists: SLA per client and ticket type, automatic 
 ticket is closed), canned responses, online payment (Midtrans / Xendit), SLA clocks that stop while the ball is with the
 client, business hours and holidays for SLA (Settings -> SLA calendar), a public rating link in the closing email, and
 Slack alerts for SLA at risk / breached, the calendar (meetings, leave, holidays, events, due dates, invitations with answers and
-reminders), more ticket filters in the API, the API builder, team activity, an OpenAPI file, an MCP server and changing tickets with a key.
+reminders), more ticket filters in the API, the API builder, team activity (API and the Reports page), an OpenAPI file, an MCP server, changing tickets with a key and one app time zone.
 
 ---
 
@@ -33,6 +33,7 @@ is the customer-facing side:
 - Two-way Google Calendar sync (the iCal feed is one way).
 - Show SLA due times and recurring-ticket runs on the calendar.
 - Per-team business hours for SLA, fed by the same calendar.
+- Repeating events that keep their local hour across daylight saving (they repeat at a fixed UTC time now).
 - API: a `calendar:read` filter by team, and webhooks when an event is added or changed.
 
 ## Other ideas worth keeping

@@ -122,7 +122,7 @@ Event types: \`meeting\`, \`leave\` (cuti), \`holiday\`, \`event\`, \`training\`
 
 How to read an item (\`GET /api/calendar/events\` answers \`{ events: [...] }\`):
 
-- All-day items (\`all_day: true\`) have plain dates: \`start\` \`2026-12-28\`, \`end\` \`2026-12-31\` means four days and \`end\` is the LAST day. Timed items have ISO moments in UTC (\`2026-11-03T09:00:00.000Z\`); convert to the user's time zone when you tell them.
+- All-day items (\`all_day: true\`) have plain dates: \`start\` \`2026-12-28\`, \`end\` \`2026-12-31\` means four days and \`end\` is the LAST day. Timed items have ISO moments in UTC (\`2026-11-03T09:00:00.000Z\`). The portal has one time zone (the answer says it: \`time_zone\`, for example \`Asia/Jakarta\`): a date without a time in a request means that whole day in that zone, and when you tell the user a time, convert it to that zone.
 - A repeating event appears once per occurrence inside the range, all with the same \`id\`; \`occurrence\` tells them apart. \`PATCH\` and \`DELETE\` act on the whole series.
 - \`editable: false\` means the key's user may not change it.
 - \`source\` is \`event\`, \`ticket\` or \`invoice\`; ids like \`ticket:12\` are not events and cannot be fetched or changed.
@@ -149,7 +149,7 @@ Who sees an event is the \`visibility\`: \`private\` (only you), \`staff\` (the 
 
 \`GET /api/users/activity\` answers, for a period, which team members worked, for how long, on what, and what is on their plate. Only a key of an admin or manager may call it (it shows what colleagues did); anyone else gets \`403\`.
 
-- \`from\` / \`to\`: whole days (\`2026-11-03\`) or UTC moments to look at hours (\`from=2026-11-03T09:00:00Z&to=2026-11-03T12:00:00Z\`). Default is today. At most 62 days.
+- \`from\` / \`to\`: whole days in the portal's time zone (\`2026-11-03\`) or exact moments to look at hours (\`from=2026-11-03T09:00:00Z&to=2026-11-03T12:00:00Z\`). Default is today. At most 62 days.
 - Narrow it with \`user_ids\` (\`me\` for the key's user), \`agent_skills\` (people who have the skill), \`team_ids\`, and the ticket filters \`company_ids\`, \`customer_ids\`, \`skills\` (what the ticket needs), \`type_ids\`: then only work on matching tickets counts. \`only_working=1\` leaves out people who did nothing in the period; \`breakdown=day|hour\` adds time per day or hour; \`include_tickets=1\` lists the tickets each person worked on.
 - Each person has \`working\` (worked in the period or has a timer running), \`tracked_seconds\` (only the part inside the period), \`active_timer\` (the ticket they are on right now), \`load\` (open tickets assigned: \`open\`, \`active\`, \`waiting_on_client\`, \`overdue\`, \`due_in_period\`, \`matching_filters\`) and \`calendar\` (\`on_leave\`, meetings). \`totals.unassigned_matching\` counts open tickets matching your filters that nobody has.
 

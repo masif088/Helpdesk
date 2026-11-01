@@ -11,6 +11,7 @@ import {
   DollarOutlined,
   DoubleLeftOutlined,
   DoubleRightOutlined,
+  FieldTimeOutlined,
   InboxOutlined,
   NotificationOutlined,
   ReadOutlined,
@@ -102,6 +103,7 @@ function selectedKeysForPathname(pathname: string | null, ticketsSearch: string)
   if (pathname === '/reports/sla' || pathname.startsWith('/reports/sla/')) return ['/reports/sla']
   if (pathname === '/reports/ratings') return ['/reports/ratings']
   if (pathname === '/reports/workload' || pathname.startsWith('/reports/workload/')) return ['/reports/workload']
+  if (pathname === '/reports/team-activity' || pathname.startsWith('/reports/team-activity/')) return ['/reports/team-activity']
   if (isSettingsHrefPathname(pathname)) return ['/settings']
   const topLevel = ['/dashboard']
   const top = topLevel.find((k) => pathname === k || (k !== '/dashboard' && pathname.startsWith(`${k}/`)))
@@ -211,6 +213,7 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
         items: [
           { key: '/reports/support', label: 'Support', icon: <BarChartOutlined /> },
           { key: '/reports/workload', label: 'Workload', icon: <TeamOutlined /> },
+          { key: '/reports/team-activity', label: 'Team activity', icon: <FieldTimeOutlined /> },
           { key: '/reports/sla', label: 'SLA & satisfaction', icon: <SmileOutlined /> },
           { key: '/reports/ratings', label: 'Ratings', icon: <StarOutlined /> },
           { key: '/reports/billing', label: 'Billing', icon: <DollarOutlined /> },

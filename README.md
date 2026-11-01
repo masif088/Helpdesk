@@ -48,7 +48,7 @@ clients, internal support desks. If you can follow a step-by-step guide, you can
 - **Automation.** Rules that fire on ticket events or after idle time, recurring tickets, canned responses with
   placeholders, message templates, Slack alerts.
 - **AI help** (optional, bring your own key): ticket summaries and draft replies.
-- **Team activity.** See who worked in any period (days or hours): time tracked, tickets worked on, open load, leave and meetings, filterable by person, client company, skill and ticket type (see [docs/api.md](docs/api.md)).
+- **Team activity.** A Reports page (and API) that shows who worked in any period, by day or hour: time tracked, tickets worked on, open load, leave and meetings, filterable by person, client company, skill and ticket type (see [docs/api.md](docs/api.md)).
 - **Calendar.** Meetings, leave, holidays, events, training and maintenance windows, plus ticket and invoice due dates, in one calendar with repeating events, invitations with accept / decline, reminders, and a private feed for Google or Apple Calendar (see [docs/calendar.md](docs/calendar.md)).
 - **Time tracking and billing.** Job types, billable hours, monthly retainer invoices, deposits, and online payment of
   invoices through Midtrans or Xendit.
@@ -179,6 +179,7 @@ Every variable is listed, with comments, in [.env.example](.env.example). Only t
 | AI summaries and replies | **Settings → AI Integration**, or `OPENAI_API_KEY` as a fallback |
 | Your own name, logo and favicon | `NEXT_PUBLIC_APP_*`, or **Settings → Branding** |
 | Push notifications | `NEXT_PUBLIC_FIREBASE_VAPID_KEY` |
+| Another time zone than Jakarta | **Settings → Time zone** (one zone for date filters, the calendar and emails) |
 | A public server that nobody else may set up first | `SETUP_TOKEN` |
 
 `NEXT_PUBLIC_*` values are baked into the build: rebuild after changing them. Never commit `.env.local`; it is

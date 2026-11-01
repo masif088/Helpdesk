@@ -3,18 +3,24 @@
 import { DeleteOutlined, EditOutlined, EnvironmentOutlined, LeftOutlined, LinkOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons'
 import { App, Button, DatePicker, Empty, Form, Input, Layout, Modal, Popconfirm, Segmented, Select, Space, Spin, Switch, Tag, Typography } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import timezone from 'dayjs/plugin/timezone'
+import utc from 'dayjs/plugin/utc'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
+import { offsetLabel, zoneOffsetMinutes } from '@/lib/app-time'
 import { type CalendarItem, INVITABLE_TYPES, isInvitable, summarizeResponses, TYPE_INFO, VISIBILITY_LABELS } from '@/lib/calendar-core'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 const { Content } = Layout
 const { Title, Text } = Typography
 
 type TypeChoice = { type: string; label: string; color: string; description: string; derived: boolean; default_all_day: boolean; default_visibility: string; can_create: boolean }
-type Lookup = { can_create: boolean; types: TypeChoice[]; repeats: string[]; visibilities: string[] }
+type Lookup = { time_zone: string; can_create: boolean; types: TypeChoice[]; repeats: string[]; visibilities: string[] }
 type Person = { id: string; full_name: string | null; email: string }
 
 type FormValues = {
@@ -36,19 +42,26 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const MAX_CHIPS = 3
 const dayKey = (d: Dayjs) => d.format('YYYY-MM-DD')
 
-/** The days (YYYY-MM-DD) an item touches: plain dates for all-day items, the viewer's local days for timed ones. */
-function daysOf(item: CalendarItem): string[] {
-  const first = dayjs(item.start)
-  const last = dayjs(item.end)
+// Times are shown in the app's time zone, wherever the viewer is. A "wall" value is a local dayjs that carries the clock of the zone, which is what the pickers show.
+const zoneDay = (iso: string, tz: string) => dayjs(iso).tz(tz).format('YYYY-MM-DD')
+const wall = (iso: string, tz: string): Dayjs => dayjs(dayjs(iso).tz(tz).format('YYYY-MM-DDTHH:mm:ss'))
+const instant = (d: Dayjs, tz: string): string => dayjs.tz(d.format('YYYY-MM-DDTHH:mm:ss'), tz).toISOString()
+const todayWall = (tz: string): Dayjs => dayjs(dayjs().tz(tz).format('YYYY-MM-DD'))
+
+/** The days (YYYY-MM-DD) an item touches: plain dates for all-day items, the days in the app zone for timed ones. */
+function daysOf(item: CalendarItem, tz: string): string[] {
+  const endMs = new Date(item.end).getTime()
+  const first = item.all_day ? dayjs(item.start) : dayjs(zoneDay(item.start, tz))
+  const last = item.all_day ? dayjs(item.end) : dayjs(zoneDay(new Date(Math.max(new Date(item.start).getTime(), endMs - 1)).toISOString(), tz))
   const out: string[] = []
   for (let d = first.startOf('day'), n = 0; !d.isAfter(last, 'day') && n < 62; d = d.add(1, 'day'), n++) out.push(dayKey(d))
   return out
 }
 
-function timeLabel(item: CalendarItem): string {
+function timeLabel(item: CalendarItem, tz: string): string {
   if (item.all_day) return item.start === item.end ? 'All day' : `${dayjs(item.start).format('D MMM')} to ${dayjs(item.end).format('D MMM')}`
-  const s = dayjs(item.start)
-  const e = dayjs(item.end)
+  const s = dayjs(item.start).tz(tz)
+  const e = dayjs(item.end).tz(tz)
   return s.isSame(e, 'day') ? `${s.format('HH:mm')} to ${e.format('HH:mm')}` : `${s.format('D MMM HH:mm')} to ${e.format('D MMM HH:mm')}`
 }
 
@@ -67,6 +80,8 @@ export default function CalendarContent({ user, initialDate }: Props) {
   const [items, setItems] = useState<CalendarItem[]>([])
   const [loading, setLoading] = useState(true)
   const [lookup, setLookup] = useState<Lookup | null>(null)
+  const tz = lookup?.time_zone ?? dayjs.tz.guess()
+  const todayKey = dayKey(todayWall(tz))
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [mineOnly, setMineOnly] = useState(false)
   const [editing, setEditing] = useState<{ item: CalendarItem | null; day: Dayjs } | null>(null)
@@ -82,6 +97,16 @@ export default function CalendarContent({ user, initialDate }: Props) {
       .then((d) => d && setLookup(d))
       .catch(() => {})
   }, [])
+
+  // Once the app's zone is known, open on today in that zone (unless a link asked for a day)
+  const movedToZone = useRef(false)
+  useEffect(() => {
+    if (!lookup || initialDate || movedToZone.current) return
+    movedToZone.current = true
+    const t = todayWall(lookup.time_zone)
+    setMonth(t.startOf('month'))
+    setSelected(t)
+  }, [lookup, initialDate])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -106,9 +131,9 @@ export default function CalendarContent({ user, initialDate }: Props) {
   const shown = useMemo(() => items.filter((i) => !hidden.has(i.type)), [items, hidden])
   const byDay = useMemo(() => {
     const m = new Map<string, CalendarItem[]>()
-    for (const i of shown) for (const k of daysOf(i)) m.set(k, [...(m.get(k) ?? []), i])
+    for (const i of shown) for (const k of daysOf(i, tz)) m.set(k, [...(m.get(k) ?? []), i])
     return m
-  }, [shown])
+  }, [shown, tz])
   const dayItems = byDay.get(dayKey(selected)) ?? []
 
   const remove = async (item: CalendarItem) => {
@@ -139,7 +164,9 @@ export default function CalendarContent({ user, initialDate }: Props) {
               <Title level={2} className="page-head__title">
                 Calendar
               </Title>
-              <Text className="page-head__sub">Meetings, leave, holidays, events and due dates in one place</Text>
+              <Text className="page-head__sub">
+                Meetings, leave, holidays, events and due dates in one place · times in {tz.replace(/_/g, ' ')} ({offsetLabel(zoneOffsetMinutes(tz, new Date()))})
+              </Text>
             </div>
             {lookup?.can_create ? (
               <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing({ item: null, day: selected })}>
@@ -153,8 +180,8 @@ export default function CalendarContent({ user, initialDate }: Props) {
               <Button icon={<LeftOutlined />} onClick={() => setMonth((m) => m.subtract(1, 'month'))} aria-label="Previous month" />
               <Button
                 onClick={() => {
-                  setMonth(dayjs().startOf('month'))
-                  setSelected(dayjs())
+                  setMonth(todayWall(tz).startOf('month'))
+                  setSelected(todayWall(tz))
                 }}
               >
                 Today
@@ -208,7 +235,7 @@ export default function CalendarContent({ user, initialDate }: Props) {
                 {Array.from({ length: weeks * 7 }, (_, i) => {
                   const d = gridStart.add(i, 'day')
                   const list = byDay.get(dayKey(d)) ?? []
-                  const cls = ['cal-cell', d.month() !== month.month() ? 'is-other' : '', d.isSame(dayjs(), 'day') ? 'is-today' : '', d.isSame(selected, 'day') ? 'is-selected' : ''].filter(Boolean).join(' ')
+                  const cls = ['cal-cell', d.month() !== month.month() ? 'is-other' : '', dayKey(d) === todayKey ? 'is-today' : '', d.isSame(selected, 'day') ? 'is-selected' : ''].filter(Boolean).join(' ')
                   return (
                     <div key={i} className={cls} onClick={() => setSelected(d)}>
                       <div className="cal-cell__num">{d.date()}</div>
@@ -224,7 +251,7 @@ export default function CalendarContent({ user, initialDate }: Props) {
                             setSelected(d)
                           }}
                         >
-                          {it.all_day ? '' : `${dayjs(it.start).format('HH:mm')} `}
+                          {it.all_day ? '' : `${dayjs(it.start).tz(tz).format('HH:mm')} `}
                           {it.title}
                         </button>
                       ))}
@@ -258,7 +285,7 @@ export default function CalendarContent({ user, initialDate }: Props) {
                           {TYPE_INFO[it.type].label}
                         </Tag>
                         <Text type="secondary" style={{ fontSize: 12 }}>
-                          {timeLabel(it)}
+                          {timeLabel(it, tz)}
                           {it.repeat !== 'none' ? ` · repeats ${it.repeat}` : ''}
                         </Text>
                       </div>
@@ -322,6 +349,7 @@ export default function CalendarContent({ user, initialDate }: Props) {
           {editing && lookup ? (
             <EventModal
               lookup={lookup}
+              tz={tz}
               item={editing.item}
               day={editing.day}
               onClose={() => setEditing(null)}
@@ -337,7 +365,7 @@ export default function CalendarContent({ user, initialDate }: Props) {
   )
 }
 
-function EventModal({ lookup, item, day, onClose, onSaved }: { lookup: Lookup; item: CalendarItem | null; day: Dayjs; onClose: () => void; onSaved: () => void }) {
+function EventModal({ lookup, tz, item, day, onClose, onSaved }: { lookup: Lookup; tz: string; item: CalendarItem | null; day: Dayjs; onClose: () => void; onSaved: () => void }) {
   const { message } = App.useApp()
   const [form] = Form.useForm<FormValues>()
   const [saving, setSaving] = useState(false)
@@ -355,13 +383,13 @@ function EventModal({ lookup, item, day, onClose, onSaved }: { lookup: Lookup; i
 
   const initial = useMemo<Partial<FormValues>>(() => {
     if (item) {
-      const range: [Dayjs, Dayjs] = [dayjs(item.start), dayjs(item.end)]
+      const range: [Dayjs, Dayjs] = item.all_day ? [dayjs(item.start), dayjs(item.end)] : [wall(item.start, tz), wall(item.end, tz)]
       return { type: item.type, title: item.title, all_day: item.all_day, range, visibility: item.visibility ?? 'staff', repeat: item.repeat, location: item.location ?? '', meeting_url: item.meeting_url ?? '', description: item.description ?? '', attendee_ids: item.attendee_ids, company_id: item.company_id }
     }
     const type = creatable.find((t) => t.type === 'meeting')?.type ?? creatable[0]?.type ?? 'event'
     const info = lookup.types.find((t) => t.type === type)!
     return { type, title: '', all_day: info.default_all_day, range: info.default_all_day ? [day, day] : [day.hour(9).minute(0), day.hour(10).minute(0)], visibility: info.default_visibility, repeat: 'none', attendee_ids: [] }
-  }, [item, day, creatable, lookup.types])
+  }, [item, day, creatable, lookup.types, tz])
 
   // Picking another type brings that type's usual shape (all-day or timed, who sees it)
   const onType = (type: string) => {
@@ -380,8 +408,8 @@ function EventModal({ lookup, item, day, onClose, onSaved }: { lookup: Lookup; i
       type: v.type,
       title: v.title,
       all_day: v.all_day,
-      start: v.all_day ? start.format('YYYY-MM-DD') : start.toISOString(),
-      end: v.all_day ? end.format('YYYY-MM-DD') : end.toISOString(),
+      start: v.all_day ? start.format('YYYY-MM-DD') : instant(start, tz),
+      end: v.all_day ? end.format('YYYY-MM-DD') : instant(end, tz),
       visibility: v.visibility,
       repeat: v.repeat,
       repeat_until: v.repeat !== 'none' && v.repeat_until ? v.repeat_until.format('YYYY-MM-DD') : null,
