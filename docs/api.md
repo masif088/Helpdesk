@@ -14,7 +14,7 @@ Admin: **Settings → API keys → New key**.
 | --- | --- |
 | Name | Shown on every ticket and comment made with the key, e.g. `Claude (Acme)`. Use `<tool> (<who>)`. |
 | Acts as | The user the key works as. Their role and company decide what the key sees. |
-| Allowed | `tickets:read`, `tickets:create`, `comments:create`, `calendar:read`, `calendar:write`, `team:read`. Give only what is needed. |
+| Allowed | `tickets:read`, `tickets:create`, `comments:create`, `calendar:read`, `calendar:write`, `team:read`, `tickets:update`. Give only what is needed (`tickets:update` and `calendar:write` change data). |
 | Calls per hour | Default 100, changeable per key (also later, in the list). More answers `429` with a `Retry-After` header. |
 | Expires | Days; empty means no expiry. |
 
@@ -37,6 +37,7 @@ Content-Type: application/json
 | `GET /api/tickets` | `tickets:read` | List and search, with many filters (below). |
 | `GET /api/tickets/{id}/detail` | `tickets:read` | The ticket with its comments. |
 | `POST /api/tickets` | `tickets:create` | Body: `title`, `description` (HTML), `type_id` (**required for customers**), `priority`, `company_id`, `due_date`. |
+| `PATCH /api/tickets/{id}` | `tickets:update` | Change **only** `status`, who is assigned (`add_assignees`, `remove_assignees`, or the whole `assignees` list) and `due_date`. Team keys only (below). |
 | `POST /api/tickets/{id}/comments` | `comments:create` | Body: `comment` (HTML), `visibility` (`reply` or `note`, staff only). |
 | `GET /api/calendar/events` | `calendar:read` | The calendar in a date range (below). |
 | `GET /api/calendar/events/{id}` | `calendar:read` | One stored event. |
@@ -82,6 +83,18 @@ GET /api/tickets?compact=1&skills=WordPress&unassigned=1&overdue=1
 
 A key is never given the people list, so ids of people come from the person asking, or from earlier answers (a ticket row has
 `requester.id` and `assignees[].id`). Company ids come from `GET /api/tickets/lookup`.
+
+## Changing tickets with a key
+
+`PATCH /api/tickets/{id}` needs the separate permission `tickets:update`, so a key that may only read and comment can never change a ticket.
+It is deliberately narrow:
+
+- It changes **only** the status (a slug from `GET /api/tickets/lookup`), the assignees and the due date. Any other field is refused with `400` and the
+  name of the field. There is no delete, and the title, description, company, type and priority cannot be changed.
+- Assign with `add_assignees` / `remove_assignees` (lists of user ids), or replace everyone with `assignees`. People must be active team members.
+- A key of a **client** is refused (`403`). A staff key can only change tickets its user may see (their teams, public teams, tickets without a team).
+- It behaves like a person in the portal: the people involved are notified, the queue order and automation rules run, closing sends the client
+  the closing email, and the activity log entry carries `via` (`API · <key name>`) and `api_key_id`.
 
 ## The calendar
 
@@ -138,7 +151,7 @@ Per person you get:
 
 - Creating a ticket or comment through a key triggers the same emails, notifications, SLA clocks and automation as the portal.
 - The hourly count is kept in memory (one server process): it starts again from zero when the app restarts or is deployed.
-- Keys cannot upload attachments, edit, close or delete tickets. The people list is never returned to a key, and a customer's key sees only its own company in the lookup.
+- Keys cannot upload attachments or delete tickets, and with `tickets:update` they change nothing but status, assignees and due date. The people list is never returned to a key, and a customer's key sees only its own company in the lookup.
 - Demo reset removes the keys of the accounts it deletes.
 
 ## OpenAPI and MCP

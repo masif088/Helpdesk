@@ -2,7 +2,7 @@
 
 export const API_KEY_PREFIX = 'tk_live_'
 
-export const API_KEY_SCOPES = ['tickets:read', 'tickets:create', 'comments:create', 'calendar:read', 'calendar:write', 'team:read'] as const
+export const API_KEY_SCOPES = ['tickets:read', 'tickets:create', 'comments:create', 'calendar:read', 'calendar:write', 'team:read', 'tickets:update'] as const
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number]
 
 export const API_KEY_SCOPE_LABELS: Record<ApiKeyScope, string> = {
@@ -12,6 +12,7 @@ export const API_KEY_SCOPE_LABELS: Record<ApiKeyScope, string> = {
   'calendar:read': 'Read the calendar (meetings, leave, holidays, due dates)',
   'calendar:write': 'Add, change and delete calendar events',
   'team:read': 'Read team activity (who is working, time tracked, load): admins and managers',
+  'tickets:update': 'Change tickets: status, who is assigned, due date (team keys only)',
 }
 
 /** Calls per hour a key may make unless the admin sets another limit on it */
@@ -57,6 +58,7 @@ const ROUTES: Array<{ method: string; pattern: RegExp; scope: ApiKeyScope }> = [
   { method: 'GET', pattern: /^\/api\/tickets\/lookup$/, scope: 'tickets:read' },
   { method: 'GET', pattern: /^\/api\/tickets\/\d+\/detail$/, scope: 'tickets:read' },
   { method: 'POST', pattern: /^\/api\/tickets$/, scope: 'tickets:create' },
+  { method: 'PATCH', pattern: /^\/api\/tickets\/\d+$/, scope: 'tickets:update' },
   { method: 'POST', pattern: /^\/api\/tickets\/\d+\/comments$/, scope: 'comments:create' },
   { method: 'GET', pattern: /^\/api\/calendar\/events$/, scope: 'calendar:read' },
   { method: 'GET', pattern: /^\/api\/calendar\/lookup$/, scope: 'calendar:read' },

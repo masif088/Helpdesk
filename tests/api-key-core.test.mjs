@@ -40,7 +40,9 @@ test('the skill file is public even when a key is sent along', () => {
 
 test('scopeForRequest refuses everything else', () => {
   assert.equal(scopeForRequest('DELETE', '/api/tickets/42'), null)
-  assert.equal(scopeForRequest('PATCH', '/api/tickets/42'), null)
+  assert.equal(scopeForRequest('PATCH', '/api/tickets/42'), 'tickets:update')
+  assert.equal(scopeForRequest('PATCH', '/api/tickets/42/detail'), null)
+  assert.equal(scopeForRequest('PATCH', '/api/tickets/abc'), null)
   assert.equal(scopeForRequest('GET', '/api/users'), null)
   assert.equal(scopeForRequest('GET', '/api/settings/users'), null)
   assert.equal(scopeForRequest('POST', '/api/api-keys'), null)

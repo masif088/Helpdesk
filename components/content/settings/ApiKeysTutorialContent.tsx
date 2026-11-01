@@ -95,6 +95,7 @@ export default function ApiKeysTutorialContent({ user, baseUrl, skill, isAdmin =
                   { call: 'GET /api/tickets/{id}/detail', scope: 'tickets:read', what: 'One ticket with its comments' },
                   { call: 'POST /api/tickets', scope: 'tickets:create', what: 'Create a ticket (title, description, type_id required for customers)' },
                   { call: 'POST /api/tickets/{id}/comments', scope: 'comments:create', what: 'Add a comment' },
+                  { call: 'PATCH /api/tickets/{id}', scope: 'tickets:update', what: 'Change only the status, who is assigned and the due date (team keys only)' },
                   { call: 'GET /api/calendar/events?from=…&to=…', scope: 'calendar:read', what: 'Calendar: meetings, leave, holidays, events and due dates of a period' },
                   { call: 'GET /api/calendar/lookup', scope: 'calendar:read', what: 'Event types and what the key\'s user may create' },
                   { call: 'POST / PATCH / DELETE /api/calendar/events', scope: 'calendar:write', what: 'Add, change or delete an event (the team only)' },
@@ -107,7 +108,7 @@ export default function ApiKeysTutorialContent({ user, baseUrl, skill, isAdmin =
                 ]}
               />
               <Text type="secondary">
-                No uploads, and no edit, close or delete of tickets. Everything else answers 403. Build any call, with the filters filled in for you, in the{' '}
+                No uploads, and no other change to tickets than status, assignees and due date; no delete. Everything else answers 403. Build any call, with the filters filled in for you, in the{' '}
                 <Link href={isAdmin ? '/settings/api-keys/builder' : '/profile/api-builder'}>API builder</Link>.
               </Text>
             </section>

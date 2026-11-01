@@ -50,12 +50,13 @@ The key acts as one portal user, so you only see and do what that user may (a cl
 | Read one ticket with its comments | \`GET /api/tickets/{id}/detail\` |
 | Open a ticket | \`POST /api/tickets\` |
 | Comment on a ticket | \`POST /api/tickets/{id}/comments\` |
+| Change status, assignees or due date (team keys) | \`PATCH /api/tickets/{id}\` |
 | See the calendar for a period | \`GET /api/calendar/events?from=…&to=…\` |
 | Valid calendar types, and what you may create | \`GET /api/calendar/lookup\` |
 | Add, change, delete an event | \`POST\` / \`PATCH\` / \`DELETE /api/calendar/events[/{id}]\` |
 | Who is working, how loaded is the team (admins and managers) | \`GET /api/users/activity?from=…&to=…\` |
 
-Not available to a key: editing, closing, assigning or deleting tickets, uploads, and anything else. If the user wants that, tell them to do it in the portal.
+Not available to a key: editing anything but the status, assignees and due date, deleting tickets, uploads, and anything else. If the user wants that, tell them to do it in the portal.
 
 ## Finding tickets
 
@@ -98,6 +99,22 @@ The answer contains the new ticket \`id\`. Tell the user the number and the link
 ## Commenting
 
 \`POST /api/tickets/{id}/comments\` with \`{ "comment": "<p>Still happening after a restart.</p>" }\`. Customers' comments are visible to the support team and the customer's colleagues. Staff keys write internal notes by default; add \`"visibility": "reply"\` only when the user asks for a reply to the customer.
+
+## Changing a ticket
+
+\`PATCH /api/tickets/{id}\` (key permission \`tickets:update\`, team keys only) can change exactly three things: the status, who is assigned, and the due date. Nothing else: not the title, description, company, type or priority, and a client's key cannot use it at all (403).
+
+| To | Send |
+| --- | --- |
+| Move to another status | \`{ "status": "resolved" }\`: the slug from \`GET /api/tickets/lookup\` (\`statuses[].slug\`) |
+| Add someone | \`{ "add_assignees": ["<user id>"] }\` |
+| Take someone off | \`{ "remove_assignees": ["<user id>"] }\` |
+| Set the whole list | \`{ "assignees": ["<user id>", "<user id>"] }\` (replaces who is there now; \`[]\` clears it) |
+| Set or clear the due date | \`{ "due_date": "2026-11-20" }\` or \`{ "due_date": null }\` |
+
+It does what a person does in the portal: the people involved are notified, the queue and automation rules run, and the activity log says the change came from the key (\`API · <key name>\`). People must be active team members, and the status must exist. Closing a ticket sends the client the closing email, so ask first.
+
+Always ask the user before you change a ticket, say which ticket and what changes, and never assign work to someone the user did not name. Get people's ids from the user or from earlier answers (\`assignees[].id\` on a ticket row), never guess them.
 
 ## The calendar
 

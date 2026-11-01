@@ -128,6 +128,22 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     ],
   },
   {
+    id: 'tickets.update',
+    group: 'Tickets',
+    method: 'PATCH',
+    path: '/api/tickets/{id}',
+    scope: 'tickets:update',
+    summary: 'Change a ticket: its status, who is assigned, or its due date, and nothing else. Team keys only; a client key is refused. Ask the user first.',
+    params: [
+      id('Ticket number', '123'),
+      { name: 'status', where: 'body', type: 'text', description: 'Status slug from the lookup (statuses[].slug). Closing sends the client the closing email.', example: 'resolved', staffOnly: true },
+      { name: 'add_assignees', where: 'body', type: 'list', description: 'User ids of team members to add as assignees', staffOnly: true },
+      { name: 'remove_assignees', where: 'body', type: 'list', description: 'User ids to take off', staffOnly: true },
+      { name: 'assignees', where: 'body', type: 'list', description: 'The whole list of assignees (replaces the current one; empty clears it). Do not combine with add/remove', staffOnly: true },
+      { name: 'due_date', where: 'body', type: 'datetime', description: 'New due date (YYYY-MM-DD); leave out to keep it', example: '2026-11-20', staffOnly: true },
+    ],
+  },
+  {
     id: 'comments.create',
     group: 'Tickets',
     method: 'POST',

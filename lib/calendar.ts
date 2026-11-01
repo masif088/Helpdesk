@@ -28,14 +28,11 @@ import {
   type CalendarEventsRow,
   companies,
   find,
-  findBy,
   get,
   getManyMap,
   insert,
   invoices,
   remove,
-  teamMembers,
-  teams,
   ticketAssignees,
   tickets,
   type TicketsRow,
@@ -43,6 +40,7 @@ import {
   users,
 } from '@/lib/fsdb'
 import { DEFAULT_TICKET_TYPE } from '@/lib/ticket-classification'
+import { staffTicketPredicate } from '@/lib/ticket-staff-access'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 
 export async function calendarViewer(user: { id: string; role?: string | null }): Promise<CalendarViewer> {
@@ -151,17 +149,9 @@ export function parseCalendarRange(from: string | null, to: string | null, now =
   return { from: f, to: t }
 }
 
-/** Staff may see tickets of public teams, teams they are in, and tickets without a team; admins and managers see all. */
-async function staffTicketPredicate(viewer: CalendarViewer): Promise<(t: Pick<TicketsRow, 'teamId'>) => boolean> {
-  if (viewer.isManager) return () => true
-  const [memberships, publicTeams] = await Promise.all([findBy(teamMembers, { userId: viewer.id }), find(teams, { where: [['type', '==', 'public']] })])
-  const visible = new Set([...memberships.map((m) => m.teamId), ...publicTeams.map((t) => t.id)])
-  return (t) => !t.teamId || visible.has(t.teamId)
-}
-
 async function dueTicketItems(viewer: CalendarViewer, q: CalendarQuery): Promise<CalendarItem[]> {
   const rows = await find(tickets, { where: [['dueDate', '>=', q.from], ['dueDate', '<=', q.to]], limit: 1000 })
-  const allowed = viewer.isStaff ? await staffTicketPredicate(viewer) : customerTicketsAccessPredicate(viewer.id, viewer.companyId)
+  const allowed = viewer.isStaff ? await staffTicketPredicate(viewer.id, viewer.isManager) : customerTicketsAccessPredicate(viewer.id, viewer.companyId)
   let open = rows.filter((t) => (t.ticketType ?? DEFAULT_TICKET_TYPE) === DEFAULT_TICKET_TYPE && (t.status === 'pending' || !isClosedLikeTicketStatus(t.status)) && allowed(t as TicketsRow))
   if (q.companyIds?.length) open = open.filter((t) => t.companyId && q.companyIds!.includes(t.companyId))
   if (q.userIds?.length && viewer.isStaff) {

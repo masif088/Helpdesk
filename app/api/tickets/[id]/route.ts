@@ -1,6 +1,7 @@
 import { after, NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { apiViaLabel } from '@/lib/api-key-core'
 import { canDeleteTickets, isAdminOrManager } from '@/lib/auth-utils'
 import { runAutomationRules } from '@/lib/automation-engine'
 import { parseTicketPriceBody } from '@/lib/billing-rate'
@@ -46,6 +47,7 @@ import {
   assertTicketContactUserAllowed,
   getEffectiveCompanyIdForUser,
 } from '@/lib/ticket-contact-user'
+import { prepareKeyTicketUpdate } from '@/lib/ticket-key-update'
 import { sendAgentClosesTicketEmail, sendTicketAssignedEmail } from '@/lib/ticket-notification-emails'
 import { isClosedLikeTicketStatus } from '@/lib/ticket-status-workflow'
 import { assertCustomerMayUseTicketType } from '@/lib/ticket-type-customer-access'
@@ -99,11 +101,20 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 })
   }
 
-  const body = await request.json()
+  let body = await request.json()
 
   const role = (session.user as { role?: string }).role?.toLowerCase()
   const actorRole: TicketActorRole = role === 'customer' ? 'customer' : 'agent'
   const actorUserId = session.user.id!
+
+  // An API key may change only the status, who is assigned and the due date (and its changes say they came from the key)
+  const apiKey = session.apiKey ?? null
+  const apiMark = apiKey ? { via: apiViaLabel(apiKey.name), api_key_id: apiKey.id } : {}
+  if (apiKey) {
+    const checked = await prepareKeyTicketUpdate(body, { ticketId, userId: actorUserId, role })
+    if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: checked.status })
+    body = checked.body
+  }
 
   if (role === 'customer') {
     const access = await assertCustomerMayAccessTicket(actorUserId, ticketId)
@@ -184,6 +195,7 @@ export async function PATCH(
         actorRole,
         action: 'ticket_updated',
         metadata: {
+          ...apiMark,
           changed_keys: changedKeys,
           changes,
           ...(Object.keys(statusEntityLabels).length > 0 ? { entity_labels: statusEntityLabels } : {}),
@@ -290,6 +302,7 @@ export async function PATCH(
         actorRole,
         action: 'ticket_updated',
         metadata: {
+          ...apiMark,
           changed_keys: ['project_status_id'],
           changes: psChanges,
           ...(Object.keys(psEntityLabels).length > 0 ? { entity_labels: psEntityLabels } : {}),
@@ -329,6 +342,7 @@ export async function PATCH(
         actorRole,
         action: 'ticket_updated',
         metadata: {
+          ...apiMark,
           changed_keys: ['ticket_type'],
           changes: { ticket_type: { from: coerceTicketType(cur.ticketType), to: cls } },
         },
@@ -357,6 +371,7 @@ export async function PATCH(
         actorRole,
         action: 'ticket_updated',
         metadata: {
+          ...apiMark,
           changed_keys: ['description'],
           changes: { description: { from: cur!.description, to: body.description ?? null } },
         },
@@ -677,7 +692,7 @@ export async function PATCH(
               actorUserId,
               actorRole,
               action: 'ticket_updated',
-              metadata: meta,
+              metadata: { ...apiMark, ...meta },
             })
           }
 
