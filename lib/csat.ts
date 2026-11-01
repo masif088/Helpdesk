@@ -2,6 +2,7 @@
 import { csatToken, csatTokenTicketId, csatTokenValid } from '@/lib/csat-token'
 import { notifyTicketUsers } from '@/lib/firebase/ticket-notifications-server'
 import { find, get, ticketAssignees, tickets, type TicketsRow, update, users } from '@/lib/fsdb'
+import { linkSecret } from '@/lib/link-secret'
 import { FINISHED_STATUSES } from '@/lib/sla'
 
 /** Ratings of this or lower tell the team right away */
@@ -14,11 +15,6 @@ export class CsatError extends Error {
   ) {
     super(message)
   }
-}
-
-/** Signing secret for public rating links (CSAT_LINK_SECRET, else the scheduler secret, else the Firebase private key). */
-function linkSecret(): string {
-  return process.env.CSAT_LINK_SECRET?.trim() || process.env.SYNC_INBOX_CRON_SECRET?.trim() || process.env.CRON_SECRET?.trim() || process.env.FIREBASE_PRIVATE_KEY?.trim() || ''
 }
 
 /** Public rating link for a ticket, or null when the ticket has no requester or no secret is configured. */

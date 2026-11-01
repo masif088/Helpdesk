@@ -53,6 +53,17 @@ in shorter months). Editing or deleting acts on the whole series. A yearly holid
   A moved event is reminded again for its new time. Because the job runs hourly, the reminder can arrive anywhere from a minute to an hour before the start.
 - Links in the notifications open the calendar on that day (`/calendar?date=YYYY-MM-DD`).
 
+## Calendar feed (Google, Apple, Outlook)
+
+**Calendar → Subscribe** gives each person a private link (an iCal feed) that Google Calendar, Apple Calendar or Outlook can subscribe to and keep up to date
+by themselves. It shows exactly what that person sees in the portal (stored events with repeats unfolded, ticket and invoice due dates), from 30 days back to
+180 days ahead. Anyone with the link can read the calendar, so it is secret: **Reset link** makes a new one and the old one stops at once, **Switch off** stops it.
+
+- The link is `/api/calendar/ics/<token>.ics`. The token is the user id plus a signature made with the server secret (`CSAT_LINK_SECRET`, else `SYNC_INBOX_CRON_SECRET`)
+  and a nonce kept in `app_settings` (`calendar_feed_nonce:<userId>`); no nonce means the feed is off.
+- Subscribers poll on their own schedule. Google can take several hours to show a change.
+- The feed is one way: changes made in Google do not come back. API keys cannot manage feeds (login only).
+
 ## Dates
 
 - A **timed** event is a real moment, stored in UTC and shown in the viewer's time zone.

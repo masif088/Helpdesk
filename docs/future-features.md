@@ -30,7 +30,7 @@ is the customer-facing side:
 
 - Week and day views, and drag and drop to move an event.
 - Leave requests with approval by a manager, and a yearly leave balance.
-- An iCal feed per person (`/api/calendar/ics?token=…`) so the calendar shows in Google or Apple Calendar; later two-way Google Calendar sync.
+- Two-way Google Calendar sync (the iCal feed is one way).
 - Show SLA due times and recurring-ticket runs on the calendar.
 - Per-team business hours for SLA, fed by the same calendar.
 - API: a `calendar:read` filter by team, and webhooks when an event is added or changed.

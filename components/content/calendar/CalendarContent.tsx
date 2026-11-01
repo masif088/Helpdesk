@@ -70,6 +70,7 @@ export default function CalendarContent({ user, initialDate }: Props) {
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [mineOnly, setMineOnly] = useState(false)
   const [editing, setEditing] = useState<{ item: CalendarItem | null; day: Dayjs } | null>(null)
+  const [feedOpen, setFeedOpen] = useState(false)
 
   const gridStart = useMemo(() => month.subtract((month.day() + 6) % 7, 'day'), [month])
   const weeks = Math.ceil(((month.day() + 6) % 7 + month.daysInMonth()) / 7)
@@ -165,6 +166,9 @@ export default function CalendarContent({ user, initialDate }: Props) {
               {loading ? <Spin size="small" /> : null}
             </Space>
             <Space wrap>
+              <Button size="small" icon={<LinkOutlined />} onClick={() => setFeedOpen(true)}>
+                Subscribe
+              </Button>
               {!user.role || user.role.toLowerCase() !== 'customer' ? (
                 <label className="cal-mine">
                   <Switch size="small" checked={mineOnly} onChange={setMineOnly} /> Only mine
@@ -313,6 +317,8 @@ export default function CalendarContent({ user, initialDate }: Props) {
             </aside>
           </div>
 
+          {feedOpen ? <FeedModal onClose={() => setFeedOpen(false)} /> : null}
+
           {editing && lookup ? (
             <EventModal
               lookup={lookup}
@@ -439,6 +445,81 @@ function EventModal({ lookup, item, day, onClose, onSaved }: { lookup: Lookup; i
           <Input.TextArea rows={3} maxLength={5000} />
         </Form.Item>
       </Form>
+    </Modal>
+  )
+}
+
+/** "Subscribe": a secret link that shows this calendar in Google Calendar, Apple Calendar or Outlook, kept up to date by them. */
+function FeedModal({ onClose }: { onClose: () => void }) {
+  const { message } = App.useApp()
+  const [url, setUrl] = useState<string | null | undefined>(undefined)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/calendar/feed', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : { url: null }))
+      .then((d) => setUrl(d.url ?? null))
+      .catch(() => setUrl(null))
+  }, [])
+
+  const act = async (action: 'reset' | 'disable') => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/calendar/feed', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'It failed')
+      setUrl(data.url ?? null)
+      message.success(action === 'disable' ? 'Link switched off' : url ? 'New link made, the old one stopped' : 'Link made')
+    } catch (e) {
+      message.error((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal open title="Subscribe to this calendar" onCancel={onClose} footer={<Button onClick={onClose}>Close</Button>} width={560}>
+      <div style={{ display: 'grid', gap: 12 }}>
+        <Text type="secondary">
+          Add your calendar to Google Calendar, Apple Calendar or Outlook with a private link. They keep it up to date by themselves; it shows what you see here (30 days back, 180 days ahead).
+        </Text>
+        {url === undefined ? <Spin /> : url ? (
+          <>
+            <Input.TextArea readOnly autoSize value={url} onFocus={(e) => e.target.select()} />
+            <Space wrap>
+              <Button type="primary" onClick={() => void navigator.clipboard.writeText(url).then(() => message.success('Copied'))}>
+                Copy link
+              </Button>
+              <Popconfirm title="Make a new link?" description="The old link stops working. Subscribe again with the new one." okText="Make new link" onConfirm={() => void act('reset')}>
+                <Button loading={busy}>Reset link</Button>
+              </Popconfirm>
+              <Popconfirm title="Switch the link off?" okText="Switch off" okButtonProps={{ danger: true }} onConfirm={() => void act('disable')}>
+                <Button danger loading={busy}>
+                  Switch off
+                </Button>
+              </Popconfirm>
+            </Space>
+            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13 }}>
+              <li>
+                <b>Google Calendar:</b> Other calendars → + → From URL → paste the link.
+              </li>
+              <li>
+                <b>Apple Calendar:</b> File → New Calendar Subscription → paste the link.
+              </li>
+              <li>
+                <b>Outlook:</b> Add calendar → Subscribe from web → paste the link.
+              </li>
+            </ul>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Anyone who has the link can see your calendar, so keep it to yourself. Reset it if it gets out. Google can take a few hours to show changes.
+            </Text>
+          </>
+        ) : (
+          <Button type="primary" loading={busy} onClick={() => void act('reset')}>
+            Make my link
+          </Button>
+        )}
+      </div>
     </Modal>
   )
 }
