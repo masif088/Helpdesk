@@ -140,7 +140,7 @@ Workflows:
 - "Put me on leave 28 to 31 December": \`{ "type": "leave", "title": "Annual leave", "start": "2026-12-28", "end": "2026-12-31" }\`.
 - A holiday needs a manager's key: \`{ "type": "holiday", "title": "New Year", "start": "2027-01-01", "repeat": "yearly" }\`. Holidays also stop the SLA clocks when business hours are on.
 - Move or rename: \`PATCH /api/calendar/events/{id}\` with only the changed fields. Cancel: \`DELETE\`.
-- Invite people with \`attendee_ids\` (user ids): they get a bell notification and an email, and again when the event is moved or cancelled. Do not invite people the user did not name.
+- Invite people with \`attendee_ids\` (user ids), only on a meeting, event or training (holidays, leave, reminders and maintenance have no guest list): they get a bell notification and an email, and again when the event is moved or cancelled. Do not invite people the user did not name.
 - Answer an invitation as the key's user: \`POST /api/calendar/events/{id}/respond\` with \`{ "response": "accepted" }\` (or \`declined\`, \`tentative\`). Only invited people can; the maker is told. Each item shows \`responses\` (everyone's answers) and \`my_response\`.
 
 Who sees an event is the \`visibility\`: \`private\` (only you), \`staff\` (the team), \`company\` (the team and the client company in \`company_id\`), \`everyone\` (managers only). Only the team can add events; a client key can read what is meant for them but is refused when it writes.

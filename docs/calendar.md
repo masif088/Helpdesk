@@ -43,7 +43,8 @@ in shorter months). Editing or deleting acts on the whole series. A yearly holid
 
 ## Invitations, answers and reminders
 
-- **Invite** people by adding them as `attendee_ids` (people on the team, or clients when it is meant for them). New attendees get a **bell notification** and an
+- **Invite** people by adding them as `attendee_ids` (people on the team, or clients when it is meant for them). Only a **meeting, event or training** has a guest list: a holiday, leave, reminder or
+  maintenance window refuses attendees and shows no accept / decline, and changing an event into one of those kinds drops the people who were invited. New attendees get a **bell notification** and an
   **email** (sent from the connected Gmail, with the time in the time zone of the SLA calendar, default UTC+7). When an event they are in is
   **moved, renamed or cancelled**, they are told again. The person who makes the change is never notified about it.
 - **Answer:** an invited person can accept, say maybe, or decline in the calendar, or with `POST /api/calendar/events/{id}/respond`. The maker gets a bell

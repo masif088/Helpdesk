@@ -16,6 +16,7 @@ import {
   expandOccurrences,
   isCalendarItemType,
   isCalendarResponse,
+  isInvitable,
   itemTimes,
   mayChangeEvent,
   mayCreateEvent,
@@ -323,7 +324,10 @@ export async function updateCalendarEvent(viewer: CalendarViewer, id: string, pa
   const existing = await get(calendarEvents, id)
   if (!existing || !canSeeEvent(accessOf(existing), viewer)) throw new CalendarError('Event not found', 404)
   if (!mayChangeEvent(accessOf(existing), viewer)) throw new CalendarError('You cannot change this event', 403)
-  const cleaned = cleanEventInput({ ...rowToInput(existing), ...patch })
+  // Changing into a kind that has no guest list (holiday, leave, ...) lets go of the people who were invited
+  const merged = { ...rowToInput(existing), ...patch }
+  if (typeof merged.type === 'string' && !isInvitable(merged.type) && patch.attendee_ids === undefined) merged.attendee_ids = []
+  const cleaned = cleanEventInput(merged)
   if (!cleaned.ok) throw new CalendarError(cleaned.error, 400)
   const f = cleaned.value
   if (f.type !== existing.type && !mayCreateEvent(f.type, f.ownerId, viewer)) throw new CalendarError('You cannot change it into that type', 403)
@@ -366,6 +370,7 @@ export async function deleteCalendarEvent(viewer: CalendarViewer, id: string, op
 export async function respondToCalendarEvent(viewer: CalendarViewer, id: string, response: unknown, opts: { defer?: Defer } = {}): Promise<CalendarItem> {
   const existing = await get(calendarEvents, id)
   if (!existing || !canSeeEvent(accessOf(existing), viewer)) throw new CalendarError('Event not found', 404)
+  if (!isInvitable(existing.type)) throw new CalendarError('This kind of event has no invitations to answer', 400)
   if (!isCalendarResponse(response)) throw new CalendarError('response must be accepted, declined or tentative', 400)
   if (!(existing.attendeeIds ?? []).includes(viewer.id)) throw new CalendarError('You are not invited to this event', 403)
   const row = await update(calendarEvents, id, { responses: { ...(existing.responses ?? {}), [viewer.id]: response } })

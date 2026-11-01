@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { SpaNavLink } from '@/components/common/SpaNavLink'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
-import { type CalendarItem, summarizeResponses, TYPE_INFO, VISIBILITY_LABELS } from '@/lib/calendar-core'
+import { type CalendarItem, INVITABLE_TYPES, isInvitable, summarizeResponses, TYPE_INFO, VISIBILITY_LABELS } from '@/lib/calendar-core'
 
 const { Content } = Layout
 const { Title, Text } = Typography
@@ -280,7 +280,7 @@ export default function CalendarContent({ user, initialDate }: Props) {
                         {it.source === 'invoice' ? <SpaNavLink href="/invoices">Invoices</SpaNavLink> : null}
                         {it.visibility ? <Text type="secondary">{VISIBILITY_LABELS[it.visibility]}</Text> : null}
                       </Space>
-                      {it.source === 'event' && it.attendee_ids.length > 0 ? (
+                      {it.source === 'event' && isInvitable(it.type) && it.attendee_ids.length > 0 ? (
                         <div style={{ display: 'grid', gap: 6 }}>
                           <Text type="secondary" style={{ fontSize: 12 }}>
                             {(() => {
@@ -365,6 +365,8 @@ function EventModal({ lookup, item, day, onClose, onSaved }: { lookup: Lookup; i
 
   // Picking another type brings that type's usual shape (all-day or timed, who sees it)
   const onType = (type: string) => {
+    // A kind without a guest list (holiday, leave, ...) lets go of the people already picked
+    if (!isInvitable(type)) form.setFieldsValue({ attendee_ids: [] })
     const info = lookup.types.find((t) => t.type === type)
     if (!info || item) return
     const [s] = form.getFieldValue('range') as [Dayjs, Dayjs]
@@ -429,9 +431,11 @@ function EventModal({ lookup, item, day, onClose, onSaved }: { lookup: Lookup; i
         <Form.Item name="visibility" label="Who sees it">
           <Select options={lookup.visibilities.map((v) => ({ value: v, label: VISIBILITY_LABELS[v as keyof typeof VISIBILITY_LABELS] }))} />
         </Form.Item>
-        <Form.Item name="attendee_ids" label="People">
-          <Select mode="multiple" allowClear showSearch optionFilterProp="label" placeholder="Invite people" options={people.map((p) => ({ value: p.id, label: p.full_name || p.email }))} />
-        </Form.Item>
+        {typeNow && isInvitable(typeNow) ? (
+          <Form.Item name="attendee_ids" label="People" extra={`They are told, and can accept or decline. Only for ${INVITABLE_TYPES.join(', ')}.`}>
+            <Select mode="multiple" allowClear showSearch optionFilterProp="label" placeholder="Invite people" options={people.map((p) => ({ value: p.id, label: p.full_name || p.email }))} />
+          </Form.Item>
+        ) : null}
         <Form.Item name="company_id" label="Client company" extra="Needed when the event is visible to the client company">
           <Select allowClear showSearch optionFilterProp="label" placeholder="None" options={companies.map((c) => ({ value: c.id, label: c.name }))} />
         </Form.Item>

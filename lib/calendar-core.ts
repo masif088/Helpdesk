@@ -40,6 +40,10 @@ export const TYPE_INFO: Record<CalendarType | DerivedType, { label: string; colo
   invoice_due: { label: 'Invoice due', color: '#0EA5E9', hint: 'An unpaid invoice reaches its due date (from billing)', allDay: true, visibility: 'staff' },
 }
 
+/** Only these can have invited people (and so accept / decline and reminders for the invited). A holiday, leave, a reminder or a maintenance window has no guest list. */
+export const INVITABLE_TYPES: readonly CalendarType[] = ['meeting', 'event', 'training']
+export const isInvitable = (type: string): boolean => (INVITABLE_TYPES as readonly string[]).includes(type)
+
 export const isCalendarType = (v: unknown): v is CalendarType => typeof v === 'string' && (CALENDAR_TYPES as readonly string[]).includes(v)
 export const isCalendarItemType = (v: unknown): v is CalendarType | DerivedType =>
   isCalendarType(v) || (typeof v === 'string' && (DERIVED_TYPES as readonly string[]).includes(v))
@@ -141,6 +145,7 @@ export function cleanEventInput(body: Record<string, unknown>): CleanResult {
   if (!Array.isArray(attendees) || attendees.some((a) => typeof a !== 'string' || !a.trim())) return { ok: false, error: 'attendee_ids must be a list of user ids' }
   const attendeeIds = [...new Set(attendees.map((a) => String(a).trim()))]
   if (attendeeIds.length > MAX_ATTENDEES) return { ok: false, error: `At most ${MAX_ATTENDEES} attendees` }
+  if (attendeeIds.length && !isInvitable(type)) return { ok: false, error: `Only ${INVITABLE_TYPES.join(', ')} can have invited people (attendee_ids); a ${type} cannot` }
 
   let ticketId: number | null = null
   if (body.ticket_id !== undefined && body.ticket_id !== null && body.ticket_id !== '') {

@@ -44,7 +44,7 @@ const eventBody = (create: boolean): ApiParam[] => [
   { name: 'description', where: 'body', type: 'text', description: 'Plain text notes (max 5000 characters)' },
   { name: 'location', where: 'body', type: 'text', description: 'Place or room', example: 'Meeting room 2' },
   { name: 'meeting_url', where: 'body', type: 'text', description: 'Video call link, must start with http(s)://', example: 'https://meet.google.com/abc-defg-hij' },
-  { name: 'attendee_ids', where: 'body', type: 'list', description: 'User ids of the people invited (max 50)' },
+  { name: 'attendee_ids', where: 'body', type: 'list', description: 'User ids of the people invited (max 50). Only for meeting, event and training; other types refuse it' },
   { name: 'owner_id', where: 'body', type: 'text', description: 'Whom it is about (leave). Defaults to you for leave and reminders.' },
   { name: 'company_id', where: 'body', type: 'text', description: 'The client company it concerns (needed when visibility is `company`)' },
   { name: 'ticket_id', where: 'body', type: 'number', description: 'A ticket it relates to', example: '123' },
@@ -214,7 +214,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
     method: 'POST',
     path: '/api/calendar/events/{id}/respond',
     scope: 'calendar:write',
-    summary: 'Answer an invitation as the key\'s user: accepted, declined or tentative. Only people who are invited can. The one who made the event is told.',
+    summary: 'Answer an invitation as the key\'s user: accepted, declined or tentative. Only people who are invited can, and only to a meeting, event or training. The one who made the event is told.',
     params: [
       id('Event id', '3f2b8a9c-1d4e-4f6a-9b0c-123456789abc'),
       { name: 'response', where: 'body', type: 'enum', options: ['accepted', 'declined', 'tentative'], required: true, description: 'Your answer', example: 'accepted' },
