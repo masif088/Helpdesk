@@ -1183,6 +1183,41 @@ export const calendarEvents = defineTable<CalendarEventsRow, NewCalendarEventsRo
   nowFields: ['createdAt', 'updatedAt'],
 })
 
+/** API key usage: one record per key per day, added up for the keys pages (see lib/api-key-usage.ts) */
+export type ApiKeyUsageRow = {
+  /** `<key id>~<YYYY-MM-DD>` */
+  id: string
+  keyId: string
+  /** UTC day */
+  date: string
+  /** Calls answered */
+  calls: number
+  /** Calls refused because the hourly limit was reached */
+  limited: number
+  /** Calls per permission (scope) */
+  scopes: Record<string, number> | null
+  updatedAt: Date | null
+}
+
+export type NewApiKeyUsageRow = {
+  id?: string
+  keyId: string
+  date: string
+  calls?: number
+  limited?: number
+  scopes?: Record<string, number> | null
+  updatedAt?: Date | null
+}
+
+export const apiKeyUsage = defineTable<ApiKeyUsageRow, NewApiKeyUsageRow>({
+  name: 'api_key_usage',
+  columns: ['id', 'keyId', 'date', 'calls', 'limited', 'scopes', 'updatedAt'],
+  docKey: ['id'],
+  idField: 'id',
+  idGen: 'uuid',
+  defaults: {'calls': 0, 'limited': 0},
+})
+
 export type MessageTemplatesRow = {
   id: string
   type: string
@@ -2130,4 +2165,4 @@ export const users = defineTable<UsersRow, NewUsersRow>({
   nowFields: ['createdAt', 'updatedAt'],
 })
 
-export const allTables = [invoices, apiKeys, cannedResponses, calendarEvents, slaDaily, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const
+export const allTables = [invoices, apiKeys, apiKeyUsage, cannedResponses, calendarEvents, slaDaily, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const

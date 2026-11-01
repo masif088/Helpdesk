@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
 import { DEFAULT_RATE_LIMIT_PER_HOUR, MAX_ACTIVE_SELF_KEYS, SELF_KEY_DAYS } from '@/lib/api-key-core'
+import { loadKeyUsage } from '@/lib/api-key-usage'
+import { noUsage } from '@/lib/api-key-usage-core'
 import { countActiveApiKeys, createApiKey, listApiKeys } from '@/lib/api-keys'
 
 export const dynamic = 'force-dynamic'
@@ -17,7 +19,7 @@ export async function GET() {
   const user = await signedInUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const keys = await listApiKeys(user.id)
+  const [keys, usage] = await Promise.all([listApiKeys(user.id), loadKeyUsage().catch(() => new Map())])
   return NextResponse.json(
     keys.map((k) => ({
       id: k.id,
@@ -29,6 +31,7 @@ export async function GET() {
       expires_at: k.expiresAt?.toISOString() ?? null,
       revoked_at: k.revokedAt?.toISOString() ?? null,
       last_used_at: k.lastUsedAt?.toISOString() ?? null,
+      usage: usage.get(k.id) ?? noUsage(),
     }))
   )
 }

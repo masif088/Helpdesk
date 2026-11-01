@@ -2,6 +2,7 @@ import { cookies, headers } from 'next/headers'
 import { cache } from 'react'
 
 import { bearerApiKey } from '@/lib/api-key-core'
+import { recordApiCall } from '@/lib/api-key-usage'
 import { apiRateLimiter, verifyApiKey } from '@/lib/api-keys'
 import { SESSION_USER_CACHE_MS, sessionUserCache as userCache } from '@/lib/auth-session-cache'
 import { fetchUserSessionData } from '@/lib/auth-user-session'
@@ -108,6 +109,7 @@ async function sessionFromApiKey(rawKey: string): Promise<Session | null> {
   const key = await verifyApiKey(rawKey)
   if (!key || !key.scopes.includes(scope as (typeof key.scopes)[number])) return null
   const limit = countApiCall(key.id, key.rateLimitPerHour, (await headers()).get('x-api-request'))
+  recordApiCall({ keyId: key.id, scope, limited: !limit.ok, requestId: (await headers()).get('x-api-request') })
   if (!limit.ok) return { expires: new Date().toISOString(), error: 'RateLimited', retryAfterSeconds: limit.retryAfterSeconds }
   let user: { row: UsersRow | null; active: boolean }
   try {

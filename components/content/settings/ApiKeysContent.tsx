@@ -5,10 +5,12 @@ import { Alert, App, Button, Checkbox, Form, Input, InputNumber, Layout, Modal, 
 import dayjs from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import KeyUsageChart from '@/components/common/KeyUsageChart'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
 import { API_KEY_SCOPE_LABELS, API_KEY_SCOPES, type ApiKeyScope, DEFAULT_RATE_LIMIT_PER_HOUR, MAX_RATE_LIMIT_PER_HOUR } from '@/lib/api-key-core'
+import type { KeyUsage } from '@/lib/api-key-usage-core'
 
 const { Content } = Layout
 const { Text, Paragraph } = Typography
@@ -29,6 +31,7 @@ type KeyRow = {
   expires_at: string | null
   revoked_at: string | null
   last_used_at: string | null
+  usage: KeyUsage
 }
 
 type UserOption = { id: string; email: string; full_name: string | null; role: string; status: string | null; company: { name: string } | null }
@@ -154,6 +157,7 @@ export default function ApiKeysContent({ user }: Props) {
                 dataSource={rows}
                 pagination={false}
                 locale={{ emptyText: 'No keys yet' }}
+                expandable={{ expandedRowRender: (r: KeyRow) => <KeyUsageChart usage={r.usage} />, rowExpandable: () => true }}
                 columns={[
                   {
                     title: 'Name',
@@ -186,6 +190,16 @@ export default function ApiKeysContent({ user }: Props) {
                       <Button size="small" type="link" style={{ padding: 0 }} onClick={() => setLimitFor({ id: r.id, name: r.name, value: r.rate_limit_per_hour })}>
                         {r.rate_limit_per_hour}
                       </Button>
+                    ),
+                  },
+                  {
+                    title: 'Calls 7d / 30d',
+                    width: 120,
+                    render: (_: unknown, r: KeyRow) => (
+                      <span>
+                        {r.usage.calls7d} / {r.usage.calls30d}
+                        {r.usage.limited30d ? <Tag color="orange" style={{ marginLeft: 6 }}>limit hit</Tag> : null}
+                      </span>
                     ),
                   },
                   { title: 'Last used', render: (_: unknown, r: KeyRow) => (r.last_used_at ? dayjs(r.last_used_at).format('D MMM YYYY HH:mm') : <Text type="secondary">never</Text>) },

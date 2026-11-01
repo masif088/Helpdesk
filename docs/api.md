@@ -148,6 +148,17 @@ Per person you get:
 - Comment: a blue tag `API · <key name>` under the text (staff view), `via` in the JSON, and `via` / `api_key_id` in the activity log.
 - The author shown is the user the key acts as. The key name tells the tool apart from the person.
 
+## Key usage
+
+Every call a key makes is counted, per key and per day (the `api_key_usage` collection, one small record per key per day). **Settings → API keys** shows for each key the
+calls of the last 7 and 30 days, a tag when it hit its hourly limit, and (open the row) a 30-day chart with the calls per permission. **Profile → API keys** shows the same
+for your own keys. "Last used" is exact to the ten minutes.
+
+- Counted: calls the key was allowed to make, and calls refused because the hourly limit was reached (shown separately). A call refused before it reaches the key check
+  (an endpoint keys may not use, or an unknown key) is not counted.
+- Per permission, not per endpoint: you see `tickets:read 120, calendar:read 14`, not each URL.
+- Days are UTC. Records are kept; only the last 30 days are shown.
+
 ## Notes
 
 - Creating a ticket or comment through a key triggers the same emails, notifications, SLA clocks and automation as the portal.

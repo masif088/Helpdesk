@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { loadKeyUsage } from '@/lib/api-key-usage'
+import { noUsage } from '@/lib/api-key-usage-core'
 import { createApiKey, listApiKeys } from '@/lib/api-keys'
 import { isAdmin } from '@/lib/auth-utils'
 import { companies, getMany, getManyMap, users } from '@/lib/fsdb'
@@ -19,7 +21,7 @@ export async function GET() {
   const guard = await requireAdmin()
   if (guard.error) return guard.error
 
-  const keys = await listApiKeys()
+  const [keys, usage] = await Promise.all([listApiKeys(), loadKeyUsage().catch(() => new Map())])
   const userRows = await getMany(users, [...new Set(keys.flatMap((k) => [k.userId, ...(k.createdBy ? [k.createdBy] : [])]))])
   const userById = new Map(userRows.map((u) => [u.id, u]))
   const companyById = await getManyMap(companies, userRows.map((u) => u.companyId))
@@ -41,6 +43,7 @@ export async function GET() {
         expires_at: k.expiresAt?.toISOString() ?? null,
         revoked_at: k.revokedAt?.toISOString() ?? null,
         last_used_at: k.lastUsedAt?.toISOString() ?? null,
+        usage: usage.get(k.id) ?? noUsage(),
       }
     })
   )

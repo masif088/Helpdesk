@@ -6,7 +6,9 @@ import dayjs from 'dayjs'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
+import KeyUsageChart from '@/components/common/KeyUsageChart'
 import { API_KEY_SCOPE_LABELS, API_KEY_SCOPES, type ApiKeyScope, DEFAULT_RATE_LIMIT_PER_HOUR, MAX_ACTIVE_SELF_KEYS, SELF_KEY_DAYS } from '@/lib/api-key-core'
+import type { KeyUsage } from '@/lib/api-key-usage-core'
 
 const { Text, Title } = Typography
 
@@ -20,6 +22,7 @@ type MyKey = {
   expires_at: string | null
   revoked_at: string | null
   last_used_at: string | null
+  usage: KeyUsage
 }
 
 /** Profile -> your own API keys: lets your AI or a script read, create and comment on tickets as you. */
@@ -100,6 +103,7 @@ export default function MyApiKeys() {
         pagination={false}
         locale={{ emptyText: 'No keys yet' }}
         scroll={{ x: 'max-content' }}
+        expandable={{ expandedRowRender: (r: MyKey) => <KeyUsageChart usage={r.usage} />, rowExpandable: () => true }}
         columns={[
           {
             title: 'Name',
@@ -113,6 +117,7 @@ export default function MyApiKeys() {
             ),
           },
           { title: 'Can', render: (_: unknown, r: MyKey) => r.scopes.map((s) => <Tag key={s}>{s}</Tag>) },
+          { title: 'Calls 7d / 30d', render: (_: unknown, r: MyKey) => `${r.usage.calls7d} / ${r.usage.calls30d}` },
           { title: 'Last used', render: (_: unknown, r: MyKey) => (r.last_used_at ? dayjs(r.last_used_at).format('D MMM YYYY HH:mm') : <Text type="secondary">never</Text>) },
           { title: 'Expires', render: (_: unknown, r: MyKey) => (r.expires_at ? dayjs(r.expires_at).format('D MMM YYYY') : <Text type="secondary">no expiry</Text>) },
           {

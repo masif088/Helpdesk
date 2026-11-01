@@ -42,6 +42,7 @@ is the customer-facing side:
   15 minutes.
 - The stored SLA days (`slaDaily`) were built with the old calendar-time rules; a day is only recomputed while it can
   still change, so old reports keep their numbers. Use "Refresh" on the SLA report to rebuild recent days.
+- Key usage per endpoint (now per permission), with the status codes, and an alert when a key suddenly makes many more calls than usual.
 - A CSAT follow-up for low scores (a reply from the account manager, or a callback task).
 - Retainer: usage allowance (included hours) with overage billed automatically, and proration for a mid-month start.
 - Per-team business hours (the SLA calendar is one calendar for the whole app).
