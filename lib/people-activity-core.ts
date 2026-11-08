@@ -39,6 +39,8 @@ export type ActivityQuery = {
   breakdown: ActivityBreakdown
   /** List the tickets each person worked on */
   includeTickets: boolean
+  /** List each person's time entries (start, end, ticket), newest first */
+  includeSessions: boolean
 }
 
 const list = (v: string | null): string[] => (v ? [...new Set(v.split(',').map((s) => s.trim()).filter(Boolean))] : [])
@@ -82,7 +84,31 @@ export function parseActivityQuery(params: URLSearchParams, meId: string, now = 
     onlyWorking: flag(params.get('only_working')),
     breakdown,
     includeTickets: flag(params.get('include_tickets')),
+    includeSessions: flag(params.get('include_sessions')),
   }
+}
+
+/** My working (a person's own page) looks at most this many days at a time. */
+export const MAX_MY_WORKING_DAYS = 30
+
+/**
+ * The query behind the "My working" page: only the caller, with their tickets and every time entry. Takes `from`, `to` (dates or exact
+ * moments in the app zone) and optionally `breakdown`; anything else in the query string is ignored. Without a `breakdown` a period of
+ * up to 3 days is shown per hour and a longer one per day.
+ */
+export function parseMyWorkingQuery(params: URLSearchParams, meId: string, now = new Date(), tz = 'UTC'): ActivityQuery | { error: string } {
+  const base = new URLSearchParams()
+  for (const k of ['from', 'to', 'breakdown']) if (params.get(k)) base.set(k, params.get(k) as string)
+  base.set('user_ids', 'me')
+  base.set('include_tickets', '1')
+  base.set('include_sessions', '1')
+  const probe = parseActivityQuery(base, meId, now, tz)
+  if ('error' in probe) return probe
+  const span = probe.to.getTime() - probe.from.getTime()
+  if (span > MAX_MY_WORKING_DAYS * DAY) return { error: `Ask for at most ${MAX_MY_WORKING_DAYS} days at a time` }
+  if (base.has('breakdown')) return probe
+  base.set('breakdown', span <= MAX_HOURLY_DAYS * DAY ? 'hour' : 'day')
+  return parseActivityQuery(base, meId, now, tz)
 }
 
 /** Does the query narrow down tickets (so work on other tickets does not count)? */

@@ -49,6 +49,7 @@ clients, internal support desks. If you can follow a step-by-step guide, you can
   placeholders, message templates, Slack alerts.
 - **AI help** (optional, bring your own key): ticket summaries and draft replies.
 - **Team activity.** A Reports page (and API) that shows who worked in any period, by day or hour: time tracked, tickets worked on, open load, leave and meetings, filterable by person, client company, skill and ticket type (see [docs/api.md](docs/api.md)).
+- **My working.** Each team member sees what they worked on today, this week or in any range of up to 30 days to the minute: time entries, tickets, a timeline per hour or day (see [docs/my-working.md](docs/my-working.md)).
 - **Calendar.** Meetings, leave, holidays, events, training and maintenance windows, plus ticket and invoice due dates, in one calendar with repeating events, invitations with accept / decline, reminders, and a private feed for Google or Apple Calendar (see [docs/calendar.md](docs/calendar.md)).
 - **Time tracking and billing.** Job types, billable hours, monthly retainer invoices, deposits, and online payment of
   invoices through Midtrans or Xendit.

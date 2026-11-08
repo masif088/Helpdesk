@@ -33,11 +33,13 @@ import { CLOSED_LIKE_TICKET_STATUSES, isClosedLikeTicketStatus } from '@/lib/tic
 
 const DAY = 86_400_000
 const MAX_TICKETS_LISTED = 25
+const MAX_SESSIONS_LISTED = 500
 
 type TicketLite = Pick<TicketsRow, 'id' | 'title' | 'status' | 'ticketType' | 'dueDate' | 'typeId' | 'companyId' | 'requiredSkills' | 'createdBy' | 'contactUserId'>
 const TICKET_FIELDS = ['id', 'title', 'status', 'ticketType', 'dueDate', 'typeId', 'companyId', 'requiredSkills', 'createdBy', 'contactUserId'] as const
 
-export async function loadPeopleActivity(q: ActivityQuery, viewer: CalendarViewer, now = new Date()) {
+export async function loadPeopleActivity(q: ActivityQuery, viewer: CalendarViewer, now = new Date(), opts: { maxTickets?: number } = {}) {
+  const maxTickets = opts.maxTickets ?? MAX_TICKETS_LISTED
   const filtered = hasTicketFilters(q)
 
   // ── time entries that touch the period: those started in it (or the day before), and timers still running
@@ -141,10 +143,30 @@ export async function loadPeopleActivity(q: ActivityQuery, viewer: CalendarViewe
         ? {
             tickets_worked: [...byTicket.entries()]
               .sort(([, a], [, b]) => b.seconds - a.seconds)
-              .slice(0, MAX_TICKETS_LISTED)
+              .slice(0, maxTickets)
               .map(([id, v]) => {
                 const t = known.get(id)!
                 return { id, title: t.title, status: t.status, company: t.companyId ? (companyRows.get(t.companyId)?.name ?? null) : null, type: t.typeId != null ? (typeTitle.get(t.typeId) ?? null) : null, seconds: v.seconds, sessions: v.sessions }
+              }),
+          }
+        : {}),
+      ...(q.includeSessions
+        ? {
+            sessions_list: [...mine]
+              .sort((a, b) => b.part.start.getTime() - a.part.start.getTime())
+              .slice(0, MAX_SESSIONS_LISTED)
+              .map((e) => {
+                const t = known.get(e.row.ticketId)
+                return {
+                  ticket_id: e.row.ticketId,
+                  title: t?.title ?? null,
+                  status: t?.status ?? null,
+                  company: t?.companyId ? (companyRows.get(t.companyId)?.name ?? null) : null,
+                  start: e.part.start.toISOString(),
+                  end: e.part.end.toISOString(),
+                  seconds: e.part.seconds,
+                  running: e.part.running,
+                }
               }),
           }
         : {}),

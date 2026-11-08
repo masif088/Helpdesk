@@ -93,6 +93,7 @@ function selectedKeysForPathname(pathname: string | null, ticketsSearch: string)
     return ['/tickets']
   }
   if (pathname === '/calendar' || pathname.startsWith('/calendar/')) return ['/calendar']
+  if (pathname === '/my-working' || pathname.startsWith('/my-working/')) return ['/my-working']
   if (pathname === '/reference' || pathname.startsWith('/reference/')) return ['/reference']
   if (pathname === '/companies' || pathname.startsWith('/companies/')) return ['/companies']
   if (pathname === '/my-company' || pathname.startsWith('/my-company/')) return ['/my-company']
@@ -190,6 +191,7 @@ export default function AdminSidebar({ user, collapsed, onCollapse }: AdminSideb
                 count: scopeCounts?.mine,
                 countTone: 'muted',
               },
+              { key: '/my-working', label: 'My working', icon: <FieldTimeOutlined /> },
               { key: '/tickets', label: 'All tickets', icon: <CheckSquareOutlined /> },
               { key: '/tickets?ticket_type=notification', label: 'Notifications', icon: <NotificationOutlined /> },
               { key: '/tickets?ticket_type=spam', label: 'Spam', icon: <WarningOutlined /> },

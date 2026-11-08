@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { bucketOf, hasTicketFilters, parseActivityQuery, sessionInRange, splitIntoBuckets, ticketPassesActivityFilters, unionSeconds } from '../lib/people-activity-core.ts'
+import { bucketOf, hasTicketFilters, parseActivityQuery, parseMyWorkingQuery, sessionInRange, splitIntoBuckets, ticketPassesActivityFilters, unionSeconds } from '../lib/people-activity-core.ts'
 
 const d = (s) => new Date(s)
 const parse = (qs, me = 'u-me', now = d('2026-11-04T10:00:00Z')) => parseActivityQuery(new URLSearchParams(qs), me, now)
@@ -168,5 +168,49 @@ describe('overlapping work', () => {
   it('adds separate stretches and handles none', () => {
     assert.equal(unionSeconds([iv('2026-11-02T09:00:00Z', '2026-11-02T10:00:00Z'), iv('2026-11-02T11:00:00Z', '2026-11-02T11:30:00Z')]), 5400)
     assert.equal(unionSeconds([]), 0)
+  })
+})
+
+describe('My working query', () => {
+  const my = (qs, now = d('2026-11-04T10:00:00Z'), tz = 'Asia/Jakarta') => parseMyWorkingQuery(new URLSearchParams(qs), 'u-me', now, tz)
+
+  it('is only the caller, with tickets and every time entry', () => {
+    const q = my('user_ids=someone-else&company_ids=c1&only_working=0')
+    assert.deepEqual(q.userIds, ['u-me'])
+    assert.deepEqual(q.companyIds, [])
+    assert.equal(q.includeTickets, true)
+    assert.equal(q.includeSessions, true)
+  })
+  it('is today in the app zone, per hour', () => {
+    const q = my('')
+    assert.equal(q.from.toISOString(), '2026-11-03T17:00:00.000Z')
+    assert.equal(q.to.toISOString(), '2026-11-04T16:59:59.999Z')
+    assert.equal(q.breakdown, 'hour')
+  })
+  it('shows up to 3 days per hour and longer per day, unless asked', () => {
+    assert.equal(my('from=2026-11-02&to=2026-11-04').breakdown, 'hour')
+    assert.equal(my('from=2026-11-01&to=2026-11-07').breakdown, 'day')
+    assert.equal(my('from=2026-11-02&to=2026-11-02&breakdown=day').breakdown, 'day')
+  })
+  it('takes an exact range', () => {
+    const q = my('from=2026-11-04T09:00:00%2B07:00&to=2026-11-04T12:30:00%2B07:00')
+    assert.equal(q.from.toISOString(), '2026-11-04T02:00:00.000Z')
+    assert.equal(q.to.toISOString(), '2026-11-04T05:30:00.000Z')
+  })
+  it('allows 30 days and refuses more', () => {
+    assert.ok(!my('from=2026-10-06&to=2026-11-04').error)
+    assert.match(my('from=2026-10-01&to=2026-11-04').error, /30 days/)
+    assert.match(my('from=2026-09-01&to=2026-11-04').error, /at most/)
+  })
+  it('refuses nonsense', () => {
+    assert.ok(my('from=tomorrow').error)
+    assert.ok(my('from=2026-11-05&to=2026-11-04').error)
+  })
+})
+
+describe('sessions flag', () => {
+  it('is off unless asked', () => {
+    assert.equal(parse('').includeSessions, false)
+    assert.equal(parse('include_sessions=1').includeSessions, true)
   })
 })
