@@ -16,6 +16,8 @@ Each operation says which key permission it needs (`x-key-scope`).
 
 ## Connector: no key to paste
 
+**This is the way to connect an assistant: API keys can no longer be made by hand** (the key pages answer `403`; keys made earlier work until they expire or are revoked).
+
 Some assistants refuse to take an API key as input. The portal is therefore also a **remote MCP server** that signs people in the normal way
 (OAuth), the same way the connectors for Google Drive or Slack work. Nothing is pasted anywhere.
 
@@ -51,10 +53,9 @@ An MCP server lets an AI assistant (Claude Desktop, Claude Code, and other MCP c
 `calendar_delete`, `team_activity`, and so on, one per API call. The assistant sees what each tool does and which inputs it takes,
 so it needs no skill file.
 
-This version runs on your own computer, talks to the portal's API with your key, and can do exactly what that key may do. Prefer the connector above when the assistant supports it; use this when you want a key with one fixed set of permissions.
+This version runs on your own computer and talks to the portal's API with a key. **It only works with a key that already exists**, because new keys can no longer be made: use the connector above.
 
-**You need:** Node.js 22.18 or newer, this repository on your computer, and an API key (Settings → API keys, or Profile → API keys).
-Give the key only the permissions the assistant needs.
+**You need:** Node.js 22.18 or newer, this repository on your computer, and an API key made before the change (none can be made now).
 
 **Claude Desktop** (`claude_desktop_config.json`) and other clients that use the same format:
 

@@ -81,7 +81,7 @@ export function createMcpHandler(opts: { baseUrl: string; apiKey: string; fetchI
     try {
       const res = await opts.fetchImpl(requestUrl(opts.baseUrl, req), {
         method: req.method,
-        headers: { Authorization: `Bearer ${opts.apiKey}`, Accept: 'application/json', ...(req.body ? { 'Content-Type': 'application/json' } : {}) },
+        headers: { Authorization: `Bearer ${opts.apiKey}`, Accept: 'application/json', 'X-MCP-Tool': e.id.replace(/\./g, '_'), ...(req.body ? { 'Content-Type': 'application/json' } : {}) },
         body: req.body ? JSON.stringify(req.body) : undefined,
       })
       const raw = await res.text()

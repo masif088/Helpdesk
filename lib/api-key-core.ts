@@ -2,6 +2,9 @@
 
 export const API_KEY_PREFIX = 'tk_live_'
 
+/** What the key routes answer now: assistants connect through MCP (a sign-in), keys are no longer made by hand. */
+export const MANUAL_KEYS_MESSAGE = 'API keys are not made by hand any more. Connect the assistant through MCP instead: add <your portal>/api/mcp as a connector and sign in (see docs/mcp.md).'
+
 export const API_KEY_SCOPES = ['tickets:read', 'tickets:create', 'comments:create', 'calendar:read', 'calendar:write', 'team:read', 'tickets:update'] as const
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number]
 
@@ -14,6 +17,20 @@ export const API_KEY_SCOPE_LABELS: Record<ApiKeyScope, string> = {
   'team:read': 'Read team activity (who is working, time tracked, load): admins and managers',
   'tickets:update': 'Change tickets: status, who is assigned, due date (team keys only)',
 }
+
+/** The permissions in a few words, for lists (the long text is above). */
+export const API_KEY_SCOPE_SHORT: Record<ApiKeyScope, string> = {
+  'tickets:read': 'Read tickets',
+  'tickets:create': 'Create tickets',
+  'comments:create': 'Comment on tickets',
+  'calendar:read': 'Read calendar',
+  'calendar:write': 'Change calendar',
+  'team:read': 'See team activity',
+  'tickets:update': 'Change tickets',
+}
+
+/** Permissions that change data (shown in orange). */
+export const API_KEY_WRITE_SCOPES: ApiKeyScope[] = ['tickets:create', 'comments:create', 'calendar:write', 'tickets:update']
 
 /** Calls per hour a key may make unless the admin sets another limit on it */
 export const DEFAULT_RATE_LIMIT_PER_HOUR = 100

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
+import { MANUAL_KEYS_MESSAGE } from '@/lib/api-key-core'
 import { loadKeyUsage } from '@/lib/api-key-usage'
 import { noUsage } from '@/lib/api-key-usage-core'
-import { createApiKey, listApiKeys } from '@/lib/api-keys'
+import { listApiKeys } from '@/lib/api-keys'
 import { isAdmin } from '@/lib/auth-utils'
 import { companies, getMany, getManyMap, users } from '@/lib/fsdb'
 
@@ -49,30 +50,9 @@ export async function GET() {
   )
 }
 
-/** POST /api/api-keys { name, user_id, scopes, expires_in_days? }: the key is returned once and cannot be shown again. Admin only. */
-export async function POST(request: Request) {
+/** POST /api/api-keys: no longer allowed. Assistants connect through MCP (a sign-in); keys are not made by hand. */
+export async function POST() {
   const guard = await requireAdmin()
   if (guard.error) return guard.error
-
-  const body = (await request.json().catch(() => ({}))) as { name?: string; user_id?: string; scopes?: unknown; rate_limit_per_hour?: number | null; expires_in_days?: number | null }
-  const name = typeof body.name === 'string' ? body.name.trim() : ''
-  if (!name) return NextResponse.json({ error: 'Give the key a name, it is shown on every ticket and comment made with it' }, { status: 400 })
-  if (typeof body.user_id !== 'string' || !body.user_id) return NextResponse.json({ error: 'Choose the user this key acts as' }, { status: 400 })
-
-  const [target] = await getMany(users, [body.user_id])
-  if (!target || target.deletedAt != null || (target.status ?? 'active').toLowerCase() !== 'active') {
-    return NextResponse.json({ error: 'That user is not active' }, { status: 400 })
-  }
-
-  const days = typeof body.expires_in_days === 'number' && body.expires_in_days > 0 ? Math.min(Math.floor(body.expires_in_days), 3650) : null
-  const { key, info } = await createApiKey({
-    name,
-    userId: target.id,
-    scopes: body.scopes,
-    rateLimitPerHour: body.rate_limit_per_hour,
-    expiresAt: days ? new Date(Date.now() + days * 86_400_000) : null,
-    createdBy: guard.userId,
-  })
-
-  return NextResponse.json({ key, id: info.id, prefix: info.prefix, name: info.name, scopes: info.scopes, rate_limit_per_hour: info.rateLimitPerHour, expires_at: info.expiresAt?.toISOString() ?? null })
+  return NextResponse.json({ error: MANUAL_KEYS_MESSAGE }, { status: 403 })
 }

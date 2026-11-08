@@ -1251,6 +1251,28 @@ export type NewApiKeyUsageRow = {
   updatedAt?: Date | null
 }
 
+/** One record per API call (what, when, which MCP tool), kept 30 days; read and written with raw Firestore in lib/api-key-calls.ts. The id is `<keyId>~<ISO moment>~<random>`. */
+export type ApiKeyCallsRow = {
+  id: string
+  keyId: string
+  at: Date
+  method: string
+  path: string
+  query: string
+  scope: string
+  tool: string | null
+  limited: boolean
+}
+
+export type NewApiKeyCallsRow = ApiKeyCallsRow
+
+export const apiKeyCalls = defineTable<ApiKeyCallsRow, NewApiKeyCallsRow>({
+  name: 'api_key_calls',
+  columns: ['id', 'keyId', 'at', 'method', 'path', 'query', 'scope', 'tool', 'limited'],
+  docKey: ['id'],
+  idField: 'id',
+})
+
 export const apiKeyUsage = defineTable<ApiKeyUsageRow, NewApiKeyUsageRow>({
   name: 'api_key_usage',
   columns: ['id', 'keyId', 'date', 'calls', 'limited', 'scopes', 'updatedAt'],
@@ -2207,4 +2229,4 @@ export const users = defineTable<UsersRow, NewUsersRow>({
   nowFields: ['createdAt', 'updatedAt'],
 })
 
-export const allTables = [invoices, apiKeys, oauthGrants, apiKeyUsage, cannedResponses, calendarEvents, slaDaily, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const
+export const allTables = [invoices, apiKeys, oauthGrants, apiKeyUsage, apiKeyCalls, cannedResponses, calendarEvents, slaDaily, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const

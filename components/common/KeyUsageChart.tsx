@@ -2,6 +2,7 @@
 
 import { Tooltip, Typography } from 'antd'
 
+import { API_KEY_SCOPE_SHORT, type ApiKeyScope } from '@/lib/api-key-core'
 import type { KeyUsage } from '@/lib/api-key-usage-core'
 
 const { Text } = Typography
@@ -20,9 +21,9 @@ export default function KeyUsageChart({ usage }: { usage: KeyUsage }) {
         ))}
       </div>
       <Text type="secondary" style={{ fontSize: 12 }}>
-        {usage.calls30d} calls in 30 days ({usage.calls7d} in the last 7)
+        {usage.calls30d === 0 ? 'No calls in the last 30 days' : `${usage.calls30d} call${usage.calls30d === 1 ? '' : 's'} in the last 30 days (${usage.calls7d} in the last 7)`}
         {usage.limited30d ? ` · ${usage.limited30d} refused for the hourly limit` : ''}
-        {scopes.length ? ' · ' + scopes.map(([s, n]) => `${s} ${n}`).join(', ') : ''}
+        {scopes.length ? ' · ' + scopes.map(([s, n]) => `${API_KEY_SCOPE_SHORT[s as ApiKeyScope] ?? s}: ${n}`).join(', ') : ''}
       </Text>
     </div>
   )

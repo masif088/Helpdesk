@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 
+import { purgeOldApiCalls } from '@/lib/api-key-calls'
 import { runBillingReminders } from '@/lib/billing-reminders'
 import { runEventReminders } from '@/lib/calendar-reminders'
 import { isCronRequest } from '@/lib/cron-auth'
@@ -30,6 +31,10 @@ async function inboxReminders(req: NextRequest) {
     console.error('[event-reminders]', e)
     return null
   })
+  const purged = await purgeOldApiCalls().catch((e) => {
+    console.error('[api-call-log]', e)
+    return null
+  })
   const retainer = await runRetainerInvoices().catch((e) => {
     console.error('[retainer]', e)
     return null
@@ -39,6 +44,7 @@ async function inboxReminders(req: NextRequest) {
     sla_warned: sla?.warned.length ?? null,
     sla_breached: sla?.breached.length ?? null,
     event_reminders: events?.reminded.length ?? null,
+    api_calls_purged: purged,
     retainer_invoices: retainer?.created.length ?? null,
     overdue_invoices: billing?.overdueInvoices.length ?? null,
     low_deposits: billing?.lowDeposit.length ?? null,

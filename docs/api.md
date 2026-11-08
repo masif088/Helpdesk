@@ -3,22 +3,22 @@
 For an outside tool (for example a customer's AI assistant) that needs to find, open and comment on tickets, and to read or
 manage the team calendar.
 
-**In a hurry:** build a call in **Settings → API keys → API builder** (everyone else: **Profile → API builder**), and give an
-AI the skill file at `<your portal>/api/skill`.
+**In a hurry:** connect the assistant through MCP (add `<your portal>/api/mcp` as a connector, see [mcp.md](mcp.md)). To try single calls, use **Settings → API keys → API builder** (everyone else: **Profile → API builder**); the skill file at `<your portal>/api/skill` describes the HTTP calls.
 
-## Getting a key
+## Connecting an assistant (keys are not made by hand)
 
-Admin: **Settings → API keys → New key**.
+**API keys can no longer be made.** `POST /api/api-keys` and `POST /api/profile/api-keys` answer `403`. An AI assistant connects through
+the portal's MCP connector at `<your portal>/api/mcp` instead: the person signs in, ticks what it may do, and the assistant gets a token that
+renews itself and can be revoked. Nothing is pasted anywhere. See [mcp.md](mcp.md).
 
-| Field | Meaning |
+Behind the scenes that token is an ordinary key (`tk_live_…`) of kind `oauth`, so everything below (scopes, the hourly limit of 100 calls, usage,
+revoking) applies to connections too. They appear in **Settings → API keys** (admins, everyone's) and **Profile** (your own) as **Connector · <assistant>**.
+Keys made before this change keep working until they expire or are revoked; nobody can make a new one.
+
+| Permission | Meaning |
 | --- | --- |
-| Name | Shown on every ticket and comment made with the key, e.g. `Claude (Acme)`. Use `<tool> (<who>)`. |
-| Acts as | The user the key works as. Their role and company decide what the key sees. |
-| Allowed | `tickets:read`, `tickets:create`, `comments:create`, `calendar:read`, `calendar:write`, `team:read`, `tickets:update`. Give only what is needed (`tickets:update` and `calendar:write` change data). |
-| Calls per hour | Default 100, changeable per key (also later, in the list). More answers `429` with a `Retry-After` header. |
-| Expires | Days; empty means no expiry. |
-
-**Everyone else makes their own** under **Profile → API keys for your AI**: the key acts as that user, lasts 14 days, allows 100 calls per hour (neither can be changed by the user; an admin can raise the limit on the Settings page), and a person can hold 5 active keys at most. An admin sees and can revoke all keys on the Settings page.
+| `tickets:read`, `tickets:create`, `comments:create`, `calendar:read`, `calendar:write`, `team:read`, `tickets:update` | Ticked by the person when they approve the connection. Reading is ticked from the start; `tickets:update` and `calendar:write` change data. |
+| Calls per hour | Default 100, changeable per connection by an admin (in the list). More answers `429` with a `Retry-After` header. |
 
 The key (`tk_live_…`) is shown once. Only its hash is stored. **Revoke** stops it at once (up to 30 seconds on a busy server instance).
 
@@ -162,7 +162,11 @@ for your own keys. "Last used" is exact to the ten minutes.
 
 - Counted: calls the key was allowed to make, and calls refused because the hourly limit was reached (shown separately). A call refused before it reaches the key check
   (an endpoint keys may not use, or an unknown key) is not counted.
-- Per permission, not per endpoint: you see `tickets:read 120, calendar:read 14`, not each URL.
+- The chart and totals are per permission ("Read tickets: 120, Read calendar: 14"). To see what was actually called, open the row: **Recent calls** lists the latest 100 calls of the past
+  30 days, newest first: the time (in the app time zone), what it was in words ("Opened a ticket #12", "Read the calendar"), the exact call with its filters
+  (`GET /api/tickets?status=open`), whether it came through an **MCP tool** (`tickets_list`) or plain HTTP, and a tag when it was refused for the hourly limit.
+  Calls made before the log was added were counted but not recorded. Admins see the log of every key (`GET /api/api-keys/{id}/calls`); you see your own
+  (`GET /api/profile/api-keys/{id}/calls`). The records are in `api_key_calls` and the hourly job removes the ones older than 30 days.
 - Days are UTC (the usage records are not read in the app time zone). Records are kept; only the last 30 days are shown.
 
 ## Notes

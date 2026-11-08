@@ -31,12 +31,16 @@ function apiRequest(req: NextRequest) {
   const headers = new Headers(req.headers)
   headers.delete('x-api-scope')
   headers.delete('x-api-request')
+  headers.delete('x-api-call')
+  headers.delete('x-api-query')
   const key = bearerApiKey(req.headers.get('authorization'))
   if (key && !isPublicApiRoute(req.method, req.nextUrl.pathname)) {
     const scope = scopeForRequest(req.method, req.nextUrl.pathname)
     if (!scope) return NextResponse.json({ error: 'This endpoint is not available to API keys' }, { status: 403 })
     headers.set('x-api-scope', scope)
     headers.set('x-api-request', crypto.randomUUID()) // one rate-limit count per request, however often `auth()` runs
+    headers.set('x-api-call', `${req.method} ${req.nextUrl.pathname}`) // for the call log of the key
+    headers.set('x-api-query', req.nextUrl.search.slice(0, 400))
   }
   return NextResponse.next({ request: { headers } })
 }
@@ -87,5 +91,6 @@ export const config = {
     '/screenshots/:path*',
     '/ticket-activity/:path*',
     '/calendar/:path*',
+    '/my-working/:path*',
   ],
 }

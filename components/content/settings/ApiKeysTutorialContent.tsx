@@ -5,10 +5,10 @@ import { Alert, App, Button, Layout, Table, Tag, Typography } from 'antd'
 import Link from 'next/link'
 import { useState } from 'react'
 
+import McpConnectorInfo from '@/components/common/McpConnectorInfo'
 import AdminMainColumn from '@/components/layout/AdminMainColumn'
 import AdminSidebar from '@/components/layout/AdminSidebar'
 import SettingsPageHeader from '@/components/settings/SettingsPageHeader'
-import { DEFAULT_RATE_LIMIT_PER_HOUR, SELF_KEY_DAYS } from '@/lib/api-key-core'
 
 const { Content } = Layout
 const { Text, Paragraph, Title } = Typography
@@ -52,35 +52,22 @@ export default function ApiKeysTutorialContent({ user, baseUrl, skill, isAdmin =
       <AdminMainColumn collapsed={collapsed} user={user}>
         <Content className="settings-page" style={{ padding: 24, width: '100%', maxWidth: 900 }}>
           {isAdmin ? (
-            <SettingsPageHeader title="API tutorial" description="Give someone's AI access to tickets, step by step." />
+            <SettingsPageHeader title="API tutorial" description="Connect an AI to the tickets, step by step." />
           ) : (
             <div style={{ marginBottom: 16 }}>
               <Link href="/profile">← Profile</Link>
               <Title level={2} style={{ margin: '4px 0 0' }}>
                 API tutorial
               </Title>
-              <Text type="secondary">Let your AI work with tickets as you, step by step.</Text>
+              <Text type="secondary">Connect your AI so it works with tickets as you, step by step.</Text>
             </div>
           )}
 
           <div style={{ display: 'grid', gap: 20 }}>
             <section className="ticket-surface" style={{ padding: 16, display: 'grid', gap: 8 }}>
-              <Title level={4} style={{ margin: 0 }}>1. Make a key</Title>
-              <Paragraph style={{ margin: 0 }}>
-                {isAdmin ? (
-                  <>
-                    Settings → API keys → <b>New key</b>. Name it <Text code>Claude (Acme)</Text>: that name is shown on every ticket and comment the key makes. Under <b>Acts as</b> pick the
-                    customer's contact, so the key sees only that company. Keep the calls per hour at {DEFAULT_RATE_LIMIT_PER_HOUR} unless there is a reason. Copy the key when it is shown: it appears once.
-                    Users can also make their own keys under Profile (they last {SELF_KEY_DAYS} days).
-                  </>
-                ) : (
-                  <>
-                    Profile → <b>API keys for your AI</b> → <b>New key</b>. Name it <Text code>Claude (my laptop)</Text>: that name is shown on every ticket and comment the key makes. The key acts as you and sees what you see.
-                    It lasts {SELF_KEY_DAYS} days and allows {DEFAULT_RATE_LIMIT_PER_HOUR} calls per hour; make a new one when it expires. Copy the key when it is shown: it appears once.
-                  </>
-                )}
-              </Paragraph>
-              <Alert type="warning" showIcon message="Send the key privately (password manager, not email or chat history). If it leaks, Revoke it and make a new one." />
+              <Title level={4} style={{ margin: 0 }}>1. Connect the assistant (no key)</Title>
+              <McpConnectorInfo />
+              <Alert type="info" showIcon message="Keys are not made by hand any more. The rest of this page is for keys that already exist, and for what the tools can do." />
             </section>
 
             <section className="ticket-surface" style={{ padding: 16, display: 'grid', gap: 8 }}>
@@ -114,7 +101,7 @@ export default function ApiKeysTutorialContent({ user, baseUrl, skill, isAdmin =
             </section>
 
             <section className="ticket-surface" style={{ padding: 16, display: 'grid', gap: 8 }}>
-              <Title level={4} style={{ margin: 0 }}>3. Try it</Title>
+              <Title level={4} style={{ margin: 0 }}>3. Try it (with a key that already exists)</Title>
               <Code>{`export KEY=tk_live_...
 
 curl ${baseUrl}/api/tickets/lookup -H "Authorization: Bearer $KEY"

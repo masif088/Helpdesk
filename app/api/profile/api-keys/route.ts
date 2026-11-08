@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 
 import { auth } from '@/auth'
-import { DEFAULT_RATE_LIMIT_PER_HOUR, MAX_ACTIVE_SELF_KEYS, SELF_KEY_DAYS } from '@/lib/api-key-core'
+import { MANUAL_KEYS_MESSAGE } from '@/lib/api-key-core'
 import { loadKeyUsage } from '@/lib/api-key-usage'
 import { noUsage } from '@/lib/api-key-usage-core'
-import { countActiveApiKeys, createApiKey, listApiKeys } from '@/lib/api-keys'
+import { listApiKeys } from '@/lib/api-keys'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,27 +36,9 @@ export async function GET() {
   )
 }
 
-/** POST /api/profile/api-keys { name, scopes }: a key that acts as the signed-in user. The key is returned once. */
-export async function POST(request: Request) {
+/** POST /api/profile/api-keys: no longer allowed. Assistants connect through MCP (a sign-in); keys are not made by hand. */
+export async function POST() {
   const user = await signedInUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const body = (await request.json().catch(() => ({}))) as { name?: string; scopes?: unknown }
-  const name = typeof body.name === 'string' ? body.name.trim() : ''
-  if (!name) return NextResponse.json({ error: 'Give the key a name, it is shown on every ticket and comment made with it' }, { status: 400 })
-
-  if ((await countActiveApiKeys(user.id)) >= MAX_ACTIVE_SELF_KEYS) {
-    return NextResponse.json({ error: `You can have ${MAX_ACTIVE_SELF_KEYS} active keys at most. Revoke one first.` }, { status: 400 })
-  }
-
-  // Expiry and hourly limit are not up to the user, whatever the request says
-  const { key, info } = await createApiKey({
-    name,
-    userId: user.id,
-    scopes: body.scopes,
-    rateLimitPerHour: DEFAULT_RATE_LIMIT_PER_HOUR,
-    expiresAt: new Date(Date.now() + SELF_KEY_DAYS * 86_400_000),
-    createdBy: user.id,
-  })
-  return NextResponse.json({ key, id: info.id, prefix: info.prefix, name: info.name, scopes: info.scopes, expires_at: info.expiresAt?.toISOString() ?? null })
+  return NextResponse.json({ error: MANUAL_KEYS_MESSAGE }, { status: 403 })
 }

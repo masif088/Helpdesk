@@ -4,6 +4,7 @@
  */
 import { FieldValue } from 'firebase-admin/firestore'
 
+import { logApiCall } from '@/lib/api-key-calls'
 import { createDeduper, type KeyUsage, lastDates, summarizeUsage, usageDate, usageDocId } from '@/lib/api-key-usage-core'
 import { apiKeyUsage, find } from '@/lib/fsdb'
 import { fdb } from '@/lib/fsdb/firestore'
@@ -16,8 +17,9 @@ const firstTime = (g.__apiUsageOnce ??= createDeduper())
  * Count one call of a key (fire and forget: it never slows or breaks the call). `limited` = the call was refused for the hourly limit.
  * A request that asks for the session several times is counted once, by its request id.
  */
-export function recordApiCall(call: { keyId: string; scope: string; limited: boolean; requestId: string | null }): void {
+export function recordApiCall(call: { keyId: string; scope: string; limited: boolean; requestId: string | null; method?: string; path?: string; query?: string; tool?: string | null }): void {
   if (!firstTime(call.requestId)) return
+  logApiCall({ keyId: call.keyId, scope: call.scope, method: call.method ?? '', path: call.path ?? '', query: call.query ?? '', tool: call.tool ?? null, limited: call.limited })
   const date = usageDate()
   const n = call.limited ? 0 : 1
   void fdb()
