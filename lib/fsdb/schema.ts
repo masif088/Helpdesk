@@ -160,6 +160,8 @@ export type ApiKeysRow = {
   scopes: string[]
   /** Calls allowed per hour; null = the default (100) */
   rateLimitPerHour: number | null
+  /** 'oauth' = made by an AI connector sign-in (the token rotates; one row per connection); empty = a key a person made by hand */
+  kind?: string | null
   createdBy: string | null
   expiresAt: Date | null
   revokedAt: Date | null
@@ -176,6 +178,7 @@ export type NewApiKeysRow = {
   userId: string
   scopes: string[]
   rateLimitPerHour?: number | null
+  kind?: string | null
   createdBy?: string | null
   expiresAt?: Date | null
   revokedAt?: Date | null
@@ -186,11 +189,50 @@ export type NewApiKeysRow = {
 
 export const apiKeys = defineTable<ApiKeysRow, NewApiKeysRow>({
   name: 'api_keys',
-  columns: ['id', 'name', 'prefix', 'keyHash', 'userId', 'scopes', 'rateLimitPerHour', 'createdBy', 'expiresAt', 'revokedAt', 'lastUsedAt', 'createdAt', 'updatedAt'],
+  columns: ['id', 'name', 'prefix', 'keyHash', 'userId', 'scopes', 'rateLimitPerHour', 'kind', 'createdBy', 'expiresAt', 'revokedAt', 'lastUsedAt', 'createdAt', 'updatedAt'],
   docKey: ['id'],
   idField: 'id',
   idGen: 'uuid',
   nowFields: ['createdAt', 'updatedAt'],
+})
+
+/** A one-time sign-in code or a refresh token of an AI connector (OAuth); the document id is the sha256 of the secret, never the secret itself */
+export type OauthGrantsRow = {
+  id: string
+  /** 'code' (one use, minutes) or 'refresh' */
+  kind: string
+  userId: string
+  clientId: string
+  clientName: string
+  redirectUri: string
+  codeChallenge: string
+  scopes: string[]
+  /** refresh only: the api_keys row whose token this renews */
+  keyId: string | null
+  expiresAt: Date
+  createdAt: Date
+}
+
+export type NewOauthGrantsRow = {
+  id: string
+  kind: string
+  userId: string
+  clientId: string
+  clientName: string
+  redirectUri: string
+  codeChallenge: string
+  scopes: string[]
+  keyId?: string | null
+  expiresAt: Date
+  createdAt?: Date
+}
+
+export const oauthGrants = defineTable<OauthGrantsRow, NewOauthGrantsRow>({
+  name: 'oauth_grants',
+  columns: ['id', 'kind', 'userId', 'clientId', 'clientName', 'redirectUri', 'codeChallenge', 'scopes', 'keyId', 'expiresAt', 'createdAt'],
+  docKey: ['id'],
+  idField: 'id',
+  nowFields: ['createdAt'],
 })
 
 /** One summary per day for the SLA & satisfaction report (see lib/sla-daily.ts); the document id is the date, YYYY-MM-DD */
@@ -2165,4 +2207,4 @@ export const users = defineTable<UsersRow, NewUsersRow>({
   nowFields: ['createdAt', 'updatedAt'],
 })
 
-export const allTables = [invoices, apiKeys, apiKeyUsage, cannedResponses, calendarEvents, slaDaily, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const
+export const allTables = [invoices, apiKeys, oauthGrants, apiKeyUsage, cannedResponses, calendarEvents, slaDaily, aiSettings, aiTokenUsage, apiTokens, appSettings, automationRules, checklistTemplateGroups, checklistTemplateItems, checklistTemplates, commentAttachments, companies, companyAttributes, companyDataTemplates, companyPayments, companyDatas, companyKnowledgeBases, companyUsers, companyWebsites, crawlPages, crawlSessions, dashboardAnnouncements, emailIntegrations, emailMessages, emailSkipList, globalAnnouncement, jobTypes, knowledgeBaseArticles, messageTemplates, projectStatuses, projects, recurringTicketRuns, recurringTickets, screenshots, slackTicketNotificationRules, systemActivityLog, tags, teamMembers, teams, ticketActivityLog, ticketAiSummaries, ticketAssignees, ticketAttachments, ticketAttributs, ticketCcRecipients, ticketChecklist, ticketComments, ticketStatuses, ticketTags, ticketTimeTracker, ticketTypes, tickets, users] as const

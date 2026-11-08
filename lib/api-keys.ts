@@ -57,6 +57,8 @@ export async function createApiKey(params: {
   rateLimitPerHour?: unknown
   expiresAt: Date | null
   createdBy: string
+  /** 'oauth' for the key behind an AI connector sign-in */
+  kind?: 'oauth'
 }): Promise<{ key: string; info: ApiKeyInfo }> {
   const key = generateApiKey()
   const row = await insert(apiKeys, {
@@ -66,6 +68,7 @@ export async function createApiKey(params: {
     userId: params.userId,
     scopes: normalizeScopes(params.scopes),
     rateLimitPerHour: normalizeRateLimit(params.rateLimitPerHour),
+    kind: params.kind ?? null,
     createdBy: params.createdBy,
     expiresAt: params.expiresAt,
   })
@@ -81,7 +84,19 @@ export async function listApiKeys(userId?: string): Promise<ApiKeyInfo[]> {
 
 /** How many keys of this user can still be used (a person may only hold a few at a time). */
 export async function countActiveApiKeys(userId: string): Promise<number> {
-  return (await listApiKeys(userId)).filter((k) => apiKeyUsable(k)).length
+  // Connections made by an AI connector sign-in do not count: they are not keys the person pasted anywhere
+  const rows = await findBy(apiKeys, { userId })
+  return rows.filter((k) => k.kind !== 'oauth' && apiKeyUsable(k)).length
+}
+
+/** A new token for the key behind a connector sign-in (the old one stops working at once). Null when the key is gone or was revoked. */
+export async function rotateApiKeyToken(id: string, expiresAt: Date): Promise<{ key: string; info: ApiKeyInfo } | null> {
+  const row = await get(apiKeys, id)
+  if (!row || row.revokedAt || row.kind !== 'oauth') return null
+  const key = generateApiKey()
+  const updated = await update(apiKeys, id, { keyHash: hashApiKey(key), prefix: keyPreview(key), expiresAt, updatedAt: new Date() })
+  keyCache.clear()
+  return { key, info: toInfo(updated ?? { ...row, keyHash: hashApiKey(key), prefix: keyPreview(key), expiresAt }) }
 }
 
 /** Change how many calls per hour a key may make. */

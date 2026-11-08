@@ -56,7 +56,7 @@ clients, internal support desks. If you can follow a step-by-step guide, you can
 **For clients**
 - **A portal** with their company's tickets, billing and a "rate your tickets" page.
 - **Rate a ticket in one tap** from the closing email, no login needed (signed links).
-- **OpenAPI file and an MCP server** (see [docs/mcp.md](docs/mcp.md)): import the API into Postman or ChatGPT Actions, or give Claude every call as a tool.
+- **OpenAPI file and an MCP server** (see [docs/mcp.md](docs/mcp.md)): import the API into Postman or ChatGPT Actions, or give Claude every call as a tool. The portal is also a remote MCP connector (add `/api/mcp` in Claude → Connectors and sign in, no key to paste).
 - **API keys, an API builder and a skill file** so a client's own AI assistant can find tickets (by date, company, person, skill, type and more), open and comment on them, and read the calendar (see [docs/api.md](docs/api.md)).
 
 **Service levels and reports**

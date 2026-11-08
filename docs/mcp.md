@@ -14,14 +14,44 @@ Two ways for other tools to use this portal without hand-written glue. Both are 
 Every call needs an API key: send it as `Authorization: Bearer tk_live_…` (the file declares this as the `bearerAuth` scheme).
 Each operation says which key permission it needs (`x-key-scope`).
 
-## MCP server
+## Connector: no key to paste
+
+Some assistants refuse to take an API key as input. The portal is therefore also a **remote MCP server** that signs people in the normal way
+(OAuth), the same way the connectors for Google Drive or Slack work. Nothing is pasted anywhere.
+
+**Address to add:** `https://<your portal>/api/mcp`
+
+- **Claude (claude.ai and the desktop app):** Settings → Connectors → *Add custom connector*, paste the address, and choose *Connect*.
+- **Claude Code:** `claude mcp add --transport http ticketing https://<your portal>/api/mcp`, then `/mcp` to sign in.
+- **Other clients** (Cursor, ChatGPT developer mode, …): add a remote MCP server with that address.
+
+The assistant sends you to the portal. You sign in with your usual login, see who is asking, and tick what it may do:
+
+| Ticked by default | Not ticked (you decide) |
+| --- | --- |
+| read tickets, read the calendar, read team activity (managers) | create tickets, comment, change tickets, add or change calendar events |
+
+The assistant then gets only the tools those permissions allow, acts **as you** (your role and company decide what it sees) and is held to the
+same hourly limit as any key. Tickets and comments it makes are marked *API · Connector · <assistant>*.
+
+**Ending a connection:** it appears in your profile under *API keys* as **Connector · <assistant>**. Revoke it there (admins also in Settings →
+API keys) and it stops at once, refresh included. Access lasts one hour and is renewed by the assistant on its own for up to 60 days without you
+signing in again; after that it asks you to connect again. Connections do not count towards the number of keys you may make by hand.
+
+How it works, for the curious: the assistant finds `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`,
+registers itself at `/api/oauth/register`, sends you to `/oauth/authorize` (PKCE, S256 only) and swaps the code at `/api/oauth/token`. The access token
+is an ordinary API key (`tk_live_…`, kind `oauth`) that rotates every hour, and `/api/mcp` answers each tool call by calling the portal's own API with it.
+Only hashes of codes and refresh tokens are stored (`oauth_grants`). Client ids are signed with `CSAT_LINK_SECRET`, so **changing that secret makes every
+assistant connect again**. The portal needs a public https address (`NEXT_PUBLIC_SITE_URL` if it sits behind a proxy that hides it).
+
+## MCP server on your computer (with a key)
 
 An MCP server lets an AI assistant (Claude Desktop, Claude Code, and other MCP clients) use the portal as **tools**:
 `tickets_list`, `tickets_detail`, `tickets_create`, `comments_create`, `calendar_list`, `calendar_create`, `calendar_update`,
 `calendar_delete`, `team_activity`, and so on, one per API call. The assistant sees what each tool does and which inputs it takes,
 so it needs no skill file.
 
-It runs on your own computer, talks to the portal's API with your key, and can do exactly what that key may do.
+This version runs on your own computer, talks to the portal's API with your key, and can do exactly what that key may do. Prefer the connector above when the assistant supports it; use this when you want a key with one fixed set of permissions.
 
 **You need:** Node.js 22.18 or newer, this repository on your computer, and an API key (Settings → API keys, or Profile → API keys).
 Give the key only the permissions the assistant needs.

@@ -74,11 +74,14 @@ const ROUTES: Array<{ method: string; pattern: RegExp; scope: ApiKeyScope }> = [
 const PUBLIC_ROUTES: Array<{ method: string; pattern: RegExp }> = [
   { method: 'GET', pattern: /^\/api\/skill$/ },
   { method: 'GET', pattern: /^\/api\/openapi\.json$/ },
+  // The remote MCP server and its sign-in check their own token (the MCP server then calls the API with it, scope by scope)
+  { method: '*', pattern: /^\/api\/mcp$/ },
+  { method: '*', pattern: /^\/api\/oauth\/(register|token)$/ },
 ]
 
 export function isPublicApiRoute(method: string, pathname: string): boolean {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
-  return PUBLIC_ROUTES.some((r) => r.method === method.toUpperCase() && r.pattern.test(path))
+  return PUBLIC_ROUTES.some((r) => (r.method === '*' || r.method === method.toUpperCase()) && r.pattern.test(path))
 }
 
 /** The scope an API key needs for this request, or null when keys may not call it at all. */

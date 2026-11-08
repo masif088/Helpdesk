@@ -7,7 +7,7 @@ Already built from the earlier lists: SLA per client and ticket type, automatic 
 ticket is closed), canned responses, online payment (Midtrans / Xendit), SLA clocks that stop while the ball is with the
 client, business hours and holidays for SLA (Settings -> SLA calendar), a public rating link in the closing email, and
 Slack alerts for SLA at risk / breached, the calendar (meetings, leave, holidays, events, due dates, invitations with answers and
-reminders), more ticket filters in the API, the API builder, team activity (API and the Reports page), an OpenAPI file, an MCP server, changing tickets with a key and one app time zone.
+reminders), more ticket filters in the API, the API builder, team activity (API and the Reports page), an OpenAPI file, an MCP server (also as a remote connector with sign-in), changing tickets with a key and one app time zone.
 
 ---
 

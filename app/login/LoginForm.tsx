@@ -63,7 +63,9 @@ export default function LoginForm() {
       if (result.ok) {
         message.success('Login successful!')
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-        window.location.href = isMobile ? '/m/tickets' : '/dashboard'
+        const next = new URLSearchParams(window.location.search).get('next')
+        const back = next && /^\/(?!\/)/.test(next) && !next.includes('\\') ? next : null
+        window.location.href = back ?? (isMobile ? '/m/tickets' : '/dashboard')
         return
       }
     } catch {

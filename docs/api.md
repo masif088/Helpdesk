@@ -175,7 +175,7 @@ for your own keys. "Last used" is exact to the ten minutes.
 ## OpenAPI and MCP
 
 `GET /api/openapi.json` describes the whole API for Postman, ChatGPT Actions and Swagger UI, and `mcp/server.mjs` is an MCP server that gives an
-AI assistant every call as a tool. See [mcp.md](mcp.md).
+AI assistant every call as a tool. The portal is also a remote MCP connector at `/api/mcp` that signs people in (OAuth), for assistants that refuse an API key as input. See [mcp.md](mcp.md).
 
 ## Tutorial, builder and AI skill
 
